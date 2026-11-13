@@ -15,12 +15,13 @@ const SCOPES = [
 ];
 export const redirectUri = (origin: string) => `${origin}/api/oauth/google/callback`;
 
-export function googleAuthUrl(wsId: string, origin: string) {
+/** Calendar access is only asked for when the Calendar page is switched on. It is off by default. */
+export function googleAuthUrl(wsId: string, origin: string, withCalendar = false) {
   const s = getSecrets(wsId).google || {};
   if (!s.clientId || !s.clientSecret) return null;
   const state = crypto.randomBytes(16).toString("hex");
   setSecrets(wsId, { google: { ...s, state } });
-  const p = new URLSearchParams({ client_id: s.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope: SCOPES.join(" "), access_type: "offline", prompt: "consent", state: `${wsId}.${state}` });
+  const p = new URLSearchParams({ client_id: s.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope: SCOPES.filter((x) => withCalendar || !x.includes("calendar")).join(" "), access_type: "offline", prompt: "consent", state: `${wsId}.${state}` });
   return "https://accounts.google.com/o/oauth2/v2/auth?" + p;
 }
 

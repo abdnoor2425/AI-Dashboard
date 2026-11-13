@@ -4,6 +4,10 @@ import { api, useApi, useApp } from "@/lib/client";
 import { growFrom, shrinkTo } from "@/lib/motion";
 import { ago, clock, dateLong, dueLabel } from "@/lib/format";
 import { Icon, Menu, Ring, Skel } from "./ui";
+import { Logo, toolName } from "./logos";
+
+/** The tool an item mainly came from. Work tools (Linear, Gmail, Slack) win over supporting files. */
+export const mainSource = (item: any) => (item.sources || []).find((x: any) => ["linear", "gmail", "slack"].includes(x.tool)) || (item.sources || [])[0] || null;
 
 const KIND: Record<string, string> = { decision: "Decision", approval: "Approval", reply: "Reply", risk: "Risk" };
 const EVIDENCE: Record<string, { label: string; tone: string; text: string }> = {
@@ -14,17 +18,18 @@ const EVIDENCE: Record<string, { label: string; tone: string; text: string }> = 
 };
 
 /** The default card: only the action, the next step and a deadline when one exists. Scores and sources stay behind a tap. */
-export function AttentionRow({ item, showScope, team }: { item: any; showScope?: boolean; team?: boolean }) {
+export function AttentionRow({ item, showScope, team, rank }: { item: any; showScope?: boolean; team?: boolean; rank?: number }) {
+  const from = rank ? mainSource(item) : null;
   const app = useApp();
   const ref = useRef<HTMLButtonElement>(null);
   const due = dueLabel(team ? item.followUpDue : item.due);
   const urgent = due?.tone === "bad" && !team;
   return (
     <button ref={ref} className="row" data-item={item.id} onClick={() => app.openItem(item.id, ref.current)} aria-label={`${item.title}. ${item.nextStep}${due ? ". " + due.text : ""}. Open details`}>
-      <span className={"glyph " + (urgent ? "bad" : team ? "" : "accent")}><Icon name={team ? "person" : item.kind} size={17} /></span>
+      {rank ? <span className={"rank num" + (rank === 1 ? " first" : "")}>{rank}</span> : <span className={"glyph " + (urgent ? "bad" : team ? "" : "accent")}><Icon name={team ? "person" : item.kind} size={17} /></span>}
       <span className="row-main">
         <span className="row-title" style={{ display: "block" }}>{item.title}</span>
-        <span className="row-sub">{team ? <><b style={{ fontWeight: 600, color: "var(--text)" }}>{item.owner}</b> · {item.nextStep}</> : <>{showScope && item.scopeLabel ? item.scopeLabel + " · " : ""}{item.nextStep}</>}</span>
+        <span className="row-sub">{team ? <><b style={{ fontWeight: 600, color: "var(--text)" }}>{item.owner}</b> · {item.nextStep}</> : <>{from && <span className="from"><Logo tool={from.tool} size={18} /><b>{toolName(from.tool)}</b></span>}{showScope && item.scopeLabel ? item.scopeLabel + " · " : ""}{item.nextStep}</>}</span>
       </span>
       {item.pin != null && <span title="You set this order" aria-label="Pinned by you" style={{ color: "var(--text-3)", display: "flex" }}><Icon name="pin" size={15} /></span>}
       {item.warn && !team && <span className="dot warn" role="img" aria-label="Needs checking before you act" title="Needs checking" />}

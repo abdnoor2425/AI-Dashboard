@@ -14,7 +14,7 @@ const ok = (data: any, changed = false): Res => ({ status: 200, data, changed })
 const bad = (msg: string, status = 400): Res => ({ status, data: { error: msg } });
 
 export const ENDPOINTS = [
-  ["overview", "Greeting, top 5 attention items, key numbers, team list and today"],
+  ["overview", "Greeting, top 5 attention items, team list, reel summary, key numbers and the 28-day chart"],
   ["attention", "The full ranked attention queue with scores, reasons and sources"],
   ["websites", "All websites side by side"],
   ["website", "Visitors, leads, sources and top pages for one website (?site=)"],
@@ -206,14 +206,28 @@ function overview(ws: any, scope: string, now: number) {
     const dueWeek = mine.filter((i) => i.due != null && i.due - now <= 7 * DAY).length;
     numbers.push({ id: "replies", label: "Replies owed", value: replies, delta: null, spark: [], sentence: replies ? "Clients are waiting to hear from you." : "No client is waiting on a reply.", href: "inbox", source: "Gmail, Slack", period: "Now" });
     numbers.push({ id: "approvals", label: "Approvals waiting", value: approvals, delta: null, spark: [], sentence: approvals ? "Work is ready for your sign-off." : "Nothing is waiting for sign-off.", href: "attention", source: "Linear", period: "Now" });
-    numbers.push({ id: "due", label: "Due this week", value: dueWeek, delta: null, spark: [], sentence: dueWeek ? "These have a set deadline in the next 7 days." : "No client deadlines this week.", href: "calendar", source: "Linear, Calendar", period: "Next 7 days" });
+    numbers.push({ id: "due", label: "Due this week", value: dueWeek, delta: null, spark: [], sentence: dueWeek ? "These have a set deadline in the next 7 days." : "No client deadlines this week.", href: "attention", source: "Linear", period: "Next 7 days" });
   }
   const topGoal = ws.goals.map(goalView).find((g: any) => g.top) || ws.goals.map(goalView)[0];
   if (topGoal) numbers.push({ id: "goal", label: "Top goal", value: topGoal.progress == null ? null : Math.round(topGoal.progress * 100), unit: "%", delta: null, spark: [], ring: topGoal.progress, sentence: topGoal.title, href: "goals", source: "Goals", period: topGoal.period, state: topGoal.progress == null ? "unknown" : undefined });
   const evs = ws.events.filter((e: any) => inScope(e.scope, scope) || !e.scope).filter((e: any) => e.end >= now && e.start < sod + 2 * DAY).sort((a: any, b: any) => a.start - b.start);
   const broken = ws.connections.filter((c: any) => c.status === "error");
   const newSuggestions = ws.suggestions.filter((s: any) => s.status === "new").length;
+  // The 28-day chart follows the website that is selected. No website, no chart: never a made-up line.
+  let chart: any = null;
+  if (!clientsMode && siteList.length) {
+    const t28 = siteList.map((s: any) => siteTraffic(s, 28, now));
+    const tv = t28.reduce((a: number, x: any) => a + x.totals.visitors, 0), tvp = t28.reduce((a: number, x: any) => a + x.totals.visitorsPrev, 0);
+    const tl = t28.reduce((a: number, x: any) => a + x.totals.leads, 0), tlp = t28.reduce((a: number, x: any) => a + x.totals.leadsPrev, 0);
+    chart = { name: siteList.length === 1 ? siteList[0].name : "All websites", color: siteList.length === 1 ? siteList[0].color : null, source: "Google Analytics", period: "Last 28 days",
+      visitors: { series: addSeries(t28.map((x: any) => x.visitors)), total: tv, delta: pct(tv, tvp) }, leads: { series: addSeries(t28.map((x: any) => x.leads)), total: tl, delta: pct(tl, tlp) } };
+  }
+  const reelList = ws.modules?.reels === false ? [] : (ws.reels || []).filter((r: any) => inScope(r.scope, scope)).sort((x: any, y: any) => y.publishedAt - x.publishedAt);
+  const reelView = (r: any) => { const sc = [r.final.hooks.spoken, r.final.hooks.text, r.final.hooks.visual, ...r.final.buckets.map((b: any) => b.score)]; const site = ws.sites.find((s: any) => s.id === r.site);
+    return { id: r.id, title: r.title, siteName: site?.name, color: site?.color, verdict: r.final.verdict, score: Math.round((sc.reduce((a: number, x: number) => a + x, 0) / (sc.length * 5)) * 100), hooks: r.final.hooks, next: r.next, fixes: r.fixes, publishedAt: r.publishedAt, views: (r.perf.d7 || r.perf.h72 || r.perf.h24)?.views ?? null }; };
+  const reels = reelList.length ? { pass: reelList.filter((r: any) => r.final.verdict === "PASS").length, hold: reelList.filter((r: any) => r.final.verdict === "HOLD").length, total: reelList.length, list: reelList.slice(0, 6).map(reelView), verdicts: reelList.slice(0, 14).map((r: any) => r.final.verdict), rubric: "v1.2" } : null;
   return {
+    chart, reels,
     greeting: greetingFor(ws, q, now, scopeName(ws, scope)),
     ring: { done: doneToday, total: doneToday + dueToday, left: dueToday },
     start: top[0] ? { id: top[0].id, title: top[0].title, nextStep: top[0].nextStep } : null,

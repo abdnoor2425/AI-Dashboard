@@ -10,8 +10,10 @@ function Appearance({ d }: { d: any }) {
   const post = (body: any, msg?: string) => api("settings", { method: "POST", body }).then(() => { app.reloadBoot(); msg && app.toast(msg); }, (e: any) => app.toast(e.message));
   return (
     <div className="card group">
-      <div className="row"><span className="row-main"><span className="row-title" style={{ display: "block" }}>Appearance</span><span className="row-sub">Automatic follows your laptop.</span></span>
+      <div className="row"><span className="row-main"><span className="row-title" style={{ display: "block" }}>Appearance</span><span className="row-sub">Automatic is light by day and dark at night.</span></span>
         <Segmented label="Appearance" value={app.theme as any} onChange={(t) => app.setTheme(t)} options={[{ value: "system", label: "Automatic" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]} /></div>
+      <div className="row" style={{ flexWrap: "wrap" }}><span className="row-main" style={{ minWidth: 180 }}><span className="row-title" style={{ display: "block" }}>Sky</span><span className="row-sub">The background follows the clock. Pick a time of day to keep it there.</span></span>
+        <Segmented label="Sky" value={app.sky as any} onChange={(k) => app.setSky(k)} options={[{ value: "live", label: "Live" }, { value: "dawn", label: "Dawn" }, { value: "day", label: "Day" }, { value: "sunset", label: "Sunset" }, { value: "night", label: "Night" }]} /></div>
       <div className="row"><span className="row-main"><span className="row-title" style={{ display: "block" }}>Accent colour</span><span className="row-sub">Used for buttons, charts and highlights.</span></span>
         <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="Accent colour">
           {Object.entries(d.accents).map(([id, a]: any) => <button key={id} role="radio" aria-checked={d.brand.accent === id} aria-label={a.name} title={a.name} className="swatch" style={{ background: a.light, color: a.light }} onClick={() => post({ accent: id })}>{d.brand.accent === id && <span style={{ color: "#fff", display: "grid" }}><Icon name="check" size={15} stroke={2.6} /></span>}</button>)}

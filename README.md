@@ -61,9 +61,9 @@ The rules live in `lib/scoring.ts` and are covered by `npm test`.
 
 Open **Connections**. Everything is read only, and sign-ins are saved in `.keystone/secrets.json` on your laptop, apart from your data.
 
-**Google (Analytics, Calendar, Gmail, Drive)** uses one sign-in with your own Google OAuth client, so no shared key ships with this app:
+**Google (Analytics, Gmail, Drive)** uses one sign-in with your own Google OAuth client, so no shared key ships with this app:
 
-1. In [Google Cloud Console](https://console.cloud.google.com), make a project and enable the Google Analytics Admin, Google Analytics Data, Calendar, Gmail and Drive APIs.
+1. In [Google Cloud Console](https://console.cloud.google.com), make a project and enable the Google Analytics Admin, Google Analytics Data, Gmail and Drive APIs. The Calendar page is off by default; if you switch it on in Settings, enable the Calendar API too and sign in again.
 2. Under "Credentials", create an OAuth client ID of type "Web application".
 3. Add the return address shown on the Connections page (`http://localhost:3210/api/oauth/google/callback`).
 4. Paste the client ID and secret into Connections and sign in.

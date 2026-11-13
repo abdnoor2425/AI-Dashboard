@@ -6,7 +6,7 @@ import { DEFAULT_RUBRIC } from "./scoring.ts";
 import type { AttentionItem } from "./scoring.ts";
 
 export const ACCENTS: Record<string, { name: string; light: string; dark: string }> = {
-  blue: { name: "Blue", light: "#0A6CFF", dark: "#3D8BFF" },
+  blue: { name: "Blue", light: "#1D5BFF", dark: "#6FA0FF" },
   indigo: { name: "Indigo", light: "#5450E0", dark: "#7F7BFF" },
   teal: { name: "Teal", light: "#0E8A8F", dark: "#3CC3C8" },
   green: { name: "Green", light: "#1F8F4E", dark: "#3FCB78" },
@@ -453,7 +453,7 @@ function emptyWorkspace(opts: TemplateOptions, now: number) {
   return {
     id: opts.id, name: opts.name, owner: opts.owner, kind: opts.kind || "owner", sample: false, createdAt: now, templateVersion: "1.0",
     brand: { name: opts.name, accent: opts.accent || "blue" },
-    modules: Object.fromEntries(MODULES.map((m) => [m.id, !["clients", "reels", "outputs", "skills", "suggestions", "usage"].includes(m.id)])),
+    modules: Object.fromEntries(MODULES.map((m) => [m.id, !["clients", "reels", "calendar", "outputs", "skills", "suggestions", "usage"].includes(m.id)])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: false, about: { name: opts.owner, role: "", business: opts.name }, goals: [] as string[], step: 0 },
     sites: [] as any[], clients: [] as any[], items: [] as AttentionItem[], reels: [] as any[], goals: [] as any[], metrics: [] as any[], decisions: [] as any[],
@@ -498,7 +498,7 @@ export function makeWorkspace(opts: TemplateOptions, now: number) {
   return {
     id: opts.id, name: opts.name, owner: opts.owner, kind: opts.kind || "owner", sample: true, createdAt: now, templateVersion: "1.0",
     brand: { name: opts.name, accent: opts.accent || "blue" },
-    modules: Object.fromEntries(MODULES.map((m) => [m.id, opts.kind === "client" ? m.id !== "clients" : true])),
+    modules: Object.fromEntries(MODULES.map((m) => [m.id, m.id === "calendar" ? false : opts.kind === "client" ? m.id !== "clients" : true])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: rich, about: { name: opts.owner, role: rich ? "Founder" : "", business: opts.name }, goals: rich ? ["Launch Platewise in three new cities", "Make every client feel looked after"] : [], step: 0 },
     sites: siteList, clients: clientList, items, reels: reelList,

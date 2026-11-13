@@ -22,7 +22,7 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
   };
   try {
     await step("google-analytics", async () => { ws.sites = await syncAnalytics(ws.id, ws.sites); return `${ws.sites.length} website${ws.sites.length === 1 ? "" : "s"} found`; });
-    await step("calendar", async () => { ws.events = await syncCalendar(ws.id, now); return "Read only, next seven days"; });
+    if (ws.modules?.calendar === true) await step("calendar", async () => { ws.events = await syncCalendar(ws.id, now); return "Read only, next seven days"; });
     await step("gmail", async () => { ws.inbox = [...ws.inbox.filter((m: any) => m.tool !== "gmail"), ...(await syncGmail(ws.id))]; return "Reads senders and subject lines of unread mail"; });
     await step("drive", async () => { ws.files = await syncDrive(ws.id); return "Read only, recent files"; });
     await step("linear", async () => {

@@ -90,8 +90,8 @@ export function AreaChart({ data, height = 240, label, unit = "", color = "var(-
           <path d={geo.line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" pathLength={1} style={{ strokeDasharray: 1, animation: "draw 1.2s cubic-bezier(.3,.7,.2,1) both" }} />
           <style>{"@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}"}</style>
           {[0, Math.floor((data.length - 1) / 2), data.length - 1].map((i, n) => <text key={i} className="axis" x={geo.x(i)} y={height - 7} textAnchor={n === 0 ? "start" : n === 2 ? "end" : "middle"}>{dateShort(data[i].t)}</text>)}
-          {cur == null && <circle cx={geo.pts[geo.pts.length - 1][0]} cy={geo.pts[geo.pts.length - 1][1]} r="4.500" fill={color} stroke="var(--card)" strokeWidth="2" />}
-          {cur != null && at != null && <g><line x1={geo.x(at)} x2={geo.x(at)} y1={padT - 6} y2={height - padB} stroke="var(--text-3)" strokeWidth="1" /><circle cx={geo.x(at)} cy={geo.y(cur.v)} r="5.500" fill={color} stroke="var(--card)" strokeWidth="2.500" /></g>}
+          {cur == null && <circle cx={geo.pts[geo.pts.length - 1][0]} cy={geo.pts[geo.pts.length - 1][1]} r="4.500" fill={color} stroke="var(--card-solid)" strokeWidth="2" />}
+          {cur != null && at != null && <g><line x1={geo.x(at)} x2={geo.x(at)} y1={padT - 6} y2={height - padB} stroke="var(--text-3)" strokeWidth="1" /><circle cx={geo.x(at)} cy={geo.y(cur.v)} r="5.500" fill={color} stroke="var(--card-solid)" strokeWidth="2.500" /></g>}
         </svg>
       )}
       {geo && cur != null && at != null && <div className="chart-tip num" style={{ left: Math.max(54, Math.min(w - 54, geo.x(at))), top: Math.max(30, geo.y(cur.v) - 12) }}>{full(cur.v)}{unit}<small>{new Date(cur.t).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</small></div>}
@@ -135,4 +135,53 @@ export function Columns({ cols, height = 96 }: { cols: { label: string; value: n
 
 export function Pips({ value, max = 5 }: { value: number; max?: number }) {
   return <span className={"pips" + (value <= 2 ? " low" : "")} role="img" aria-label={`${value} out of ${max}`}>{Array.from({ length: max }, (_, i) => <i key={i} className={i < value ? "on" : ""} />)}</span>;
+}
+
+/** Daily columns with rounded tops. Hover, drag or use the arrow keys to read a day; the latest day is the solid one. */
+export function BarChart({ data, height = 250, label, unit = "", color = "var(--accent)" }: { data: Pt[]; height?: number; label: string; unit?: string; color?: string }) {
+  const [ref, w] = useWidth();
+  const [at, setAt] = useState<number | null>(null);
+  const padL = 2, padR = 44, padT = 14, padB = 26;
+  const geo = useMemo(() => {
+    if (!data?.length || !w) return null;
+    const max = Math.max(...data.map((d) => d.v)) * 1.08 || 1;
+    const slot = (w - padL - padR) / data.length, bw = Math.max(3, Math.min(26, slot * 0.58));
+    const x = (i: number) => padL + slot * (i + 0.5);
+    const y = (v: number) => padT + (1 - v / max) * (height - padT - padB);
+    const step = Math.pow(10, Math.floor(Math.log10(max / 2)));
+    const nice = [1, 2, 2.5, 5, 10].map((m) => m * step).find((s) => max / s <= 3.2) || step * 10;
+    const ticks = []; for (let t = nice; t < max; t += nice) ticks.push(t);
+    return { x, y, bw, slot, ticks };
+  }, [data, w, height]);
+  const pick = (clientX: number) => {
+    if (!geo || !ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    setAt(Math.max(0, Math.min(data.length - 1, Math.floor((clientX - r.left - padL) / geo.slot))));
+  };
+  const key = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); setAt((a) => Math.max(0, Math.min(data.length - 1, (a ?? data.length - 1) + (e.key === "ArrowLeft" ? -1 : 1)))); }
+    if (e.key === "Escape") setAt(null);
+  };
+  const cur = at != null ? data[at] : null;
+  const total = data.reduce((s, d) => s + d.v, 0);
+  const base = height - padB;
+  return (
+    <div className="chart" ref={ref} style={{ height }} tabIndex={0} role="img" aria-label={`${label}: ${full(total)}${unit} over ${data.length} days. Use the left and right arrow keys to read each day.`}
+      onPointerMove={(e) => pick(e.clientX)} onPointerDown={(e) => pick(e.clientX)} onPointerLeave={() => setAt(null)} onKeyDown={key} onBlur={() => setAt(null)}>
+      {geo && (
+        <svg width={w} height={height}>
+          {geo.ticks.map((t) => <g key={t}><line x1={padL} x2={w - padR} y1={geo.y(t)} y2={geo.y(t)} stroke="var(--sep)" strokeDasharray="2 5" /><text className="axis" x={w - padR + 8} y={geo.y(t) + 4}>{compact(t)}</text></g>)}
+          {data.map((d, i) => {
+            const h = Math.max(2, base - geo.y(d.v)), r = Math.min(geo.bw / 2, 7, h);
+            const on = at === i || (at == null && i === data.length - 1);
+            const x0 = geo.x(i) - geo.bw / 2;
+            return <path key={d.t} className="bar" d={`M${x0} ${base}V${base - h + r}a${r} ${r} 0 0 1 ${r}-${r}h${geo.bw - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}V${base}Z`} fill={color} opacity={on ? 1 : at != null ? 0.26 : 0.4} style={{ animationDelay: `${i * 14}ms`, transformOrigin: `0 ${base}px` }} />;
+          })}
+          <line x1={padL} x2={w - padR} y1={base} y2={base} stroke="var(--sep)" />
+          {[0, Math.floor((data.length - 1) / 2), data.length - 1].map((i, n) => <text key={i} className="axis" x={n === 0 ? padL : n === 2 ? w - padR : geo.x(i)} y={height - 7} textAnchor={n === 0 ? "start" : n === 2 ? "end" : "middle"}>{dateShort(data[i].t)}</text>)}
+        </svg>
+      )}
+      {geo && cur != null && at != null && <div className="chart-tip num" style={{ left: Math.max(54, Math.min(w - 54, geo.x(at))), top: Math.max(30, geo.y(cur.v) - 12) }}>{full(cur.v)}{unit}<small>{new Date(cur.t).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</small></div>}
+    </div>
+  );
 }
