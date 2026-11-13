@@ -4,38 +4,84 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { App, api, scopeParam, store, useApi } from "@/lib/client";
 import type { Scope } from "@/lib/client";
-import { daylight, installMotion } from "@/lib/motion";
+import { SKY_HOURS, darkAtHour, growFrom, installMotion, shrinkTo, skyAt } from "@/lib/motion";
+import type { SkyPhase } from "@/lib/motion";
 import { Icon, Mark, Menu, Segmented, Skel } from "./ui";
 import { ItemSheet } from "./attention";
 
+export interface CardSpec { title: string; chip?: string; render: (close: () => void) => React.ReactNode; from: HTMLElement | null }
 export const pageOf = (pathname: string) => (pathname || "/").replace(/^\/+|\/+$/g, "").split("/")[0] || "overview";
 export const hrefOf = (page: string) => (page === "overview" ? "/" : "/" + page);
 const useIso = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-function Ambient() {
-  const ref = useRef<HTMLDivElement>(null);
+/** The sky behind everything. Its colours, sun and stars are set from the hour and the theme. */
+function Sky({ hour, dark }: { hour: number; dark: boolean }) {
   useEffect(() => {
-    const paint = () => { const d = new Date(); const [a, b, c] = daylight(d.getHours() + d.getMinutes() / 60); ref.current?.style.setProperty("--amb-1", a); ref.current?.style.setProperty("--amb-2", b); ref.current?.style.setProperty("--amb-3", c); };
-    paint(); const t = setInterval(paint, 5 * 60000); return () => clearInterval(t);
-  }, []);
-  return <div className="ambient" ref={ref} aria-hidden="true"><i className="b1" /><i className="b2" /><i className="b3" /></div>;
+    const k = skyAt(hour, dark), st = document.documentElement.style;
+    k.colors.forEach((c, i) => st.setProperty("--sky-" + (i + 1), c));
+    st.setProperty("--sky-glow", k.glow); st.setProperty("--sky-cloud", String(k.cloud)); st.setProperty("--sky-stars", String(k.stars));
+    st.setProperty("--sun-x", String(k.x)); st.setProperty("--sun-y", String(k.y));
+    document.documentElement.setAttribute("data-sky", k.phase);
+  }, [hour, dark]);
+  return <div className="sky" aria-hidden="true"><i className="sun" /><i className="stars" /><i className="cloud c1" /><i className="cloud c2" /></div>;
 }
 
-function Sidebar({ boot, page, open, onNavigate }: { boot: any; page: string; open: boolean; onNavigate: () => void }) {
+/** A detail card that grows out of whatever was tapped. Used by every card on the Overview and the tool cards. */
+function CardSheet({ card, onClose }: { card: CardSpec; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeBtn = useRef<HTMLButtonElement>(null);
+  const [closing, setClosing] = useState(false);
+  const fromRect = useRef(card.from?.getBoundingClientRect() || null);
+  useEffect(() => { if (ref.current) growFrom(ref.current, fromRect.current, { radius: 22 }); closeBtn.current?.focus({ preventScroll: true }); }, []);
+  const close = async () => {
+    if (closing) return; setClosing(true);
+    const target = card.from && document.contains(card.from) ? card.from : null;
+    if (ref.current) await shrinkTo(ref.current, target?.getBoundingClientRect() || null);
+    onClose(); target?.focus?.({ preventScroll: true });
+  };
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopPropagation(); close(); }
+      if (e.key === "Tab" && ref.current) {
+        const f = ref.current.querySelectorAll<HTMLElement>("button:not([disabled]), a[href], input, [tabindex]:not([tabindex='-1'])");
+        if (!f.length) return;
+        if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+        else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+      }
+    };
+    document.addEventListener("keydown", key, true); return () => document.removeEventListener("keydown", key, true);
+  });
+  return (
+    <>
+      <div className={"scrim" + (closing ? " out" : "")} onClick={close} />
+      <div className="sheet" ref={ref} role="dialog" aria-modal="true" aria-label={card.title}>
+        <div className="sheet-head">
+          {card.chip && <span className="chip accent">{card.chip}</span>}
+          <span style={{ flex: 1 }} />
+          <button ref={closeBtn} className="icon-btn" onClick={close} aria-label="Close details"><Icon name="x" size={18} /></button>
+        </div>
+        <div className="sheet-body"><h2 className="t-mid" style={{ marginBottom: 14 }}>{card.title}</h2>{card.render(close)}</div>
+      </div>
+    </>
+  );
+}
+
+function Sidebar({ boot, page, open, onNavigate, collapsed, onToggle }: { boot: any; page: string; open: boolean; onNavigate: () => void; collapsed: boolean; onToggle: () => void }) {
   const navRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<number | null>(null);
   const router = useRouter();
-  const mods = boot.modulesList.filter((m: any) => boot.workspace.modules[m.id] !== false && !(m.id === "clients" && !boot.clients.length));
+  const mods = boot.modulesList.filter((m: any) => boot.workspace.modules[m.id] !== false);
   const badge: Record<string, number> = { attention: boot.counts.attention, suggestions: boot.counts.suggestions, inbox: boot.counts.inbox };
-  useIso(() => { const el = navRef.current?.querySelector<HTMLElement>(".nav-item.active"); setPill(el ? el.offsetTop : null); }, [page, mods.length]);
+  useIso(() => { const el = navRef.current?.querySelector<HTMLElement>(".nav-item.active"); setPill(el ? el.offsetTop : null); }, [page, mods.length, collapsed]);
   const item = (m: any) => (
-    <Link key={m.id} href={hrefOf(m.id)} className={"nav-item" + (page === m.id ? " active" : "")} aria-current={page === m.id ? "page" : undefined} onClick={onNavigate}>
-      <Icon name={m.id} size={19} />{m.label}{badge[m.id] > 0 && <span className="nav-badge num">{badge[m.id]}</span>}
+    <Link key={m.id} href={hrefOf(m.id)} className={"nav-item" + (page === m.id ? " active" : "")} aria-current={page === m.id ? "page" : undefined} onClick={onNavigate} title={collapsed ? m.label : undefined} aria-label={m.label}>
+      <Icon name={m.id} size={19} /><span className="nav-text">{m.label}</span>{badge[m.id] > 0 && <span className="nav-badge num">{badge[m.id]}</span>}
     </Link>
   );
   return (
     <aside className={"sidebar glass" + (open ? " open" : "")} aria-label="Main navigation">
-      <Menu align="left" label="Switch workspace" button={(p) => (
+      {collapsed && <button className="ws-btn ws-mini hide-sm" onClick={onToggle} aria-label="Open the sidebar" title="Open the sidebar"><span className="ws-mark">{boot.workspace.brand.name.slice(0, 1).toUpperCase()}</span></button>}
+      <div className={collapsed ? "show-sm" : ""}><Menu align="left" label="Switch workspace" button={(p) => (
         <button className="ws-btn" {...p}>
           <span className="ws-mark">{boot.workspace.brand.name.slice(0, 1).toUpperCase()}</span>
           <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 650, fontSize: 14.5, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boot.workspace.brand.name}</span><span className="t-cap" style={{ fontWeight: 500 }}>{boot.workspace.sample ? "Sample workspace" : "On this laptop"}</span></span>
@@ -52,7 +98,7 @@ function Sidebar({ boot, page, open, onNavigate }: { boot: any; page: string; op
           <hr className="divider" style={{ margin: "6px 10px" }} />
           <button role="menuitem" className="menu-item" onClick={() => { close(); onNavigate(); router.push("/settings"); }}><span className="glyph" style={{ width: 28, height: 28 }}><Icon name="plus" size={15} /></span>New workspace from the template</button>
         </>}
-      </Menu>
+      </Menu></div>
       <div className="side-scroll">
         <nav className="nav" ref={navRef}>
           {pill != null && <span className="nav-pill" style={{ transform: `translateY(${pill}px)` }} />}
@@ -64,6 +110,7 @@ function Sidebar({ boot, page, open, onNavigate }: { boot: any; page: string; op
           {mods.filter((m: any) => m.group === "more").map(item)}
         </nav>
       </div>
+      <button className="nav-item side-toggle hide-sm" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Open the sidebar" : "Collapse the sidebar"} title={collapsed ? "Open the sidebar" : "Collapse the sidebar (Ctrl B)"}><Icon name="sidebar" size={19} /><span className="nav-text">Collapse</span></button>
     </aside>
   );
 }
@@ -79,7 +126,6 @@ function ScopePicker({ boot, scope, setScope }: { boot: any; scope: Scope; setSc
       </button>
     )}>
       {(close) => <>
-        {boot.clients.length > 0 && <div className="show-sm" style={{ padding: "4px 4px 8px" }}><Segmented label="View" value={scope.mode} onChange={(m) => setScope({ mode: m, id: "all" })} options={[{ value: "sites", label: "My websites" }, { value: "clients", label: "Clients" }]} /></div>}
         <div className="menu-label">{scope.mode === "sites" ? "From Google Analytics" : "Your clients"}</div>
         <button role="menuitem" className={"menu-item" + (scope.id === "all" ? " on" : "")} onClick={() => { setScope({ mode: scope.mode, id: "all" }); close(); }}><span className="glyph" style={{ width: 28, height: 28 }}><Icon name={scope.mode === "sites" ? "website" : "clients"} size={15} /></span><span style={{ flex: 1 }}>{allLabel}</span>{scope.id === "all" && <Icon name="check" size={16} />}</button>
         {list.map((x: any) => (
@@ -169,9 +215,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [scrolled, setScrolled] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [syncing, setSyncing] = useState<string | null>("Checking your tools");
-  const hostTheme = useRef<string | null | undefined>(undefined);
+  const [collapsed, setCollapsedState] = useState(false);
+  const [sky, setSkyState] = useState<SkyPhase | "live">("live");
+  const [clock, setClock] = useState(() => { const d = new Date(); return d.getHours() + d.getMinutes() / 60; });
+  const [card, setCard] = useState<CardSpec | null>(null);
+  const hour = sky === "live" ? clock : SKY_HOURS[sky];
+  const dark = theme === "dark" || (theme !== "light" && darkAtHour(hour));
 
-  useEffect(() => { installMotion(); const s = store("scope"); if (s?.mode) setScopeState(s); }, []);
+  useEffect(() => {
+    installMotion(); const s = store("scope"); if (s?.mode) setScopeState(s);
+    if (store("collapsed")) setCollapsedState(true);
+    const k = store("sky"); if (k && (k === "live" || k in SKY_HOURS)) setSkyState(k);
+    const t = setInterval(() => { const d = new Date(); setClock(d.getHours() + d.getMinutes() / 60); }, 60000); return () => clearInterval(t);
+  }, []);
   useEffect(() => { const on = () => setScrolled(window.scrollY > 6); on(); window.addEventListener("scroll", on, { passive: true }); return () => window.removeEventListener("scroll", on); }, []);
   useEffect(() => { window.scrollTo(0, 0); setDrawer(false); }, [pathname]);
 
@@ -179,7 +235,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!boot) return;
     const list = scope.mode === "sites" ? boot.sites : boot.clients;
-    if ((scope.mode === "clients" && !boot.clients.length) || (scope.id !== "all" && !list.some((x: any) => x.id === scope.id))) setScopeState({ mode: boot.clients.length ? scope.mode : "sites", id: "all" });
+    if (scope.mode === "clients" || (scope.id !== "all" && !list.some((x: any) => x.id === scope.id))) setScopeState({ mode: "sites", id: "all" });
   }, [boot?.workspace?.id, boot?.sites?.length]);
 
   // Accent colour and theme follow the workspace settings.
@@ -189,12 +245,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--accent-l", a.light); root.style.setProperty("--accent-d", a.dark);
     setThemeState(boot.theme);
   }, [boot?.workspace?.brand?.accent, boot?.theme, boot?.workspace?.id]);
-  useEffect(() => {
-    const root = document.documentElement;
-    if (hostTheme.current === undefined) hostTheme.current = root.getAttribute("data-theme");
-    if (theme === "system") { if (hostTheme.current) root.setAttribute("data-theme", hostTheme.current); else root.removeAttribute("data-theme"); }
-    else root.setAttribute("data-theme", theme);
-  }, [theme]);
+  // Automatic means light by day and dark at night, so the whole app follows the sky.
+  useEffect(() => { document.documentElement.setAttribute("data-theme", dark ? "dark" : "light"); }, [dark]);
 
   // The sync pill: says what is being refreshed, then steps out of the way.
   useEffect(() => {
@@ -208,6 +260,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") { e.preventDefault(); setCollapsed(!store("collapsed")); }
       if (e.key === "Escape") { setPalette(false); setDrawer(false); }
     };
     window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key);
@@ -215,6 +268,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (!toastMsg) return; const t = setTimeout(() => setToastMsg(null), 2600); return () => clearTimeout(t); }, [toastMsg]);
 
   const setScope = useCallback((s: Scope) => { setScopeState(s); store("scope", s); }, []);
+  const setCollapsed = useCallback((c: boolean) => { setCollapsedState(c); store("collapsed", c); }, []);
+  const setSky = useCallback((k: SkyPhase | "live") => { setSkyState(k); store("sky", k); }, []);
   const setTheme = useCallback((t: string) => { setThemeState(t); api("settings", { method: "POST", body: { theme: t } }).catch(() => {}); }, []);
   const scopeLabel = useMemo(() => {
     if (!boot) return "";
@@ -227,11 +282,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     openItem: (id: string, from?: HTMLElement | null) => setSheet({ id, from: from || null }),
     openPalette: () => setPalette(true), toast: (msg: string) => setToastMsg({ msg, n: Date.now() }),
     title, setTitle, titleShown, setTitleShown, syncing,
-  }), [boot, scope, scopeLabel, theme, title, titleShown, syncing]);
+    sky, setSky, skyPhase: skyAt(hour, dark).phase, dark, collapsed, setCollapsed,
+    openCard: (c: Omit<CardSpec, "from">, from?: HTMLElement | null) => setCard({ ...c, from: from || null }),
+  }), [boot, scope, scopeLabel, theme, title, titleShown, syncing, sky, hour, dark, collapsed]);
 
   if (!boot) {
     return (
-      <div className="shell"><Ambient />
+      <div className="shell"><Sky hour={hour} dark={dark} />
         <aside className="sidebar glass hide-sm" aria-hidden="true"><div style={{ padding: 8 }}><Skel h={34} r={10} /></div><div style={{ padding: "18px 8px", display: "grid", gap: 14 }}>{Array.from({ length: 9 }, (_, i) => <Skel key={i} h={16} w={`${70 - (i % 3) * 14}%`} />)}</div></aside>
         <div className="main"><div className="content" style={{ paddingTop: 90 }} role="status" aria-label="Loading"><Skel h={38} w="46%" r={12} /><Skel h={18} w="32%" style={{ marginTop: 14 }} /><div className="card pad" style={{ marginTop: 34, height: 300 }}><Skel w="30%" /><Skel h={44} style={{ marginTop: 20 }} /><Skel h={44} style={{ marginTop: 12 }} /><Skel h={44} style={{ marginTop: 12 }} /></div></div></div>
       </div>
@@ -241,21 +298,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const tabs = [["overview", "Overview"], ["attention", "Attention"], ["website", "Website"], ["social", "Social"]];
   return (
     <App.Provider value={ctx as any}>
-      <div className="shell">
-        <Ambient />
+      <div className={"shell" + (collapsed ? " collapsed" : "")}>
+        <Sky hour={hour} dark={dark} />
         {drawer && <div className="scrim show-sm" style={{ zIndex: 29 }} onClick={() => setDrawer(false)} />}
-        <Sidebar boot={boot} page={page} open={drawer} onNavigate={() => setDrawer(false)} />
+        <Sidebar boot={boot} page={page} open={drawer} onNavigate={() => setDrawer(false)} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
         <div className="main">
           <header className={"topbar" + (scrolled ? " scrolled" : "")}>
             <div className="topbar-in">
               <div className={"topbar-title" + (titleShown ? " show" : "")} aria-hidden={!titleShown}>{title}</div>
               <span style={{ flex: 1 }} />
               <span className={"sync-pill hide-sm" + (syncing ? "" : " gone")} role="status" aria-live="polite">{syncing === "Up to date" ? <span style={{ color: "var(--good)", display: "flex" }}><Icon name="check" size={14} stroke={2.4} /></span> : <span className="spinner" />}{syncing || "Up to date"}</span>
-              {boot.clients.length > 0 && <Segmented className="hide-sm" label="View" value={scope.mode} onChange={(m) => setScope({ mode: m, id: "all" })} options={[{ value: "sites", label: "My websites" }, { value: "clients", label: "Clients" }]} />}
               <ScopePicker boot={boot} scope={scope} setScope={setScope} />
               <button className="btn hide-sm" style={{ color: "var(--text-2)", fontWeight: 500, gap: 10 }} onClick={() => setPalette(true)} aria-label="Search or ask (Command K)"><Icon name="search" size={16} />Search<span className="kbd">⌘K</span></button>
               <button className="icon-btn show-sm" onClick={() => setPalette(true)} aria-label="Search or ask"><Icon name="search" size={19} /></button>
-              <button className="icon-btn" onClick={() => setTheme(nextTheme)} aria-label={`Appearance: ${theme}. Switch to ${nextTheme}`} title={`Appearance: ${theme}`}><Icon name={theme === "system" ? "auto" : theme === "light" ? "sun" : "moon"} size={19} /></button>
+              <button className="icon-btn" onClick={() => setTheme(nextTheme)} aria-label={`Appearance: ${theme === "system" ? "automatic" : theme}. Switch to ${nextTheme === "system" ? "automatic" : nextTheme}`} title={theme === "system" ? "Automatic: light by day, dark at night" : `Appearance: ${theme}`}><Icon name={theme === "system" ? "auto" : theme === "light" ? "sun" : "moon"} size={19} /></button>
             </div>
           </header>
           <main className="content" id="main" key={pathname + boot.workspace.id}>{children}</main>
@@ -264,6 +320,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {tabs.map(([id, label]) => <Link key={id} href={hrefOf(id)} className={"tab" + (page === id ? " active" : "")} aria-current={page === id ? "page" : undefined}><Icon name={id} size={22} />{label}</Link>)}
           <button className={"tab" + (drawer ? " active" : "")} onClick={() => setDrawer((d) => !d)} aria-expanded={drawer} aria-label="All pages"><Icon name="menu" size={22} />More</button>
         </nav>
+        {card && <CardSheet key={card.title} card={card} onClose={() => setCard(null)} />}
         {sheet && <ItemSheet key={sheet.id} id={sheet.id} from={sheet.from} onClose={() => setSheet(null)} />}
         {palette && <Palette boot={boot} onClose={() => setPalette(false)} setScope={setScope} />}
         {toastMsg && <div className="toast" key={toastMsg.n} role="status">{toastMsg.msg}</div>}

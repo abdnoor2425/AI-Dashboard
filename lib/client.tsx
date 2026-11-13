@@ -61,6 +61,8 @@ export interface AppCtx {
   toast: (msg: string) => void;
   title: string; setTitle: (t: string) => void; titleShown: boolean; setTitleShown: (b: boolean) => void;
   syncing: string | null;
+  sky: string; setSky: (k: any) => void; skyPhase: string; dark: boolean; collapsed: boolean; setCollapsed: (c: boolean) => void;
+  openCard: (c: { title: string; chip?: string; render: (close: () => void) => React.ReactNode }, from?: HTMLElement | null) => void;
 }
 export const App = createContext<AppCtx>(null as any);
 export const useApp = () => useContext(App);

@@ -1,11 +1,11 @@
-// Pulls fresh numbers from every connected tool into the open workspace. Read only: nothing is ever written back to a tool.
+// Pulls fresh numbers from every connected tool into the open workspace. Syncing only reads: nothing is written back to a tool here.
 import { GOOGLE_TOOLS, syncAnalytics, syncCalendar, syncDrive, syncGmail } from "./google.ts";
 import { matchBrands, metricoolBrands, syncBrand } from "./metricool.ts";
 import { syncLinear } from "./linear.ts";
 import { saveState } from "./store.ts";
 
 const running = new Set<string>();
-const USER_FIELDS = ["status", "doneAt", "snoozedUntil", "dismissed", "pin", "override"];
+const USER_FIELDS = ["status", "doneAt", "snoozedUntil", "dismissed", "pin", "override", "comments", "alerts"];
 
 export function isSyncing(wsId: string) { return running.has(wsId); }
 
@@ -22,7 +22,7 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
   };
   try {
     await step("google-analytics", async () => { ws.sites = await syncAnalytics(ws.id, ws.sites); return `${ws.sites.length} website${ws.sites.length === 1 ? "" : "s"} found`; });
-    await step("calendar", async () => { ws.events = await syncCalendar(ws.id, now); return "Read only, next seven days"; });
+    if (ws.modules?.calendar === true) await step("calendar", async () => { ws.events = await syncCalendar(ws.id, now); return "Read only, next seven days"; });
     await step("gmail", async () => { ws.inbox = [...ws.inbox.filter((m: any) => m.tool !== "gmail"), ...(await syncGmail(ws.id))]; return "Reads senders and subject lines of unread mail"; });
     await step("drive", async () => { ws.files = await syncDrive(ws.id); return "Read only, recent files"; });
     await step("linear", async () => {
@@ -39,7 +39,7 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
       // Keep hand-added items, and finished Linear items so "Done" stays a true record.
       ws.items = [...ws.items.filter((i: any) => !String(i.id).startsWith("lin-") || (!ids.has(i.id) && i.status !== "open")), ...fresh];
       conn("linear").account = r.account;
-      return `${fresh.length} open task${fresh.length === 1 ? "" : "s"} assigned to you`;
+      return `${r.mine} assigned to you, ${r.given} you gave to others`;
     });
     await step("metricool", async () => {
       const brands = await metricoolBrands(ws.id);
@@ -59,5 +59,5 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
 }
 
 export function markGoogle(ws: any, status: "connected" | "off", account = "") {
-  for (const c of ws.connections) if (GOOGLE_TOOLS.includes(c.id)) { c.status = status; c.account = account; c.detail = status === "connected" ? "Signed in. Fetching for the first time." : "Not connected"; if (status === "off") c.lastSync = null; }
+  for (const c of ws.connections) if (GOOGLE_TOOLS.includes(c.id) && (c.id !== "calendar" || status === "off" || ws.modules?.calendar === true)) { c.status = status; c.account = account; c.detail = status === "connected" ? "Signed in. Fetching for the first time." : "Not connected"; if (status === "off") c.lastSync = null; }
 }

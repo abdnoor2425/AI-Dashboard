@@ -30,6 +30,11 @@ export const FACTORS: { key: FactorKey; label: string; hint: string }[] = [
 
 export interface AttentionItem {
   id: string;
+  /** For a Linear ticket: the person it is assigned to. */
+  assignee?: string;
+  assignedByMe?: boolean;
+  comments?: { text: string; by: string; at: number; ref?: string; via?: string }[];
+  alerts?: { to: string[]; note: string; by: string; at: number; how?: { linear: string[]; email: string[] } }[];
   /** Records that describe the same underlying action share an actionKey and are merged into one card. */
   actionKey?: string;
   kind: "decision" | "approval" | "reply" | "risk";

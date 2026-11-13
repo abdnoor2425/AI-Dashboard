@@ -4,7 +4,7 @@
 import { DAY, HOUR, hash, pct, rng, series, startOfDay, sum } from "./rand.ts";
 import { buildQueue, FACTORS } from "./scoring.ts";
 import type { Scored } from "./scoring.ts";
-import { ACCENTS, MODULES, NETWORK_BASE, makeState, makeWorkspace } from "./sample.ts";
+import { ACCENTS, MODULES, NETWORK_BASE, makeState, makeWorkspace, starterTeam } from "./sample.ts";
 
 export type State = ReturnType<typeof makeState>;
 export interface Req { method: string; path: string; query?: Record<string, string>; body?: any; now?: number }
@@ -14,13 +14,14 @@ const ok = (data: any, changed = false): Res => ({ status: 200, data, changed })
 const bad = (msg: string, status = 400): Res => ({ status, data: { error: msg } });
 
 export const ENDPOINTS = [
-  ["overview", "Greeting, top 5 attention items, key numbers, team list and today"],
+  ["overview", "Greeting, top 5 attention items, team list, reel summary, key numbers and the 28-day chart"],
   ["attention", "The full ranked attention queue with scores, reasons and sources"],
   ["websites", "All websites side by side"],
   ["website", "Visitors, leads, sources and top pages for one website (?site=)"],
   ["social", "Metricool followers, reach, best post and schedule (?site=)"],
   ["reels", "Reel scores: hooks, PASS or HOLD, and results at 24h, 72h and 7 days"],
   ["goals", "Objectives, key results, owners and check-ins"],
+  ["team", "Your team: the leader first, then everyone else with a name, a role and who they work under"],
   ["metrics", "The metric catalogue with definitions, targets, sources and freshness"],
   ["decisions", "Decision Room sessions"],
   ["clients", "All clients: replies owed, approvals waiting and what is due"],
@@ -206,14 +207,28 @@ function overview(ws: any, scope: string, now: number) {
     const dueWeek = mine.filter((i) => i.due != null && i.due - now <= 7 * DAY).length;
     numbers.push({ id: "replies", label: "Replies owed", value: replies, delta: null, spark: [], sentence: replies ? "Clients are waiting to hear from you." : "No client is waiting on a reply.", href: "inbox", source: "Gmail, Slack", period: "Now" });
     numbers.push({ id: "approvals", label: "Approvals waiting", value: approvals, delta: null, spark: [], sentence: approvals ? "Work is ready for your sign-off." : "Nothing is waiting for sign-off.", href: "attention", source: "Linear", period: "Now" });
-    numbers.push({ id: "due", label: "Due this week", value: dueWeek, delta: null, spark: [], sentence: dueWeek ? "These have a set deadline in the next 7 days." : "No client deadlines this week.", href: "calendar", source: "Linear, Calendar", period: "Next 7 days" });
+    numbers.push({ id: "due", label: "Due this week", value: dueWeek, delta: null, spark: [], sentence: dueWeek ? "These have a set deadline in the next 7 days." : "No client deadlines this week.", href: "attention", source: "Linear", period: "Next 7 days" });
   }
   const topGoal = ws.goals.map(goalView).find((g: any) => g.top) || ws.goals.map(goalView)[0];
   if (topGoal) numbers.push({ id: "goal", label: "Top goal", value: topGoal.progress == null ? null : Math.round(topGoal.progress * 100), unit: "%", delta: null, spark: [], ring: topGoal.progress, sentence: topGoal.title, href: "goals", source: "Goals", period: topGoal.period, state: topGoal.progress == null ? "unknown" : undefined });
   const evs = ws.events.filter((e: any) => inScope(e.scope, scope) || !e.scope).filter((e: any) => e.end >= now && e.start < sod + 2 * DAY).sort((a: any, b: any) => a.start - b.start);
   const broken = ws.connections.filter((c: any) => c.status === "error");
   const newSuggestions = ws.suggestions.filter((s: any) => s.status === "new").length;
+  // The 28-day chart follows the website that is selected. No website, no chart: never a made-up line.
+  let chart: any = null;
+  if (!clientsMode && siteList.length) {
+    const t28 = siteList.map((s: any) => siteTraffic(s, 28, now));
+    const tv = t28.reduce((a: number, x: any) => a + x.totals.visitors, 0), tvp = t28.reduce((a: number, x: any) => a + x.totals.visitorsPrev, 0);
+    const tl = t28.reduce((a: number, x: any) => a + x.totals.leads, 0), tlp = t28.reduce((a: number, x: any) => a + x.totals.leadsPrev, 0);
+    chart = { name: siteList.length === 1 ? siteList[0].name : "All websites", color: siteList.length === 1 ? siteList[0].color : null, source: "Google Analytics", period: "Last 28 days",
+      visitors: { series: addSeries(t28.map((x: any) => x.visitors)), total: tv, delta: pct(tv, tvp) }, leads: { series: addSeries(t28.map((x: any) => x.leads)), total: tl, delta: pct(tl, tlp) } };
+  }
+  const reelList = ws.modules?.reels === false ? [] : (ws.reels || []).filter((r: any) => inScope(r.scope, scope)).sort((x: any, y: any) => y.publishedAt - x.publishedAt);
+  const reelView = (r: any) => { const sc = [r.final.hooks.spoken, r.final.hooks.text, r.final.hooks.visual, ...r.final.buckets.map((b: any) => b.score)]; const site = ws.sites.find((s: any) => s.id === r.site);
+    return { id: r.id, title: r.title, siteName: site?.name, color: site?.color, verdict: r.final.verdict, score: Math.round((sc.reduce((a: number, x: number) => a + x, 0) / (sc.length * 5)) * 100), hooks: r.final.hooks, next: r.next, fixes: r.fixes, publishedAt: r.publishedAt, views: (r.perf.d7 || r.perf.h72 || r.perf.h24)?.views ?? null }; };
+  const reels = reelList.length ? { pass: reelList.filter((r: any) => r.final.verdict === "PASS").length, hold: reelList.filter((r: any) => r.final.verdict === "HOLD").length, total: reelList.length, list: reelList.slice(0, 6).map(reelView), verdicts: reelList.slice(0, 14).map((r: any) => r.final.verdict), rubric: "v1.2" } : null;
   return {
+    chart, reels,
     greeting: greetingFor(ws, q, now, scopeName(ws, scope)),
     ring: { done: doneToday, total: doneToday + dueToday, left: dueToday },
     start: top[0] ? { id: top[0].id, title: top[0].title, nextStep: top[0].nextStep } : null,
@@ -303,6 +318,23 @@ export function handle(state: State, req: Req): Res {
           ws.items.filter((i: any) => i.id === id || (it.actionKey && i.actionKey === it.actionKey)).forEach((i: any) => (i.pin = n));
         });
         log(body.dir === "up" ? "Moved up" : "Moved down");
+      }
+      else if (c === "comment") {
+        const text = String(body.text || "").trim().slice(0, 2000);
+        const src = target.sources.find((x: any) => x.tool === "linear");
+        if (!src) return bad("Comments go to Linear, and this did not come from Linear.");
+        if (text.length < 2) return bad("Write a short comment first.");
+        target.comments = [...(target.comments || []), { text, by, at: now, ref: src.ref, via: String(body.via || "Linear").slice(0, 40) }];
+        return ok({ ok: true, ref: src.ref }, true);
+      }
+      else if (c === "alert") {
+        const team: any[] = Array.isArray(ws.team) ? ws.team : [];
+        const to = team.filter((p, n) => n > 0 && Array.isArray(body.people) && body.people.includes(p.id));
+        if (!to.length) return bad("Pick at least one person to alert.");
+        const linear = target.sources.some((x: any) => x.tool === "linear");
+        const how = body.how && typeof body.how === "object" ? { linear: [].concat(body.how.linear || []).map(String), email: [].concat(body.how.email || []).map(String) } : linear ? { linear: to.map((p) => p.name), email: [] } : { linear: [], email: to.map((p) => p.name) };
+        target.alerts = [...(target.alerts || []), { to: to.map((p) => p.name), note: String(body.note || "").trim().slice(0, 300), by, at: now, how }];
+        return ok({ ok: true, to: to.map((p) => p.name), how }, true);
       } else return bad("Unknown action");
       return ok({ ok: true }, true);
     }
@@ -392,6 +424,51 @@ export function handle(state: State, req: Req): Res {
     return ok({ reels: list, rubric: "v1.2", hold: list.filter((r: any) => r.final.verdict === "HOLD").length, pass: list.filter((r: any) => r.final.verdict === "PASS").length, note: "Scores judge the edit. They do not predict how far a reel will travel.", sample: ws.sample });
   }
 
+  if (a === "team") {
+    if (!Array.isArray(ws.team) || !ws.team.length) ws.team = starterTeam(ws.setup?.about?.name, !!ws.sample);
+    const team: any[] = ws.team;
+    const text = (v: any, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+    const look = (l: any, old: any = {}) => {
+      const n = (v: any, max: number, d: number) => (Number.isInteger(v) && v >= 0 && v <= max ? v : d);
+      return {
+        skin: n(l?.skin, 5, old.skin ?? 1), hairColor: n(l?.hairColor, 6, old.hairColor ?? 1), top: n(l?.top, 5, old.top ?? 0),
+        hair: ["short", "swept", "crop", "curly", "long", "bun", "none"].includes(l?.hair) ? l.hair : old.hair || "short",
+        beard: ["none", "short", "full"].includes(l?.beard) ? l.beard : old.beard || "none",
+        glasses: l?.glasses == null ? !!old.glasses : !!l.glasses,
+      };
+    };
+    const mail = (v: any) => { const m = text(v, 120); return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m) ? m : ""; };
+    const below = (id: string): string[] => team.filter((p) => p.parent === id).flatMap((p) => [p.id, ...below(p.id)]);
+    if (post) {
+      const leader = team[0];
+      if (!b) {
+        if (team.length >= 24) return bad("A team here can hold 24 people.");
+        const name = text(body.name, 40);
+        if (!name) return bad("Give this person a name.");
+        const person = { id: "p" + (Math.max(0, ...team.map((p) => Number(String(p.id).slice(1)) || 0)) + 1), name, email: mail(body.email), role: text(body.role, 40) || "Team member", parent: team.some((p) => p.id === body.parent) ? body.parent : leader.id, look: look(body.look) };
+        team.push(person);
+        return ok(person, true);
+      }
+      const p = team.find((x) => x.id === b);
+      if (!p) return bad("No such person", 404);
+      if (body.action === "remove") {
+        if (p === leader) return bad("The leader stays. Change the name instead.");
+        team.forEach((x) => { if (x.parent === p.id) x.parent = p.parent; });
+        ws.team = team.filter((x) => x !== p);
+        return ok({ ok: true }, true);
+      }
+      if (body.name != null) { const name = text(body.name, 40); if (!name) return bad("Give this person a name."); p.name = name; }
+      if (p !== leader) {
+        if (body.role != null) p.role = text(body.role, 40) || "Team member";
+        if (body.parent != null && body.parent !== p.id && team.some((x) => x.id === body.parent) && !below(p.id).includes(body.parent)) p.parent = body.parent;
+      }
+      if (body.email != null) p.email = mail(body.email);
+      if (body.look) p.look = look(body.look, p.look);
+      return ok(p, true);
+    }
+    return ok({ people: team.map((p, n) => ({ ...p, leader: n === 0 })), sample: ws.sample });
+  }
+
   if (a === "goals") {
     if (post && b === "checkin") {
       for (const g of ws.goals) for (const k of g.krs) if (k.id === body.krId) {
@@ -470,6 +547,7 @@ export function handle(state: State, req: Req): Res {
     if (post && b) {
       const cn = ws.connections.find((x: any) => x.id === b);
       if (!cn) return bad("No such connection", 404);
+      if (b === "calendar") ws.modules.calendar = body.action !== "disconnect";
       if (body.action === "disconnect") { cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; }
       else { cn.status = "connected"; cn.detail = ws.sample ? "Connected (sample data)" : "Connected"; cn.lastSync = now; cn.account = cn.account || (cn.auth === "token" ? "Token saved on this laptop" : "Signed in"); }
       return ok(cn, true);
@@ -546,14 +624,9 @@ export function handle(state: State, req: Req): Res {
     const out: any[] = [];
     MODULES.forEach((m) => hit(m.label) && ws.modules[m.id] !== false && out.push({ type: "Page", title: m.label, href: m.id }));
     ws.sites.forEach((s: any) => (hit(s.name) || hit(s.domain)) && out.push({ type: "Website", title: s.name, sub: s.domain, href: "website", site: s.id }));
-    ws.clients.forEach((cl: any) => hit(cl.name) && out.push({ type: "Client", title: cl.name, sub: cl.sub, href: "clients", client: cl.id }));
     queueFor(ws, "all", now).needsYou.forEach((i) => hit(i.title) && out.push({ type: "Needs you", title: i.title, sub: i.nextStep, href: "attention", item: i.id }));
-    ws.goals.forEach((g: any) => hit(g.title) && out.push({ type: "Goal", title: g.title, href: "goals" }));
     ws.metrics.forEach((m: any) => hit(m.name) && out.push({ type: "Metric", title: m.name, sub: m.scopeLabel, href: "metrics" }));
-    ws.outputs.forEach((o: any) => hit(o.title) && out.push({ type: "Output", title: o.title, sub: o.scopeLabel, href: "outputs" }));
     ws.files.forEach((f: any) => hit(f.name) && out.push({ type: "File", title: f.name, sub: f.owner, href: "files" }));
-    ws.decisions.forEach((d: any) => hit(d.question) && out.push({ type: "Decision", title: d.question, href: "decisions" }));
-    ws.skills.forEach((s: any) => hit(s.name) && out.push({ type: "Skill", title: s.name, href: "skills" }));
     return ok({ results: out.slice(0, 12) });
   }
 

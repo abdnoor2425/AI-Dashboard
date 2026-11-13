@@ -6,7 +6,7 @@ import { DEFAULT_RUBRIC } from "./scoring.ts";
 import type { AttentionItem } from "./scoring.ts";
 
 export const ACCENTS: Record<string, { name: string; light: string; dark: string }> = {
-  blue: { name: "Blue", light: "#0A6CFF", dark: "#3D8BFF" },
+  blue: { name: "Blue", light: "#1D5BFF", dark: "#6FA0FF" },
   indigo: { name: "Indigo", light: "#5450E0", dark: "#7F7BFF" },
   teal: { name: "Teal", light: "#0E8A8F", dark: "#3CC3C8" },
   green: { name: "Green", light: "#1F8F4E", dark: "#3FCB78" },
@@ -21,16 +21,10 @@ export const MODULES: { id: string; label: string; group: "main" | "more"; core?
   { id: "website", label: "Website", group: "main" },
   { id: "social", label: "Social", group: "main" },
   { id: "reels", label: "Reel scores", group: "main" },
-  { id: "goals", label: "Goals", group: "main" },
   { id: "metrics", label: "Metrics", group: "main" },
-  { id: "decisions", label: "Decision Room", group: "main" },
-  { id: "clients", label: "Clients", group: "main" },
+  { id: "team", label: "Your team", group: "main" },
   { id: "inbox", label: "Inbox", group: "more" },
-  { id: "calendar", label: "Calendar", group: "more" },
   { id: "files", label: "Files", group: "more" },
-  { id: "outputs", label: "Outputs", group: "more" },
-  { id: "skills", label: "Skills", group: "more" },
-  { id: "suggestions", label: "Suggestions", group: "more" },
   { id: "usage", label: "AI usage", group: "more" },
   { id: "connections", label: "Connections", group: "more", core: true },
   { id: "setup", label: "Setup", group: "more", core: true },
@@ -71,7 +65,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-001", actionKey: "platewise-launch-post", kind: "approval", title: "Approve the Platewise launch post", nextStep: "Read the final cut and approve or send notes",
       scope: "site:platewise", scopeLabel: "Platewise", owner: "Sam", waitingOn: "me", due: t(0, 17), tz: "local",
       consequence: "The post misses tonight's slot and the launch moves to next week.",
-      sources: [S("linear", "PLT-212 Launch post, final cut", "PLT-212")], evidence: "verified", lastVerified: now - 40 * 60000,
+      sources: [S("linear", "PLT-212 Launch post, final cut", "PLT-212")], assignee: "Kenneth", assignedByMe: true, evidence: "verified", lastVerified: now - 40 * 60000,
       factors: { impact: 4, unblocks: 4, alignment: 5 }, why: { unblocks: "Kenneth cannot schedule the post until you approve it.", alignment: "The Platewise launch is this quarter's top goal." }, status: "open",
     },
     {
@@ -91,7 +85,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-004", kind: "decision", title: "Decide the first-quarter ad budget", nextStep: "Pick one of the three budget options Nancy prepared",
       scope: null, owner: "Sam", waitingOn: "me", due: t(4, 18), tz: "local",
       consequence: "Campaign bookings for January close at the end of next week.",
-      sources: [S("drive", "Q1 ad budget options (sheet)", "drv-221"), S("linear", "OPS-41 Decide Q1 ad budget", "OPS-41")], evidence: "verified", lastVerified: now - 5 * HOUR,
+      sources: [S("drive", "Q1 ad budget options (sheet)", "drv-221"), S("linear", "OPS-41 Decide Q1 ad budget", "OPS-41")], assignee: "Abdullah", assignedByMe: true, evidence: "verified", lastVerified: now - 5 * HOUR,
       factors: { impact: 4, unblocks: 3, alignment: 5 }, status: "open",
     },
     {
@@ -113,7 +107,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-007", kind: "approval", title: "Sign off the Lumen Dental homepage", nextStep: "Check the three fixes on the staging link and approve",
       scope: "client:lumen", scopeLabel: "Lumen Dental", owner: "Sam", waitingOn: "me", due: t(2, 15),
       consequence: "Dr. Shah was promised the new homepage by Friday.",
-      sources: [S("linear", "LUM-77 Homepage fixes ready for review", "LUM-77")], evidence: "verified", lastVerified: now - 3 * HOUR,
+      sources: [S("linear", "LUM-77 Homepage fixes ready for review", "LUM-77")], assignee: "Abdullah", assignedByMe: true, evidence: "verified", lastVerified: now - 3 * HOUR,
       factors: { impact: 3, unblocks: 4, alignment: 3 }, status: "open",
     },
     {
@@ -422,9 +416,9 @@ function connections(now: number, sitesList: any[]) {
     { id: "google-analytics", tool: "analytics", name: "Google Analytics", status: "connected", account: "sam@example.com", detail: `${sitesList.length} websites found`, lastSync: now - 12 * 60000, auth: "google", gives: "Your website list, visitors, leads and top pages" },
     { id: "metricool", tool: "metricool", name: "Metricool", status: "connected", account: "Advanced plan", detail: `${sitesList.filter((s) => s.metricoolBrand.confirmed).length} of ${sitesList.length} brands confirmed`, lastSync: now - 18 * 60000, auth: "token", gives: "Followers, reach, posts and reels for each website" },
     { id: "gmail", tool: "gmail", name: "Gmail", status: "connected", account: "sam@example.com", detail: "Reads subject lines and senders to find replies you owe", lastSync: now - 6 * 60000, auth: "google", gives: "Emails that need a reply" },
-    { id: "calendar", tool: "calendar", name: "Google Calendar", status: "connected", account: "sam@example.com", detail: "Read only", lastSync: now - 6 * 60000, auth: "google", gives: "Meetings and deadlines" },
+    { id: "calendar", tool: "calendar", name: "Google Calendar", status: "off", account: "", detail: "Not connected", lastSync: null, auth: "google", gives: "Optional. Meetings and deadlines for the week" },
     { id: "drive", tool: "drive", name: "Google Drive", status: "connected", account: "sam@example.com", detail: "Read only, recent files", lastSync: now - 30 * 60000, auth: "google", gives: "Recent files and finished documents" },
-    { id: "linear", tool: "linear", name: "Linear", status: "connected", account: "Sample workspace", detail: "Read only", lastSync: now - 9 * 60000, auth: "oauth", gives: "Tasks, approvals and goals links" },
+    { id: "linear", tool: "linear", name: "Linear", status: "connected", account: "Sample workspace", detail: "Reads your tickets. Writes only the comments you send", lastSync: now - 9 * 60000, auth: "oauth", gives: "Tasks, approvals and goals links" },
     { id: "slack", tool: "slack", name: "Slack", status: "error", account: "Sample workspace", detail: "Sign-in expired 2 days ago. Sign in again to resume.", lastSync: now - 2 * DAY, auth: "oauth", gives: "Messages that mention you" },
     { id: "sheets", tool: "sheets", name: "Reel scorecard sheet", status: "manual", account: "Uploaded file", detail: "Updated by hand. Last import 9 hours ago.", lastSync: now - 9 * HOUR, auth: "file", gives: "Reel scores and PASS or HOLD" },
     { id: "billing", tool: "billing", name: "Billing tool", status: "off", account: "", detail: "Not connected", lastSync: null, auth: "token", gives: "Recurring revenue" },
@@ -448,14 +442,26 @@ export function realConnections() {
   ];
 }
 
+/** The starting team. The first person is always the leader; everyone else can hold any role. */
+export function starterTeam(owner: string, sample: boolean) {
+  const leader = { id: "p1", name: owner || "You", role: "The Leader", parent: null as string | null, look: { skin: 0, hair: "swept", hairColor: 3, beard: "none", glasses: false, top: 0 } };
+  if (!sample) return [leader];
+  return [
+    leader,
+    { id: "p2", name: "Abdullah", email: "abdullah@example.com", role: "AI Specialist", parent: "p1", look: { skin: 2, hair: "short", hairColor: 0, beard: "short", glasses: false, top: 1 } },
+    { id: "p3", name: "Kenneth", email: "kenneth@example.com", role: "Socials Specialist", parent: "p1", look: { skin: 5, hair: "crop", hairColor: 0, beard: "none", glasses: false, top: 2 } },
+  ];
+}
+
 /** An empty workspace for someone's real data. It holds no examples at all: every page starts empty until a tool is connected. */
 function emptyWorkspace(opts: TemplateOptions, now: number) {
   return {
     id: opts.id, name: opts.name, owner: opts.owner, kind: opts.kind || "owner", sample: false, createdAt: now, templateVersion: "1.0",
     brand: { name: opts.name, accent: opts.accent || "blue" },
-    modules: Object.fromEntries(MODULES.map((m) => [m.id, !["clients", "reels", "outputs", "skills", "suggestions", "usage"].includes(m.id)])),
+    modules: Object.fromEntries(MODULES.map((m) => [m.id, !["clients", "reels", "calendar", "outputs", "skills", "suggestions", "usage"].includes(m.id)])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: false, about: { name: opts.owner, role: "", business: opts.name }, goals: [] as string[], step: 0 },
+    team: starterTeam(opts.owner, false) as any[],
     sites: [] as any[], clients: [] as any[], items: [] as AttentionItem[], reels: [] as any[], goals: [] as any[], metrics: [] as any[], decisions: [] as any[],
     inbox: [] as any[], events: [] as any[], files: [] as any[], outputs: [] as any[], skills: [] as any[], suggestions: [] as any[],
     usage: { budget: { monthlyExtra: 0, note: "Extra spend on top of your plans." }, plans: [] as any[], entries: [] as any[] },
@@ -498,9 +504,10 @@ export function makeWorkspace(opts: TemplateOptions, now: number) {
   return {
     id: opts.id, name: opts.name, owner: opts.owner, kind: opts.kind || "owner", sample: true, createdAt: now, templateVersion: "1.0",
     brand: { name: opts.name, accent: opts.accent || "blue" },
-    modules: Object.fromEntries(MODULES.map((m) => [m.id, opts.kind === "client" ? m.id !== "clients" : true])),
+    modules: Object.fromEntries(MODULES.map((m) => [m.id, m.id === "calendar" ? false : opts.kind === "client" ? m.id !== "clients" : true])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: rich, about: { name: opts.owner, role: rich ? "Founder" : "", business: opts.name }, goals: rich ? ["Launch Platewise in three new cities", "Make every client feel looked after"] : [], step: 0 },
+    team: starterTeam(opts.owner, rich) as any[],
     sites: siteList, clients: clientList, items, reels: reelList,
     goals: own(goals(now, siteList[0].name)), metrics: own(metrics(now)), decisions: rich ? decisions(now) : [],
     inbox: inboxList, events: eventList, files: fileList, outputs: outputList,
