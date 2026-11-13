@@ -1,11 +1,11 @@
-// Pulls fresh numbers from every connected tool into the open workspace. Read only: nothing is ever written back to a tool.
+// Pulls fresh numbers from every connected tool into the open workspace. Syncing only reads: nothing is written back to a tool here.
 import { GOOGLE_TOOLS, syncAnalytics, syncCalendar, syncDrive, syncGmail } from "./google.ts";
 import { matchBrands, metricoolBrands, syncBrand } from "./metricool.ts";
 import { syncLinear } from "./linear.ts";
 import { saveState } from "./store.ts";
 
 const running = new Set<string>();
-const USER_FIELDS = ["status", "doneAt", "snoozedUntil", "dismissed", "pin", "override"];
+const USER_FIELDS = ["status", "doneAt", "snoozedUntil", "dismissed", "pin", "override", "comments", "alerts"];
 
 export function isSyncing(wsId: string) { return running.has(wsId); }
 
@@ -39,7 +39,7 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
       // Keep hand-added items, and finished Linear items so "Done" stays a true record.
       ws.items = [...ws.items.filter((i: any) => !String(i.id).startsWith("lin-") || (!ids.has(i.id) && i.status !== "open")), ...fresh];
       conn("linear").account = r.account;
-      return `${fresh.length} open task${fresh.length === 1 ? "" : "s"} assigned to you`;
+      return `${r.mine} assigned to you, ${r.given} you gave to others`;
     });
     await step("metricool", async () => {
       const brands = await metricoolBrands(ws.id);

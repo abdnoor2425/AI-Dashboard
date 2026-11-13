@@ -22,6 +22,7 @@ function PersonForm({ person, people, close }: { person: any | null; people: any
   const leader = !!person?.leader;
   const [name, setName] = useState(person?.name || "");
   const [role, setRole] = useState(person?.role || "");
+  const [email, setEmail] = useState(person?.email || "");
   const [parent, setParent] = useState(person?.parent || people[0]?.id);
   const [look, setLook] = useState<Look>({ ...DEFAULT_LOOK, ...(person?.look || { skin: 2, top: (people.length * 2) % TOPS.length }) });
   const [busy, setBusy] = useState(false);
@@ -30,7 +31,7 @@ function PersonForm({ person, people, close }: { person: any | null; people: any
   const bosses = people.filter((p) => !person || (p.id !== person.id && !under(person.id).includes(p.id)));
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true);
-    try { await api(person ? "team/" + person.id : "team", { method: "POST", body: { name, role, parent, look } }); app.toast(person ? "Saved" : `${name.trim()} added`); close(); }
+    try { await api(person ? "team/" + person.id : "team", { method: "POST", body: { name, role, parent, look, email } }); app.toast(person ? "Saved" : `${name.trim()} added`); close(); }
     catch (err: any) { app.toast(err.message); } finally { setBusy(false); }
   };
   const remove = async () => {
@@ -53,6 +54,7 @@ function PersonForm({ person, people, close }: { person: any | null; people: any
           ? <p className="t-foot">The first person is always The Leader. Put your own name here.</p>
           : <>
             <label><span className="t-cap">Role</span><input className="input" value={role} onChange={(e) => setRole(e.target.value)} maxLength={40} placeholder="Any role, like Designer" autoComplete="off" /></label>
+            <label><span className="t-cap">Email (optional)</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={120} placeholder="Only used to send them your alerts" autoComplete="off" /></label>
             <label><span className="t-cap">Works under</span><select className="input" value={parent} onChange={(e) => setParent(e.target.value)}>{bosses.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.role})</option>)}</select></label>
           </>}
       </div>

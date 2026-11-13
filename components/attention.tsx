@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { api, useApi, useApp } from "@/lib/client";
 import { growFrom, shrinkTo } from "@/lib/motion";
 import { ago, clock, dateLong, dueLabel } from "@/lib/format";
-import { Icon, Menu, Ring, Skel } from "./ui";
+import { Icon, Menu, Skel } from "./ui";
+import { Character } from "./character";
 import { Logo, toolName } from "./logos";
 
 /** The tool an item mainly came from. Work tools (Linear, Gmail, Slack) win over supporting files. */
@@ -19,7 +20,7 @@ const EVIDENCE: Record<string, { label: string; tone: string; text: string }> = 
 
 /** The default card: only the action, the next step and a deadline when one exists. Scores and sources stay behind a tap. */
 export function AttentionRow({ item, showScope, team, rank }: { item: any; showScope?: boolean; team?: boolean; rank?: number }) {
-  const from = rank ? mainSource(item) : null;
+  const from = mainSource(item);
   const app = useApp();
   const ref = useRef<HTMLButtonElement>(null);
   const due = dueLabel(team ? item.followUpDue : item.due);
@@ -29,7 +30,7 @@ export function AttentionRow({ item, showScope, team, rank }: { item: any; showS
       {rank ? <span className={"rank num" + (rank === 1 ? " first" : "")}>{rank}</span> : <span className={"glyph " + (urgent ? "bad" : team ? "" : "accent")}><Icon name={team ? "person" : item.kind} size={17} /></span>}
       <span className="row-main">
         <span className="row-title" style={{ display: "block" }}>{item.title}</span>
-        <span className="row-sub">{team ? <><b style={{ fontWeight: 600, color: "var(--text)" }}>{item.owner}</b> · {item.nextStep}</> : <>{from && <span className="from"><Logo tool={from.tool} size={18} /><b>{toolName(from.tool)}</b></span>}{showScope && item.scopeLabel ? item.scopeLabel + " · " : ""}{item.nextStep}</>}</span>
+        <span className="row-sub">{team ? <><b style={{ fontWeight: 600, color: "var(--text)" }}>{item.owner}</b> · {item.nextStep}</> : <>{from && <span className="from"><Logo tool={from.tool} size={18} /><b>{toolName(from.tool)}</b></span>}{item.scopeLabel && <span className="site-tag">{item.scopeLabel}</span>}{item.nextStep}</>}</span>
       </span>
       {item.pin != null && <span title="You set this order" aria-label="Pinned by you" style={{ color: "var(--text-3)", display: "flex" }}><Icon name="pin" size={15} /></span>}
       {item.warn && !team && <span className="dot warn" role="img" aria-label="Needs checking before you act" title="Needs checking" />}
@@ -39,16 +40,93 @@ export function AttentionRow({ item, showScope, team, rank }: { item: any; showS
   );
 }
 
-function FactorRow({ f, item, weight }: { f: any; item: any; weight: number }) {
-  const v = item.factorsResolved[f.key], c = item.contributions[f.key], max = weight * 5;
+const names = (l: string[]) => (l.length < 2 ? l.join("") : l.slice(0, -1).join(", ") + " and " + l[l.length - 1]);
+
+/** For a Linear ticket: who it is assigned to, and a comment box that posts back to the ticket. */
+function LinearBlock({ it, team, ai, act, busy }: { it: any; team: any[]; ai: string; act: (a: string, b?: any, m?: string) => Promise<void>; busy: boolean }) {
+  const [text, setText] = useState("");
+  const src = it.sources.find((x: any) => x.tool === "linear");
+  const who = team.find((p) => p.name === it.assignee);
+  const first = it.assignee ? String(it.assignee).split(" ")[0] : "the team";
   return (
-    <div className="row flush" style={{ minHeight: 0, padding: "11px 14px", display: "block" }}>
-      <div className="flex items-baseline justify-between gap-3">
-        <span style={{ fontWeight: 560, fontSize: 14 }}>{f.label}</span>
-        <span className="num" style={{ fontSize: 13.5, fontWeight: 600, color: v == null ? "var(--warn)" : "var(--text)" }}>{v == null ? "Unknown" : `${c} of ${max}`}</span>
+    <div>
+      <h3 className="t-head" style={{ marginBottom: 10 }}>On Linear</h3>
+      <div className="inset" style={{ padding: 16 }}>
+        <div className="flex items-center gap-3">
+          {who ? <Character look={who.look} size={46} still /> : <span className="glyph" style={{ width: 46, height: 46, borderRadius: 23 }}><Icon name="person" size={20} /></span>}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="t-cap">{it.assignedByMe ? "You assigned this to" : "Assigned to"}</div>
+            <div style={{ fontWeight: 700, fontSize: 16.5, letterSpacing: "-0.01em" }}>{it.assignee || "Nobody yet"}{who && <span className="t-foot" style={{ fontWeight: 500, marginLeft: 8 }}>{who.role}</span>}</div>
+          </div>
+          <span className="chip line num"><Logo tool="linear" size={16} />{src.ref}</span>
+        </div>
+        {(it.comments || []).map((c: any, i: number) => (
+          <div key={i} className="said"><p>{c.text}</p><span className="t-cap"><Icon name="check" size={12} stroke={2.4} />Posted to {c.ref} {ago(c.at)}</span></div>
+        ))}
+        <label className="t-cap" htmlFor={"cm-" + it.id} style={{ display: "block", marginTop: 14 }}>Comment for {first}</label>
+        <textarea id={"cm-" + it.id} className="input" rows={3} style={{ marginTop: 6 }} value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} placeholder={`Write what ${first} needs to know`} />
+        <div className="flex items-center justify-between gap-3 flex-wrap" style={{ marginTop: 10 }}>
+          <span className="t-foot faint flex items-center gap-2" style={{ flex: "1 1 180px" }}><Icon name="sparkle" size={14} />Goes straight onto {src.ref}. {ai} can post for you too.</span>
+          <button className="btn primary" disabled={busy || text.trim().length < 2} onClick={async () => { await act("comment", { text }, `Comment posted on ${src.ref}`); setText(""); }}><Icon name="send" size={15} />Post to Linear</button>
+        </div>
       </div>
-      <div className="bar-track" style={{ marginTop: 7, height: 6 }}>{v != null && <div className="bar-fill" style={{ width: `${(c / max) * 100}%` }} />}</div>
-      <div className="t-foot" style={{ marginTop: 6 }}>{v == null ? "Not known yet, so it is left out. It is not counted as zero." : item.why?.[f.key] || `${f.hint}. Rated ${v} out of 5.`}</div>
+    </div>
+  );
+}
+
+/** Pick one or more people from Your team and send them a nudge about this item: a Linear mention, or an email when Linear cannot reach them. */
+function AlertBlock({ it, team }: { it: any; team: any[] }) {
+  const app = useApp();
+  const others = team.slice(1);
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const last = (it.alerts || [])[it.alerts?.length - 1];
+  const how = last?.how ? [last.how.linear?.length ? `${names(last.how.linear)} on Linear` : "", last.how.email?.length ? `${names(last.how.email)} by email` : ""].filter(Boolean).join(", ") : "";
+  const toggle = (id: string) => { setProblem(""); setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); };
+  const needsMail = /permission to send from Gmail|allowed to send yet/i.test(problem);
+  const send = async () => {
+    setBusy(true); setProblem("");
+    try {
+      const r = await api(`attention/${it.id}/alert`, { method: "POST", body: { people: picked, note } });
+      app.toast(r.warning || `Alert sent to ${names(r.to || [])}`);
+      setOpen(false); setPicked([]); setNote("");
+    } catch (e: any) { setProblem(e.message); } finally { setBusy(false); }
+  };
+  const allowMail = async () => {
+    setBusy(true);
+    try { const r = await api("connections/gmail", { method: "POST", body: { action: "connect", send: true } }); if (r?.redirect) window.location.href = r.redirect; else setProblem(r?.needs || "Connect Google on the Connections page first."); }
+    catch (e: any) { setProblem(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div>
+      <h3 className="t-head" style={{ marginBottom: 10 }}>Alert your team</h3>
+      {last && !open && <div className="sent" role="status"><span className="sent-tick"><Icon name="check" size={16} stroke={2.6} /></span><div><b>Alert sent to {names(last.to)}</b><span className="t-foot" style={{ display: "block" }}>{ago(last.at)}{how ? ` · ${how}` : ""}{last.note ? ` · "${last.note}"` : ""}</span></div></div>}
+      {!open ? <button className="btn tinted lg" style={{ width: "100%", marginTop: last ? 10 : 0 }} onClick={() => setOpen(true)}><Icon name="attention" size={17} />{last ? "Alert someone else" : "Alert your team"}</button> : (
+        <div className="inset" style={{ padding: 16 }}>
+          {!others.length ? <p className="t-foot">Add people on the Your team page first, then you can alert them here.</p> : <>
+            <div className="t-cap" style={{ marginBottom: 10 }}>Who should know? Pick one or more.</div>
+            <div className="pick-grid" role="group" aria-label="People to alert">
+              {others.map((p) => { const on = picked.includes(p.id); return (
+                <button key={p.id} type="button" role="checkbox" aria-checked={on} className={"pick" + (on ? " on" : "")} onClick={() => toggle(p.id)}>
+                  <Character look={p.look} size={40} still />
+                  <span style={{ minWidth: 0, flex: 1, textAlign: "left" }}><span style={{ display: "block", fontWeight: 680, fontSize: 14.5 }}>{p.name}</span><span className="t-cap" style={{ fontWeight: 500 }}>{p.role}</span></span>
+                  <span className="pick-box">{on && <Icon name="check" size={13} stroke={3} />}</span>
+                </button>
+              ); })}
+            </div>
+            <input className="input" style={{ marginTop: 12 }} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="Add a short note (optional)" aria-label="Note for the alert" />
+            {problem && <div className="problem" role="alert"><span>{problem}</span>{needsMail && <button type="button" className="btn sm" disabled={busy} onClick={allowMail}>Allow Gmail to send alerts</button>}</div>}
+            <div className="flex gap-2" style={{ marginTop: 12 }}>
+              <button className="btn primary lg" style={{ flex: 1 }} disabled={busy || !picked.length} onClick={send}><Icon name="send" size={15} />{busy ? "Sending" : picked.length ? `Send alert to ${picked.length} ${picked.length === 1 ? "person" : "people"}` : "Send alert"}</button>
+              <button className="btn lg" onClick={() => { setOpen(false); setProblem(""); }}>Cancel</button>
+            </div>
+            <p className="t-foot faint" style={{ marginTop: 10 }}>{it.sources.some((x: any) => x.tool === "linear") ? "They get a mention on the Linear ticket. Anyone not on Linear gets an email." : "They get a short email from your Gmail."}</p>
+          </>}
+        </div>
+      )}
     </div>
   );
 }
@@ -56,6 +134,8 @@ function FactorRow({ f, item, weight }: { f: any; item: any; weight: number }) {
 export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement | null; onClose: () => void }) {
   const app = useApp();
   const q = useApi("attention", { scope: "all" });
+  const teamQ = useApi("team");
+  const aiQ = useApi("ai/status");
   const ref = useRef<HTMLDivElement>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
   const [closing, setClosing] = useState(false);
@@ -88,7 +168,7 @@ export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement
     document.addEventListener("keydown", key, true); return () => document.removeEventListener("keydown", key, true);
   });
 
-  const act = async (action: string, body: any = {}, msg?: string, thenClose = false) => {
+  const act = async (action: string, body: any = {}, msg?: string, thenClose = false): Promise<void> => {
     setBusy(true);
     try { await api(`attention/${id}/${action}`, { method: "POST", body: { reason, ...body } }); if (msg) app.toast(msg); setReason(""); if (thenClose) close(); }
     catch (e: any) { app.toast(e.message); } finally { setBusy(false); }
@@ -98,6 +178,10 @@ export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement
   const isDone = it && (it.status !== "open" || it.dismissed);
   const snoozed = it?.snoozedUntil && it.snoozedUntil > Date.now();
   const mine = it?.waitingOn === "me";
+  const team: any[] = teamQ.data?.people || [];
+  const linear = it?.sources.some((x: any) => x.tool === "linear");
+  const src = it ? mainSource(it) : null;
+  const aiName = aiQ.data?.available ? ({ claude: "Claude Code", codex: "Codex" } as any)[aiQ.data.provider] || aiQ.data.provider : "Your AI";
 
   return (
     <>
@@ -105,6 +189,7 @@ export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement
       <div className="sheet" ref={ref} role="dialog" aria-modal="true" aria-label={it ? it.title : "Details"}>
         <div className="sheet-head">
           <span className="chip accent">{it ? (mine ? KIND[it.kind] : "Waiting on " + it.owner) : "Loading"}</span>
+          {src && <span className="chip"><Logo tool={src.tool} size={16} />{toolName(src.tool)}</span>}
           {it?.scopeLabel && <span className="chip">{it.scopeLabel}</span>}
           <span style={{ flex: 1 }} />
           <button ref={closeBtn} className="icon-btn" onClick={close} aria-label="Close details"><Icon name="x" size={18} /></button>
@@ -126,36 +211,21 @@ export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement
 
               {it.consequence && <div className="quote"><div className="t-cap" style={{ marginBottom: 4 }}>If this waits</div>{it.consequence}</div>}
 
-              <div>
-                <h3 className="t-head" style={{ marginBottom: 10 }}>Why is this here now?</h3>
-                <div className="inset" style={{ padding: 16, display: "flex", gap: 16, alignItems: "center" }}>
-                  <Ring value={it.score / it.maxScore} size={84} stroke={9} id={"s" + it.id}><div><div className="num" style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1 }}>{it.score}</div><div className="t-cap" style={{ fontSize: 10.5 }}>of {it.maxScore}</div></div></Ring>
-                  <div style={{ minWidth: 0 }}>
-                    {!it.complete && <span className="chip warn" style={{ marginBottom: 8 }}>Provisional score</span>}
-                    {it.pin != null && <div className="t-foot" style={{ marginBottom: 6 }}>You placed this by hand. The score is shown for reference only.</div>}
-                    <ul style={{ display: "grid", gap: 6 }}>{it.topReasons.map((r: string, i: number) => <li key={i} className="flex gap-2" style={{ fontSize: 14.5 }}><span style={{ color: "var(--accent)", flex: "none", marginTop: 2 }}><Icon name="check" size={15} stroke={2.2} /></span>{r}</li>)}</ul>
-                  </div>
-                </div>
-                <div className="inset group" style={{ marginTop: 10 }}>{q.data.factors.map((f: any) => <FactorRow key={f.key} f={f} item={it} weight={q.data.rubric.weights[f.key]} />)}</div>
-              </div>
+              {!it.complete && !isDone && q.data.factors.some((f: any) => it.factorsResolved[f.key] == null) && (
+                <div className="inset" style={{ padding: "2px 16px 14px" }}><Facts item={it} factors={q.data.factors} onSave={(facts) => act("facts", { facts }, "Saved")} busy={busy} /></div>
+              )}
 
-              <div>
-                <h3 className="t-head" style={{ marginBottom: 10 }}>Evidence</h3>
-                <div className="inset" style={{ padding: "14px 16px" }}>
-                  <div className="flex items-center gap-2 flex-wrap"><span className={"chip " + ev!.tone}>{ev!.label}</span><span className="t-foot">Last checked {ago(it.lastVerified)}</span></div>
-                  <p style={{ marginTop: 8, fontSize: 14.5 }}>{it.evidenceNote || ev!.text}</p>
-                  {it.missing && <p className="t-foot" style={{ marginTop: 8 }}><b style={{ color: "var(--text)" }}>Still missing:</b> {it.missing}.{it.verifyOwner ? ` ${it.verifyOwner} can confirm it.` : ""}</p>}
-                  {!it.complete && !isDone && <Facts item={it} factors={q.data.factors} onSave={(facts) => act("facts", { facts }, "Saved. The score is updated.")} busy={busy} />}
-                </div>
-              </div>
+              {linear && <LinearBlock it={it} team={team} ai={aiName} act={act} busy={busy} />}
+
+              {!isDone && <AlertBlock it={it} team={team} />}
 
               <div>
                 <h3 className="t-head" style={{ marginBottom: 10 }}>Sources{it.merged > 1 && <span className="t-foot" style={{ fontWeight: 500, marginLeft: 8 }}>{it.merged} records about the same thing, shown as one</span>}</h3>
                 <div className="inset group">
                   {it.sources.map((s: any, i: number) => (
                     <a key={i} className="row flush" href={s.url || "#"} target={s.url && s.url !== "#" ? "_blank" : undefined} rel="noreferrer" onClick={(e) => { if (!s.url || s.url === "#") { e.preventDefault(); app.toast("Sample data has no real source to open."); } }} style={{ minHeight: 48, padding: "10px 14px" }}>
-                      <span className="glyph" style={{ width: 28, height: 28 }}><Icon name={s.tool} size={15} /></span>
-                      <span className="row-main"><span style={{ fontSize: 14.5, fontWeight: 520 }}>{s.label}</span></span>
+                      <Logo tool={s.tool} size={30} />
+                      <span className="row-main"><span style={{ fontSize: 14.5, fontWeight: 560, display: "block" }}>{s.label}</span><span className="t-cap" style={{ fontWeight: 500 }}>{toolName(s.tool)}</span></span>
                       {s.ref && <span className="t-cap num">{s.ref}</span>}
                       <Icon name="external" size={15} className="chev" />
                     </a>
@@ -163,23 +233,6 @@ export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement
                 </div>
               </div>
 
-              {mine && !isDone && (
-                <div>
-                  <h3 className="t-head" style={{ marginBottom: 10 }}>Change the order</h3>
-                  <div className="inset" style={{ padding: 14 }}>
-                    <label className="t-foot" htmlFor="override-reason">Reason (optional, saved with the change)</label>
-                    <input id="override-reason" className="input" style={{ marginTop: 6 }} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="For example: promised it today" maxLength={120} />
-                    <div className="flex gap-2 flex-wrap" style={{ marginTop: 10 }}>
-                      {it.pin == null ? <button className="btn sm" disabled={busy} onClick={() => act("pin", {}, "Pinned to the top")}><Icon name="pin" size={15} />Pin to top</button> : <button className="btn sm" disabled={busy} onClick={() => act("unpin", {}, "Back to automatic order")}><Icon name="refresh" size={15} />Back to automatic order</button>}
-                      <button className="btn sm" disabled={busy} onClick={() => act("move", { dir: "up" }, "Moved up")}><Icon name="up" size={15} />Move up</button>
-                      <button className="btn sm" disabled={busy} onClick={() => act("move", { dir: "down" }, "Moved down")}><Icon name="arrowdown" size={15} />Move down</button>
-                    </div>
-                    {it.override && <p className="t-foot" style={{ marginTop: 10 }}>{it.override.action} by {it.override.by}, {ago(it.override.at)}{it.override.why ? `: "${it.override.why}"` : ""}.</p>}
-                  </div>
-                </div>
-              )}
-
-              <p className="t-foot faint">Ranking only suggests an order. Nothing is sent, approved or changed until you do it yourself. Scoring rules version {q.data.rubric.version}, set by your {q.data.rubric.owner}. Last calculated {ago(q.data.calculatedAt)}. Item {it.id}, owner {it.owner}.</p>
             </div>
           )}
         </div>

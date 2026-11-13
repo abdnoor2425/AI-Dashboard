@@ -318,6 +318,23 @@ export function handle(state: State, req: Req): Res {
           ws.items.filter((i: any) => i.id === id || (it.actionKey && i.actionKey === it.actionKey)).forEach((i: any) => (i.pin = n));
         });
         log(body.dir === "up" ? "Moved up" : "Moved down");
+      }
+      else if (c === "comment") {
+        const text = String(body.text || "").trim().slice(0, 2000);
+        const src = target.sources.find((x: any) => x.tool === "linear");
+        if (!src) return bad("Comments go to Linear, and this did not come from Linear.");
+        if (text.length < 2) return bad("Write a short comment first.");
+        target.comments = [...(target.comments || []), { text, by, at: now, ref: src.ref, via: String(body.via || "Linear").slice(0, 40) }];
+        return ok({ ok: true, ref: src.ref }, true);
+      }
+      else if (c === "alert") {
+        const team: any[] = Array.isArray(ws.team) ? ws.team : [];
+        const to = team.filter((p, n) => n > 0 && Array.isArray(body.people) && body.people.includes(p.id));
+        if (!to.length) return bad("Pick at least one person to alert.");
+        const linear = target.sources.some((x: any) => x.tool === "linear");
+        const how = body.how && typeof body.how === "object" ? { linear: [].concat(body.how.linear || []).map(String), email: [].concat(body.how.email || []).map(String) } : linear ? { linear: to.map((p) => p.name), email: [] } : { linear: [], email: to.map((p) => p.name) };
+        target.alerts = [...(target.alerts || []), { to: to.map((p) => p.name), note: String(body.note || "").trim().slice(0, 300), by, at: now, how }];
+        return ok({ ok: true, to: to.map((p) => p.name), how }, true);
       } else return bad("Unknown action");
       return ok({ ok: true }, true);
     }
@@ -420,6 +437,7 @@ export function handle(state: State, req: Req): Res {
         glasses: l?.glasses == null ? !!old.glasses : !!l.glasses,
       };
     };
+    const mail = (v: any) => { const m = text(v, 120); return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m) ? m : ""; };
     const below = (id: string): string[] => team.filter((p) => p.parent === id).flatMap((p) => [p.id, ...below(p.id)]);
     if (post) {
       const leader = team[0];
@@ -427,7 +445,7 @@ export function handle(state: State, req: Req): Res {
         if (team.length >= 24) return bad("A team here can hold 24 people.");
         const name = text(body.name, 40);
         if (!name) return bad("Give this person a name.");
-        const person = { id: "p" + (Math.max(0, ...team.map((p) => Number(String(p.id).slice(1)) || 0)) + 1), name, role: text(body.role, 40) || "Team member", parent: team.some((p) => p.id === body.parent) ? body.parent : leader.id, look: look(body.look) };
+        const person = { id: "p" + (Math.max(0, ...team.map((p) => Number(String(p.id).slice(1)) || 0)) + 1), name, email: mail(body.email), role: text(body.role, 40) || "Team member", parent: team.some((p) => p.id === body.parent) ? body.parent : leader.id, look: look(body.look) };
         team.push(person);
         return ok(person, true);
       }
@@ -444,6 +462,7 @@ export function handle(state: State, req: Req): Res {
         if (body.role != null) p.role = text(body.role, 40) || "Team member";
         if (body.parent != null && body.parent !== p.id && team.some((x) => x.id === body.parent) && !below(p.id).includes(body.parent)) p.parent = body.parent;
       }
+      if (body.email != null) p.email = mail(body.email);
       if (body.look) p.look = look(body.look, p.look);
       return ok(p, true);
     }

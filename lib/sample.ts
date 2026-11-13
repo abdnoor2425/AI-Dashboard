@@ -65,7 +65,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-001", actionKey: "platewise-launch-post", kind: "approval", title: "Approve the Platewise launch post", nextStep: "Read the final cut and approve or send notes",
       scope: "site:platewise", scopeLabel: "Platewise", owner: "Sam", waitingOn: "me", due: t(0, 17), tz: "local",
       consequence: "The post misses tonight's slot and the launch moves to next week.",
-      sources: [S("linear", "PLT-212 Launch post, final cut", "PLT-212")], evidence: "verified", lastVerified: now - 40 * 60000,
+      sources: [S("linear", "PLT-212 Launch post, final cut", "PLT-212")], assignee: "Kenneth", assignedByMe: true, evidence: "verified", lastVerified: now - 40 * 60000,
       factors: { impact: 4, unblocks: 4, alignment: 5 }, why: { unblocks: "Kenneth cannot schedule the post until you approve it.", alignment: "The Platewise launch is this quarter's top goal." }, status: "open",
     },
     {
@@ -85,7 +85,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-004", kind: "decision", title: "Decide the first-quarter ad budget", nextStep: "Pick one of the three budget options Nancy prepared",
       scope: null, owner: "Sam", waitingOn: "me", due: t(4, 18), tz: "local",
       consequence: "Campaign bookings for January close at the end of next week.",
-      sources: [S("drive", "Q1 ad budget options (sheet)", "drv-221"), S("linear", "OPS-41 Decide Q1 ad budget", "OPS-41")], evidence: "verified", lastVerified: now - 5 * HOUR,
+      sources: [S("drive", "Q1 ad budget options (sheet)", "drv-221"), S("linear", "OPS-41 Decide Q1 ad budget", "OPS-41")], assignee: "Abdullah", assignedByMe: true, evidence: "verified", lastVerified: now - 5 * HOUR,
       factors: { impact: 4, unblocks: 3, alignment: 5 }, status: "open",
     },
     {
@@ -107,7 +107,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-007", kind: "approval", title: "Sign off the Lumen Dental homepage", nextStep: "Check the three fixes on the staging link and approve",
       scope: "client:lumen", scopeLabel: "Lumen Dental", owner: "Sam", waitingOn: "me", due: t(2, 15),
       consequence: "Dr. Shah was promised the new homepage by Friday.",
-      sources: [S("linear", "LUM-77 Homepage fixes ready for review", "LUM-77")], evidence: "verified", lastVerified: now - 3 * HOUR,
+      sources: [S("linear", "LUM-77 Homepage fixes ready for review", "LUM-77")], assignee: "Abdullah", assignedByMe: true, evidence: "verified", lastVerified: now - 3 * HOUR,
       factors: { impact: 3, unblocks: 4, alignment: 3 }, status: "open",
     },
     {
@@ -418,7 +418,7 @@ function connections(now: number, sitesList: any[]) {
     { id: "gmail", tool: "gmail", name: "Gmail", status: "connected", account: "sam@example.com", detail: "Reads subject lines and senders to find replies you owe", lastSync: now - 6 * 60000, auth: "google", gives: "Emails that need a reply" },
     { id: "calendar", tool: "calendar", name: "Google Calendar", status: "off", account: "", detail: "Not connected", lastSync: null, auth: "google", gives: "Optional. Meetings and deadlines for the week" },
     { id: "drive", tool: "drive", name: "Google Drive", status: "connected", account: "sam@example.com", detail: "Read only, recent files", lastSync: now - 30 * 60000, auth: "google", gives: "Recent files and finished documents" },
-    { id: "linear", tool: "linear", name: "Linear", status: "connected", account: "Sample workspace", detail: "Read only", lastSync: now - 9 * 60000, auth: "oauth", gives: "Tasks, approvals and goals links" },
+    { id: "linear", tool: "linear", name: "Linear", status: "connected", account: "Sample workspace", detail: "Reads your tickets. Writes only the comments you send", lastSync: now - 9 * 60000, auth: "oauth", gives: "Tasks, approvals and goals links" },
     { id: "slack", tool: "slack", name: "Slack", status: "error", account: "Sample workspace", detail: "Sign-in expired 2 days ago. Sign in again to resume.", lastSync: now - 2 * DAY, auth: "oauth", gives: "Messages that mention you" },
     { id: "sheets", tool: "sheets", name: "Reel scorecard sheet", status: "manual", account: "Uploaded file", detail: "Updated by hand. Last import 9 hours ago.", lastSync: now - 9 * HOUR, auth: "file", gives: "Reel scores and PASS or HOLD" },
     { id: "billing", tool: "billing", name: "Billing tool", status: "off", account: "", detail: "Not connected", lastSync: null, auth: "token", gives: "Recurring revenue" },
@@ -448,8 +448,8 @@ export function starterTeam(owner: string, sample: boolean) {
   if (!sample) return [leader];
   return [
     leader,
-    { id: "p2", name: "Abdullah", role: "AI Specialist", parent: "p1", look: { skin: 2, hair: "short", hairColor: 0, beard: "short", glasses: false, top: 1 } },
-    { id: "p3", name: "Kenneth", role: "Socials Specialist", parent: "p1", look: { skin: 5, hair: "crop", hairColor: 0, beard: "none", glasses: false, top: 2 } },
+    { id: "p2", name: "Abdullah", email: "abdullah@example.com", role: "AI Specialist", parent: "p1", look: { skin: 2, hair: "short", hairColor: 0, beard: "short", glasses: false, top: 1 } },
+    { id: "p3", name: "Kenneth", email: "kenneth@example.com", role: "Socials Specialist", parent: "p1", look: { skin: 5, hair: "crop", hairColor: 0, beard: "none", glasses: false, top: 2 } },
   ];
 }
 

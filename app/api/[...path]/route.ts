@@ -3,7 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handle, activeWs } from "@/lib/api";
 import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib/server/store";
-import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, redirectUri } from "@/lib/server/google";
+import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, redirectUri, sendMail } from "@/lib/server/google";
+import { linearAlert, linearComment } from "@/lib/server/linear";
 import { isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
 
@@ -118,7 +119,8 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       if (GOOGLE_TOOLS.includes(b)) {
         if (body.clientId && body.clientSecret) setSecrets(ws.id, { google: { ...g, clientId: String(body.clientId).trim(), clientSecret: String(body.clientSecret).trim() } });
         if (b === "calendar") { ws.modules.calendar = true; saveState(); }
-        const to = googleAuthUrl(ws.id, origin, ws.modules?.calendar === true);
+        if (body.send === true) { ws.modules.mailSend = true; saveState(); }
+        const to = googleAuthUrl(ws.id, origin, ws.modules?.calendar === true, ws.modules?.mailSend === true);
         return json(to ? { redirect: to } : { needs: "Add your Google client ID and secret first." });
       }
       if (!body.token) return json({ needs: `Paste your ${cn.name} token first.` });
@@ -130,6 +132,56 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       return json(cn, cn.status === "error" ? 400 : 200);
     }
     if (b === "brands") { const res = pass(); await syncWorkspace(ws, now, "metricool"); return json(res.data, res.status); }
+  }
+
+  // --- Comments and alerts you send yourself (sample workspaces only pretend, and say so) ---
+  if (a === "attention" && post && b && (c === "comment" || c === "alert") && !ws.sample) {
+    const item = ws.items.find((i: any) => i.id === b);
+    if (!item) return json({ error: "No such item" }, 404);
+    const issueId = String(item.id).startsWith("lin-") ? String(item.id).slice(4) : null;
+    const me = ws.setup?.about?.name || ws.owner || "The owner";
+    try {
+      if (c === "comment") {
+        const text = String(body.text || "").trim().slice(0, 2000);
+        if (!issueId) return json({ error: "Comments go to Linear, and this did not come from Linear." }, 400);
+        if (text.length < 2) return json({ error: "Write a short comment first." }, 400);
+        await linearComment(ws.id, issueId, text);
+        body.via = body.via || "Linear";
+      } else {
+        const team: any[] = Array.isArray(ws.team) ? ws.team : [];
+        const picked = team.filter((p, n) => n > 0 && Array.isArray(body.people) && body.people.includes(p.id));
+        if (!picked.length) return json({ error: "Pick at least one person to alert." }, 400);
+        const note = String(body.note || "").trim().slice(0, 300);
+        let byLinear: string[] = [], rest = picked;
+        const people = picked.map((p) => ({ name: p.name, email: p.email }));
+        if (issueId) {
+          // Look first, send second: nothing goes out until every picked person can be reached.
+          const r = await linearAlert(ws.id, issueId, people, note, me, true);
+          byLinear = r.reached; rest = picked.filter((p) => r.missing.includes(p.name));
+        }
+        if (rest.length) {
+          const noMail = rest.filter((p) => !p.email).map((p) => p.name);
+          if (noMail.length) return json({ error: `${noMail.join(" and ")} ${issueId ? "could not be found in Linear. Add an email" : "needs an email"} on the Your team page, so the alert can go by email.` }, 400);
+          if (ws.modules?.mailSend !== true) return json({ error: "Email alerts need your permission to send from Gmail.", needs: "mail" }, 400);
+        }
+        if (byLinear.length) await linearAlert(ws.id, issueId as string, people.filter((p) => byLinear.includes(p.name)), note, me);
+        if (rest.length) {
+          const src = (item.sources || [])[0];
+          const parts = [`Hi ${rest.map((p) => p.name).join(" and ")},`, `${me} would like you to look at this:`, [item.title, item.nextStep ? "Next step: " + item.nextStep : "", item.scopeLabel ? "For: " + item.scopeLabel : "", src ? `From: ${src.label}${src.url && src.url !== "#" ? " " + src.url : ""}` : ""].filter(Boolean).join("\n"), note ? `Note from ${me}: ${note}` : "", `Sent from ${me}'s dashboard.`].filter(Boolean);
+          try { await sendMail(ws.id, rest.map((p) => p.email), `${me} needs you on: ${item.title}`.slice(0, 140), parts.join("\n\n")); }
+          catch (e: any) {
+            if (!byLinear.length) return json({ error: String(e?.message || e), needs: /allow/i.test(String(e?.message)) ? "mail" : undefined }, 400);
+            // Linear already went out: record that part, and say plainly that the email did not.
+            body.people = picked.filter((p) => byLinear.includes(p.name)).map((p) => p.id); body.how = { linear: byLinear, email: [] };
+            const part = pass();
+            return json({ ...part.data, warning: `${byLinear.join(" and ")} was alerted on Linear. The email to ${rest.map((p) => p.name).join(" and ")} did not send: ${String(e?.message || e)}` }, part.status);
+          }
+        }
+        body.how = { linear: byLinear, email: rest.map((p) => p.name) };
+      }
+    } catch (e: any) { return json({ error: String(e?.message || e).slice(0, 200) }, 400); }
+    const res = pass();
+    return json(res.data, res.status);
   }
 
   // --- Housekeeping around the shared router ---

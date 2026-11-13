@@ -64,7 +64,7 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
       <dl className="facts inset" style={{ padding: 18 }}>
         <div><dt>Gives you</dt><dd>{c.gives}</dd></div>
         <div><dt>Account</dt><dd>{c.account || "None yet"}</dd></div>
-        <div><dt>Access</dt><dd>Read only</dd></div>
+        <div><dt>Access</dt><dd>{c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
         <div><dt>How it connects</dt><dd>{HOW[c.auth] || HOW.oauth}</dd></div>
       </dl>
       {needsKeys && (
@@ -143,7 +143,7 @@ export default function Connections() {
   }, []);
   const confirm = async (b: any) => { try { await api("connections/brands", { method: "POST", body: { siteId: b.siteId, confirmed: true } }); app.toast(`${b.site} matched`); } catch (e: any) { app.toast(e.message); } };
   return (
-    <Page title="Connections" sub="Each person connects their own tools. Everything stays on this laptop, and every connection is read only." actions={<SampleTag show={app.boot.workspace.sample} />}>
+    <Page title="Connections" sub="Each person connects their own tools. Everything stays on this laptop. The dashboard only reads, apart from comments and alerts you send yourself." actions={<SampleTag show={app.boot.workspace.sample} />}>
       <div className="stack">
         <Section><AiCard /></Section>
         <Load q={q} skeleton={<SkelCards n={6} h={190} cols="tool-grid" />}>

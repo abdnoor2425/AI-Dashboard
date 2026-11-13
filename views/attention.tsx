@@ -44,7 +44,7 @@ export default function Attention() {
     done: "Finished or dismissed. You can put any of them back.",
   };
   return (
-    <Page title="Needs your attention" sub={all ? "Ranked so the right things come first. Tap any card to see why it is there." : `For ${app.scopeLabel}. Tap any card to see why it is there.`} actions={<><SampleTag show={q.data?.sample} /><button className="btn tinted" onClick={() => setAdding((a) => !a)}><Icon name="plus" size={16} />Add</button></>}>
+    <Page title="Needs your attention" sub={all ? "Ranked so the right things come first. Each one shows where it came from. Tap a card to act on it." : `For ${app.scopeLabel}. Each one shows where it came from. Tap a card to act on it.`} actions={<><SampleTag show={q.data?.sample} /><button className="btn tinted" onClick={() => setAdding((a) => !a)}><Icon name="plus" size={16} />Add</button></>}>
       <Load q={q} skeleton={<SkelRows n={7} />}>
         {(d) => {
           const list = d[tab] as any[];

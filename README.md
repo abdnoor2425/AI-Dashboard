@@ -59,11 +59,11 @@ The rules live in `lib/scoring.ts` and are covered by `npm test`.
 
 ## Connect your tools
 
-Open **Connections**. Everything is read only, and sign-ins are saved in `.keystone/secrets.json` on your laptop, apart from your data.
+Open **Connections**. The dashboard only reads from your tools, apart from the comments and alerts you choose to send (see below), and sign-ins are saved in `.keystone/secrets.json` on your laptop, apart from your data.
 
 **Google (Analytics, Gmail, Drive)** uses one sign-in with your own Google OAuth client, so no shared key ships with this app:
 
-1. In [Google Cloud Console](https://console.cloud.google.com), make a project and enable the Google Analytics Admin, Google Analytics Data, Gmail and Drive APIs. The Calendar page is off by default; if you switch it on in Settings, enable the Calendar API too and sign in again.
+1. In [Google Cloud Console](https://console.cloud.google.com), make a project and enable the Google Analytics Admin, Google Analytics Data, Gmail and Drive APIs. Google Calendar is optional: connect it from Connections if you want it, and enable the Calendar API first.
 2. Under "Credentials", create an OAuth client ID of type "Web application".
 3. Add the return address shown on the Connections page (`http://localhost:3210/api/oauth/google/callback`).
 4. Paste the client ID and secret into Connections and sign in.
@@ -84,18 +84,29 @@ Being straight about this matters more than looking finished:
 - The reel scorecard checks in the sample data are placeholders. Swap in your own scorecard's names.
 - The Second Brain is planned for later.
 
+## Your team, comments and alerts
+
+**Your team** shows who leads and who does what. The first person is always The Leader; everyone else can have any name, role, place in the tree and character. Add an email to a person if you want alerts to be able to reach them by email.
+
+Open any item on **Attention** to act on it:
+
+- **Comment on Linear.** When an item comes from Linear you see who the ticket is assigned to, and a box that posts your comment straight onto the ticket with your saved Linear key. If you created the key as read only, make a new one that can write.
+- **Alert your team.** Pick one or more people. On a Linear ticket each person is subscribed and mentioned in a comment, so Linear notifies them. Anyone not found in Linear, and every alert on an item from another tool, goes by email from your Gmail. The first time, the dashboard asks you to allow Gmail to send; until you do, it cannot send anything.
+
+Nothing is sent unless you press the button yourself.
+
 ## Ask your own AI plan
 
 **In the app:** press Cmd K (or Ctrl K), type a question and choose "Ask your AI". If the `claude` or `codex` command is installed on this laptop, the dashboard hands it your question with the numbers on screen and shows the answer. If neither is installed, simple built-in rules answer instead, and say so.
 
-**In your terminal:** give Claude Code or Codex read-only access to the dashboard. Run one line once (the Connections page shows it with your real path):
+**In your terminal:** give Claude Code or Codex access to the dashboard. Run one line once (the Connections page shows it with your real path):
 
 ```bash
 claude mcp add keystone -- node /full/path/to/keystone/mcp/server.mjs
 codex  mcp add keystone -- node /full/path/to/keystone/mcp/server.mjs
 ```
 
-Then ask things like "What needs my attention today?" or "Which reels are on hold and why?". The dashboard has to be running. The AI can read every page, and it cannot change anything.
+Then ask things like "What needs my attention today?" or "Which reels are on hold and why?". The dashboard has to be running. The AI can read every page. It can also do two things when you ask it to: post a comment on a Linear ticket ("Comment on PLT-212 that the cut is approved") and alert people on your team about an item.
 
 ## Workspaces
 
