@@ -117,6 +117,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       }
       if (GOOGLE_TOOLS.includes(b)) {
         if (body.clientId && body.clientSecret) setSecrets(ws.id, { google: { ...g, clientId: String(body.clientId).trim(), clientSecret: String(body.clientSecret).trim() } });
+        if (b === "calendar") { ws.modules.calendar = true; saveState(); }
         const to = googleAuthUrl(ws.id, origin, ws.modules?.calendar === true);
         return json(to ? { redirect: to } : { needs: "Add your Google client ID and secret first." });
       }

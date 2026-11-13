@@ -149,7 +149,7 @@ export default function Connections() {
         <Load q={q} skeleton={<SkelCards n={6} h={190} cols="tool-grid" />}>
           {(d) => {
             // Calendar is hidden unless its page is switched on in Settings.
-            const shown = d.connections.filter((c: any) => c.id !== "calendar" || app.boot.workspace.modules.calendar === true);
+            const shown = d.connections;
             const order = (c: any) => (c.status === "error" ? 0 : c.status === "connected" || c.status === "manual" ? 1 : c.auth === "soon" ? 3 : 2);
             const tools = [...shown].sort((x: any, y: any) => order(x) - order(y));
             const waiting = d.brands.filter((b: any) => !b.confirmed);

@@ -70,7 +70,7 @@ function Sidebar({ boot, page, open, onNavigate, collapsed, onToggle }: { boot: 
   const navRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<number | null>(null);
   const router = useRouter();
-  const mods = boot.modulesList.filter((m: any) => boot.workspace.modules[m.id] !== false && !(m.id === "clients" && !boot.clients.length));
+  const mods = boot.modulesList.filter((m: any) => boot.workspace.modules[m.id] !== false);
   const badge: Record<string, number> = { attention: boot.counts.attention, suggestions: boot.counts.suggestions, inbox: boot.counts.inbox };
   useIso(() => { const el = navRef.current?.querySelector<HTMLElement>(".nav-item.active"); setPill(el ? el.offsetTop : null); }, [page, mods.length, collapsed]);
   const item = (m: any) => (
@@ -126,7 +126,6 @@ function ScopePicker({ boot, scope, setScope }: { boot: any; scope: Scope; setSc
       </button>
     )}>
       {(close) => <>
-        {boot.clients.length > 0 && <div className="show-sm" style={{ padding: "4px 4px 8px" }}><Segmented label="View" value={scope.mode} onChange={(m) => setScope({ mode: m, id: "all" })} options={[{ value: "sites", label: "My websites" }, { value: "clients", label: "Clients" }]} /></div>}
         <div className="menu-label">{scope.mode === "sites" ? "From Google Analytics" : "Your clients"}</div>
         <button role="menuitem" className={"menu-item" + (scope.id === "all" ? " on" : "")} onClick={() => { setScope({ mode: scope.mode, id: "all" }); close(); }}><span className="glyph" style={{ width: 28, height: 28 }}><Icon name={scope.mode === "sites" ? "website" : "clients"} size={15} /></span><span style={{ flex: 1 }}>{allLabel}</span>{scope.id === "all" && <Icon name="check" size={16} />}</button>
         {list.map((x: any) => (
@@ -236,7 +235,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!boot) return;
     const list = scope.mode === "sites" ? boot.sites : boot.clients;
-    if ((scope.mode === "clients" && !boot.clients.length) || (scope.id !== "all" && !list.some((x: any) => x.id === scope.id))) setScopeState({ mode: boot.clients.length ? scope.mode : "sites", id: "all" });
+    if (scope.mode === "clients" || (scope.id !== "all" && !list.some((x: any) => x.id === scope.id))) setScopeState({ mode: "sites", id: "all" });
   }, [boot?.workspace?.id, boot?.sites?.length]);
 
   // Accent colour and theme follow the workspace settings.
@@ -309,7 +308,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className={"topbar-title" + (titleShown ? " show" : "")} aria-hidden={!titleShown}>{title}</div>
               <span style={{ flex: 1 }} />
               <span className={"sync-pill hide-sm" + (syncing ? "" : " gone")} role="status" aria-live="polite">{syncing === "Up to date" ? <span style={{ color: "var(--good)", display: "flex" }}><Icon name="check" size={14} stroke={2.4} /></span> : <span className="spinner" />}{syncing || "Up to date"}</span>
-              {boot.clients.length > 0 && <Segmented className="hide-sm" label="View" value={scope.mode} onChange={(m) => setScope({ mode: m, id: "all" })} options={[{ value: "sites", label: "My websites" }, { value: "clients", label: "Clients" }]} />}
               <ScopePicker boot={boot} scope={scope} setScope={setScope} />
               <button className="btn hide-sm" style={{ color: "var(--text-2)", fontWeight: 500, gap: 10 }} onClick={() => setPalette(true)} aria-label="Search or ask (Command K)"><Icon name="search" size={16} />Search<span className="kbd">⌘K</span></button>
               <button className="icon-btn show-sm" onClick={() => setPalette(true)} aria-label="Search or ask"><Icon name="search" size={19} /></button>

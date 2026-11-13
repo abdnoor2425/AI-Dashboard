@@ -4,7 +4,7 @@
 import { DAY, HOUR, hash, pct, rng, series, startOfDay, sum } from "./rand.ts";
 import { buildQueue, FACTORS } from "./scoring.ts";
 import type { Scored } from "./scoring.ts";
-import { ACCENTS, MODULES, NETWORK_BASE, makeState, makeWorkspace } from "./sample.ts";
+import { ACCENTS, MODULES, NETWORK_BASE, makeState, makeWorkspace, starterTeam } from "./sample.ts";
 
 export type State = ReturnType<typeof makeState>;
 export interface Req { method: string; path: string; query?: Record<string, string>; body?: any; now?: number }
@@ -21,6 +21,7 @@ export const ENDPOINTS = [
   ["social", "Metricool followers, reach, best post and schedule (?site=)"],
   ["reels", "Reel scores: hooks, PASS or HOLD, and results at 24h, 72h and 7 days"],
   ["goals", "Objectives, key results, owners and check-ins"],
+  ["team", "Your team: the leader first, then everyone else with a name, a role and who they work under"],
   ["metrics", "The metric catalogue with definitions, targets, sources and freshness"],
   ["decisions", "Decision Room sessions"],
   ["clients", "All clients: replies owed, approvals waiting and what is due"],
@@ -406,6 +407,49 @@ export function handle(state: State, req: Req): Res {
     return ok({ reels: list, rubric: "v1.2", hold: list.filter((r: any) => r.final.verdict === "HOLD").length, pass: list.filter((r: any) => r.final.verdict === "PASS").length, note: "Scores judge the edit. They do not predict how far a reel will travel.", sample: ws.sample });
   }
 
+  if (a === "team") {
+    if (!Array.isArray(ws.team) || !ws.team.length) ws.team = starterTeam(ws.setup?.about?.name, !!ws.sample);
+    const team: any[] = ws.team;
+    const text = (v: any, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+    const look = (l: any, old: any = {}) => {
+      const n = (v: any, max: number, d: number) => (Number.isInteger(v) && v >= 0 && v <= max ? v : d);
+      return {
+        skin: n(l?.skin, 5, old.skin ?? 1), hairColor: n(l?.hairColor, 6, old.hairColor ?? 1), top: n(l?.top, 5, old.top ?? 0),
+        hair: ["short", "swept", "crop", "curly", "long", "bun", "none"].includes(l?.hair) ? l.hair : old.hair || "short",
+        beard: ["none", "short", "full"].includes(l?.beard) ? l.beard : old.beard || "none",
+        glasses: l?.glasses == null ? !!old.glasses : !!l.glasses,
+      };
+    };
+    const below = (id: string): string[] => team.filter((p) => p.parent === id).flatMap((p) => [p.id, ...below(p.id)]);
+    if (post) {
+      const leader = team[0];
+      if (!b) {
+        if (team.length >= 24) return bad("A team here can hold 24 people.");
+        const name = text(body.name, 40);
+        if (!name) return bad("Give this person a name.");
+        const person = { id: "p" + (Math.max(0, ...team.map((p) => Number(String(p.id).slice(1)) || 0)) + 1), name, role: text(body.role, 40) || "Team member", parent: team.some((p) => p.id === body.parent) ? body.parent : leader.id, look: look(body.look) };
+        team.push(person);
+        return ok(person, true);
+      }
+      const p = team.find((x) => x.id === b);
+      if (!p) return bad("No such person", 404);
+      if (body.action === "remove") {
+        if (p === leader) return bad("The leader stays. Change the name instead.");
+        team.forEach((x) => { if (x.parent === p.id) x.parent = p.parent; });
+        ws.team = team.filter((x) => x !== p);
+        return ok({ ok: true }, true);
+      }
+      if (body.name != null) { const name = text(body.name, 40); if (!name) return bad("Give this person a name."); p.name = name; }
+      if (p !== leader) {
+        if (body.role != null) p.role = text(body.role, 40) || "Team member";
+        if (body.parent != null && body.parent !== p.id && team.some((x) => x.id === body.parent) && !below(p.id).includes(body.parent)) p.parent = body.parent;
+      }
+      if (body.look) p.look = look(body.look, p.look);
+      return ok(p, true);
+    }
+    return ok({ people: team.map((p, n) => ({ ...p, leader: n === 0 })), sample: ws.sample });
+  }
+
   if (a === "goals") {
     if (post && b === "checkin") {
       for (const g of ws.goals) for (const k of g.krs) if (k.id === body.krId) {
@@ -484,6 +528,7 @@ export function handle(state: State, req: Req): Res {
     if (post && b) {
       const cn = ws.connections.find((x: any) => x.id === b);
       if (!cn) return bad("No such connection", 404);
+      if (b === "calendar") ws.modules.calendar = body.action !== "disconnect";
       if (body.action === "disconnect") { cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; }
       else { cn.status = "connected"; cn.detail = ws.sample ? "Connected (sample data)" : "Connected"; cn.lastSync = now; cn.account = cn.account || (cn.auth === "token" ? "Token saved on this laptop" : "Signed in"); }
       return ok(cn, true);
@@ -560,14 +605,9 @@ export function handle(state: State, req: Req): Res {
     const out: any[] = [];
     MODULES.forEach((m) => hit(m.label) && ws.modules[m.id] !== false && out.push({ type: "Page", title: m.label, href: m.id }));
     ws.sites.forEach((s: any) => (hit(s.name) || hit(s.domain)) && out.push({ type: "Website", title: s.name, sub: s.domain, href: "website", site: s.id }));
-    ws.clients.forEach((cl: any) => hit(cl.name) && out.push({ type: "Client", title: cl.name, sub: cl.sub, href: "clients", client: cl.id }));
     queueFor(ws, "all", now).needsYou.forEach((i) => hit(i.title) && out.push({ type: "Needs you", title: i.title, sub: i.nextStep, href: "attention", item: i.id }));
-    ws.goals.forEach((g: any) => hit(g.title) && out.push({ type: "Goal", title: g.title, href: "goals" }));
     ws.metrics.forEach((m: any) => hit(m.name) && out.push({ type: "Metric", title: m.name, sub: m.scopeLabel, href: "metrics" }));
-    ws.outputs.forEach((o: any) => hit(o.title) && out.push({ type: "Output", title: o.title, sub: o.scopeLabel, href: "outputs" }));
     ws.files.forEach((f: any) => hit(f.name) && out.push({ type: "File", title: f.name, sub: f.owner, href: "files" }));
-    ws.decisions.forEach((d: any) => hit(d.question) && out.push({ type: "Decision", title: d.question, href: "decisions" }));
-    ws.skills.forEach((s: any) => hit(s.name) && out.push({ type: "Skill", title: s.name, href: "skills" }));
     return ok({ results: out.slice(0, 12) });
   }
 

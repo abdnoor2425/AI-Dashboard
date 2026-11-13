@@ -59,5 +59,5 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
 }
 
 export function markGoogle(ws: any, status: "connected" | "off", account = "") {
-  for (const c of ws.connections) if (GOOGLE_TOOLS.includes(c.id)) { c.status = status; c.account = account; c.detail = status === "connected" ? "Signed in. Fetching for the first time." : "Not connected"; if (status === "off") c.lastSync = null; }
+  for (const c of ws.connections) if (GOOGLE_TOOLS.includes(c.id) && (c.id !== "calendar" || status === "off" || ws.modules?.calendar === true)) { c.status = status; c.account = account; c.detail = status === "connected" ? "Signed in. Fetching for the first time." : "Not connected"; if (status === "off") c.lastSync = null; }
 }

@@ -21,16 +21,10 @@ export const MODULES: { id: string; label: string; group: "main" | "more"; core?
   { id: "website", label: "Website", group: "main" },
   { id: "social", label: "Social", group: "main" },
   { id: "reels", label: "Reel scores", group: "main" },
-  { id: "goals", label: "Goals", group: "main" },
   { id: "metrics", label: "Metrics", group: "main" },
-  { id: "decisions", label: "Decision Room", group: "main" },
-  { id: "clients", label: "Clients", group: "main" },
+  { id: "team", label: "Your team", group: "main" },
   { id: "inbox", label: "Inbox", group: "more" },
-  { id: "calendar", label: "Calendar", group: "more" },
   { id: "files", label: "Files", group: "more" },
-  { id: "outputs", label: "Outputs", group: "more" },
-  { id: "skills", label: "Skills", group: "more" },
-  { id: "suggestions", label: "Suggestions", group: "more" },
   { id: "usage", label: "AI usage", group: "more" },
   { id: "connections", label: "Connections", group: "more", core: true },
   { id: "setup", label: "Setup", group: "more", core: true },
@@ -422,7 +416,7 @@ function connections(now: number, sitesList: any[]) {
     { id: "google-analytics", tool: "analytics", name: "Google Analytics", status: "connected", account: "sam@example.com", detail: `${sitesList.length} websites found`, lastSync: now - 12 * 60000, auth: "google", gives: "Your website list, visitors, leads and top pages" },
     { id: "metricool", tool: "metricool", name: "Metricool", status: "connected", account: "Advanced plan", detail: `${sitesList.filter((s) => s.metricoolBrand.confirmed).length} of ${sitesList.length} brands confirmed`, lastSync: now - 18 * 60000, auth: "token", gives: "Followers, reach, posts and reels for each website" },
     { id: "gmail", tool: "gmail", name: "Gmail", status: "connected", account: "sam@example.com", detail: "Reads subject lines and senders to find replies you owe", lastSync: now - 6 * 60000, auth: "google", gives: "Emails that need a reply" },
-    { id: "calendar", tool: "calendar", name: "Google Calendar", status: "connected", account: "sam@example.com", detail: "Read only", lastSync: now - 6 * 60000, auth: "google", gives: "Meetings and deadlines" },
+    { id: "calendar", tool: "calendar", name: "Google Calendar", status: "off", account: "", detail: "Not connected", lastSync: null, auth: "google", gives: "Optional. Meetings and deadlines for the week" },
     { id: "drive", tool: "drive", name: "Google Drive", status: "connected", account: "sam@example.com", detail: "Read only, recent files", lastSync: now - 30 * 60000, auth: "google", gives: "Recent files and finished documents" },
     { id: "linear", tool: "linear", name: "Linear", status: "connected", account: "Sample workspace", detail: "Read only", lastSync: now - 9 * 60000, auth: "oauth", gives: "Tasks, approvals and goals links" },
     { id: "slack", tool: "slack", name: "Slack", status: "error", account: "Sample workspace", detail: "Sign-in expired 2 days ago. Sign in again to resume.", lastSync: now - 2 * DAY, auth: "oauth", gives: "Messages that mention you" },
@@ -448,6 +442,17 @@ export function realConnections() {
   ];
 }
 
+/** The starting team. The first person is always the leader; everyone else can hold any role. */
+export function starterTeam(owner: string, sample: boolean) {
+  const leader = { id: "p1", name: owner || "You", role: "The Leader", parent: null as string | null, look: { skin: 0, hair: "swept", hairColor: 3, beard: "none", glasses: false, top: 0 } };
+  if (!sample) return [leader];
+  return [
+    leader,
+    { id: "p2", name: "Abdullah", role: "AI Specialist", parent: "p1", look: { skin: 2, hair: "short", hairColor: 0, beard: "short", glasses: false, top: 1 } },
+    { id: "p3", name: "Kenneth", role: "Socials Specialist", parent: "p1", look: { skin: 5, hair: "crop", hairColor: 0, beard: "none", glasses: false, top: 2 } },
+  ];
+}
+
 /** An empty workspace for someone's real data. It holds no examples at all: every page starts empty until a tool is connected. */
 function emptyWorkspace(opts: TemplateOptions, now: number) {
   return {
@@ -456,6 +461,7 @@ function emptyWorkspace(opts: TemplateOptions, now: number) {
     modules: Object.fromEntries(MODULES.map((m) => [m.id, !["clients", "reels", "calendar", "outputs", "skills", "suggestions", "usage"].includes(m.id)])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: false, about: { name: opts.owner, role: "", business: opts.name }, goals: [] as string[], step: 0 },
+    team: starterTeam(opts.owner, false) as any[],
     sites: [] as any[], clients: [] as any[], items: [] as AttentionItem[], reels: [] as any[], goals: [] as any[], metrics: [] as any[], decisions: [] as any[],
     inbox: [] as any[], events: [] as any[], files: [] as any[], outputs: [] as any[], skills: [] as any[], suggestions: [] as any[],
     usage: { budget: { monthlyExtra: 0, note: "Extra spend on top of your plans." }, plans: [] as any[], entries: [] as any[] },
@@ -501,6 +507,7 @@ export function makeWorkspace(opts: TemplateOptions, now: number) {
     modules: Object.fromEntries(MODULES.map((m) => [m.id, m.id === "calendar" ? false : opts.kind === "client" ? m.id !== "clients" : true])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: rich, about: { name: opts.owner, role: rich ? "Founder" : "", business: opts.name }, goals: rich ? ["Launch Platewise in three new cities", "Make every client feel looked after"] : [], step: 0 },
+    team: starterTeam(opts.owner, rich) as any[],
     sites: siteList, clients: clientList, items, reels: reelList,
     goals: own(goals(now, siteList[0].name)), metrics: own(metrics(now)), decisions: rich ? decisions(now) : [],
     inbox: inboxList, events: eventList, files: fileList, outputs: outputList,
