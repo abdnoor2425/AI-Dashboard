@@ -49,6 +49,13 @@ export function useApi<T = any>(path: string | null, query: Record<string, any> 
   return { data: fresh ? state.data : null, error: state.error, loading: state.loading || !fresh, reload: () => load(true) };
 }
 
+/** Watch it live: a request to play handovers on Your team. It waits here until that page picks it up. */
+let pendingWatch: string[] | null = null;
+const watchListeners = new Set<() => void>();
+export function requestWatch(ids: string[]) { pendingWatch = ids; watchListeners.forEach((l) => l()); }
+export function takeWatch(): string[] | null { const w = pendingWatch; pendingWatch = null; return w; }
+export function onWatchRequest(l: () => void) { watchListeners.add(l); return () => { watchListeners.delete(l); }; }
+
 export interface Scope { mode: "sites" | "clients"; id: string }
 export const scopeParam = (s: Scope) => (s.id === "all" ? `${s.mode}:all` : `${s.mode === "sites" ? "site" : "client"}:${s.id}`);
 
@@ -63,6 +70,8 @@ export interface AppCtx {
   syncing: string | null;
   sky: string; setSky: (k: any) => void; skyPhase: string; dark: boolean; collapsed: boolean; setCollapsed: (c: boolean) => void;
   openCard: (c: { title: string; chip?: string; render: (close: () => void) => React.ReactNode }, from?: HTMLElement | null) => void;
+  /** Opens Your team and plays these handovers (ids from the team endpoint). */
+  watchLive: (ids: string[]) => void;
 }
 export const App = createContext<AppCtx>(null as any);
 export const useApp = () => useContext(App);

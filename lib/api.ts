@@ -5,6 +5,7 @@ import { DAY, HOUR, hash, pct, rng, series, startOfDay, sum } from "./rand.ts";
 import { buildQueue, FACTORS } from "./scoring.ts";
 import type { Scored } from "./scoring.ts";
 import { ACCENTS, MODULES, NETWORK_BASE, makeState, makeWorkspace, starterTeam } from "./sample.ts";
+import { handoversFrom, phrasesFrom } from "./handover.ts";
 
 export type State = ReturnType<typeof makeState>;
 export interface Req { method: string; path: string; query?: Record<string, string>; body?: any; now?: number }
@@ -21,7 +22,7 @@ export const ENDPOINTS = [
   ["social", "Metricool followers, reach, best post and schedule (?site=)"],
   ["reels", "Reel scores: hooks, PASS or HOLD, and results at 24h, 72h and 7 days"],
   ["goals", "Objectives, key results, owners and check-ins"],
-  ["team", "Your team: the leader first, then everyone else with a name, a role and who they work under"],
+  ["team", "Your team: the leader first, then everyone else with a name, a role and who they work under, plus recent handovers (who gave which task to whom)"],
   ["metrics", "The metric catalogue with definitions, targets, sources and freshness"],
   ["decisions", "Decision Room sessions"],
   ["clients", "All clients: replies owed, approvals waiting and what is due"],
@@ -177,6 +178,19 @@ function queueFor(ws: any, scope: string, now: number) {
   return buildQueue(ws.items.filter((i: any) => inScope(i.scope, scope)), ws.rubric, now);
 }
 
+/** The team, created on first use: The Leader alone, or the sample team in a sample workspace. */
+function teamOf(ws: any): any[] {
+  if (!Array.isArray(ws.team) || !ws.team.length) ws.team = starterTeam(ws.setup?.about?.name, !!ws.sample);
+  return ws.team;
+}
+
+/** Recent handovers with the names filled in, for Watch it live. */
+function handoverList(ws: any, limit = 12) {
+  const team = teamOf(ws);
+  const name = (id: string) => team.find((p: any) => p.id === id)?.name || "";
+  return handoversFrom(ws.items, team).slice(0, limit).map((h) => ({ ...h, fromName: name(h.from), toName: name(h.to) }));
+}
+
 function overview(ws: any, scope: string, now: number) {
   const q = queueFor(ws, scope, now);
   const sod = startOfDay(now);
@@ -233,7 +247,7 @@ function overview(ws: any, scope: string, now: number) {
     ring: { done: doneToday, total: doneToday + dueToday, left: dueToday },
     start: top[0] ? { id: top[0].id, title: top[0].title, nextStep: top[0].nextStep } : null,
     top: top.map(publicItem), totalNeedsYou: q.needsYou.length, verifyCount: q.verify.length,
-    numbers, team: q.team.slice(0, 4), teamCount: q.team.length,
+    numbers, team: q.team.slice(0, 4), teamCount: q.team.length, handover: handoverList(ws, 1)[0] || null,
     today: { meetings: evs.filter((e: any) => e.kind !== "deadline").slice(0, 2), due: evs.filter((e: any) => e.kind === "deadline" && e.start < sod + DAY) },
     notices: { broken: broken.map((c: any) => ({ id: c.id, name: c.name, detail: c.detail })), newSuggestions },
     sample: !!ws.sample, calculatedAt: now, rubricVersion: ws.rubric.version, setupDone: !!ws.setup?.done,
@@ -328,13 +342,13 @@ export function handle(state: State, req: Req): Res {
         return ok({ ok: true, ref: src.ref }, true);
       }
       else if (c === "alert") {
-        const team: any[] = Array.isArray(ws.team) ? ws.team : [];
+        const team: any[] = teamOf(ws);
         const to = team.filter((p, n) => n > 0 && Array.isArray(body.people) && body.people.includes(p.id));
         if (!to.length) return bad("Pick at least one person to alert.");
         const linear = target.sources.some((x: any) => x.tool === "linear");
         const how = body.how && typeof body.how === "object" ? { linear: [].concat(body.how.linear || []).map(String), email: [].concat(body.how.email || []).map(String) } : linear ? { linear: to.map((p) => p.name), email: [] } : { linear: [], email: to.map((p) => p.name) };
         target.alerts = [...(target.alerts || []), { to: to.map((p) => p.name), note: String(body.note || "").trim().slice(0, 300), by, at: now, how }];
-        return ok({ ok: true, to: to.map((p) => p.name), how }, true);
+        return ok({ ok: true, to: to.map((p) => p.name), how, watch: to.map((p) => `${target.id}:${p.id}`) }, true);
       } else return bad("Unknown action");
       return ok({ ok: true }, true);
     }
@@ -425,8 +439,7 @@ export function handle(state: State, req: Req): Res {
   }
 
   if (a === "team") {
-    if (!Array.isArray(ws.team) || !ws.team.length) ws.team = starterTeam(ws.setup?.about?.name, !!ws.sample);
-    const team: any[] = ws.team;
+    const team: any[] = teamOf(ws);
     const text = (v: any, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
     const look = (l: any, old: any = {}) => {
       const n = (v: any, max: number, d: number) => (Number.isInteger(v) && v >= 0 && v <= max ? v : d);
@@ -466,7 +479,7 @@ export function handle(state: State, req: Req): Res {
       if (body.look) p.look = look(body.look, p.look);
       return ok(p, true);
     }
-    return ok({ people: team.map((p, n) => ({ ...p, leader: n === 0 })), sample: ws.sample });
+    return ok({ people: ws.team.map((p: any, n: number) => ({ ...p, leader: n === 0 })), handovers: handoverList(ws), phrases: phrasesFrom(ws.phrases), sample: ws.sample });
   }
 
   if (a === "goals") {
@@ -578,10 +591,12 @@ export function handle(state: State, req: Req): Res {
         for (const f of FACTORS) { const v = Number(body.weights[f.key]); if (isFinite(v) && v >= 0 && v <= 10 && v !== ws.rubric.weights[f.key]) { ws.rubric.weights[f.key] = v; touched = true; } }
         if (touched) { const [maj, min] = String(ws.rubric.version).split(".").map(Number); ws.rubric.version = `${maj}.${(min || 0) + 1}`; ws.rubric.changedAt = now; }
       }
+      if (body.phrases) ws.phrases = phrasesFrom({ ...phrasesFrom(ws.phrases), ...body.phrases });
+      if (body.resetPhrases) delete ws.phrases;
       if (body.resetRubric) { ws.rubric.weights = { urgency: 7, impact: 6, unblocks: 4, alignment: 2, waitingAge: 1 }; ws.rubric.version = String(ws.rubric.version).split(".")[0] + "." + (Number(String(ws.rubric.version).split(".")[1] || 0) + 1); }
       return ok({ ok: true }, true);
     }
-    return ok({ brand: ws.brand, theme: state.theme || "system", modules: ws.modules, modulesList: MODULES, rubric: ws.rubric, factors: FACTORS, accents: ACCENTS, workspace: { id: ws.id, name: ws.name, kind: ws.kind, sample: ws.sample, templateVersion: ws.templateVersion } });
+    return ok({ brand: ws.brand, theme: state.theme || "system", modules: ws.modules, modulesList: MODULES, phrases: phrasesFrom(ws.phrases), customPhrases: !!ws.phrases, rubric: ws.rubric, factors: FACTORS, accents: ACCENTS, workspace: { id: ws.id, name: ws.name, kind: ws.kind, sample: ws.sample, templateVersion: ws.templateVersion } });
   }
 
   if (a === "workspaces") {
@@ -592,7 +607,7 @@ export function handle(state: State, req: Req): Res {
       if (name.length < 2) return bad("Give the workspace a name.");
       const id = "ws-" + now.toString(36);
       if (body.real) {
-        state.workspaces[id] = makeWorkspace({ id, name, owner: String(body.owner || "Owner").slice(0, 40), accent: ACCENTS[body.accent] ? body.accent : "blue", kind: "owner", empty: true }, now);
+        state.workspaces[id] = makeWorkspace({ id, name, owner: String(body.owner || "Owner").slice(0, 40), accent: ACCENTS[body.accent] ? body.accent : "navy", kind: "owner", empty: true }, now);
         state.active = id;
         return ok({ id }, true);
       }

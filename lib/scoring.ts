@@ -33,6 +33,8 @@ export interface AttentionItem {
   /** For a Linear ticket: the person it is assigned to. */
   assignee?: string;
   assignedByMe?: boolean;
+  assigneeEmail?: string;
+  assignedAt?: number;
   comments?: { text: string; by: string; at: number; ref?: string; via?: string }[];
   alerts?: { to: string[]; note: string; by: string; at: number; how?: { linear: string[]; email: string[] } }[];
   /** Records that describe the same underlying action share an actionKey and are merged into one card. */

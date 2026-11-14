@@ -99,30 +99,31 @@ export function countTo(from: number, to: number, ms: number, onFrame: (v: numbe
 }
 
 /** The sky: the page background moves through dawn, day, sunset and night with the clock.
- *  Returns four gradient colours (top to bottom), a glow colour, and how much cloud, star and sun position to show. */
+ *  It is a still paper field (ivory by day, ink navy at night); only its tint and a soft glow change.
+ *  Returns four gradient colours (top to bottom), a glow colour, how many stars to show, and where the glow sits. */
 export type SkyPhase = "dawn" | "day" | "sunset" | "night";
 export const SKY_HOURS: Record<SkyPhase, number> = { dawn: 6.5, day: 13, sunset: 18.2, night: 23 };
-type Stop = [number, string[], string, number, number]; // hour, 4 colours, glow, cloud, stars
-const NIGHT_L: Stop = [0, ["#8FA0E8", "#B3BEF2", "#D6DBF8", "#EEF0FC"], "#C9B8FF", 0.25, 0.55];
-const NIGHT_D: Stop = [0, ["#040818", "#081030", "#0C1840", "#070B22"], "#3A4FC0", 0, 1];
-const at = (h: number, s: Stop): Stop => [h, s[1], s[2], s[3], s[4]];
+type Stop = [number, string[], string, number]; // hour, 4 colours, glow, stars
+const NIGHT_L: Stop = [0, ["#E6E5EA", "#EBEAEC", "#EEEDEC", "#EAE8E3"], "#BFC8E4", 0];
+const NIGHT_D: Stop = [0, ["#070D1A", "#0A1222", "#0B1424", "#080F1C"], "#2E4478", 0.6];
+const at = (h: number, s: Stop): Stop => [h, s[1], s[2], s[3]];
 const SKY: Record<"light" | "dark", Stop[]> = {
   light: [
     NIGHT_L, at(5, NIGHT_L),
-    [6.5, ["#FFB59E", "#FFD3BF", "#E6E4FA", "#F4F2FD"], "#FFD9A8", 0.5, 0],
-    [9, ["#8CC3FF", "#B4D8FF", "#DCEBFF", "#F0F6FF"], "#FFF3D1", 0.6, 0],
-    [13, ["#7DB9FF", "#A9D2FF", "#D6E9FF", "#EEF5FF"], "#FFFFFF", 0.65, 0],
-    [16.5, ["#86BBFA", "#B6D4FA", "#E2E9FA", "#F3F4FB"], "#FFE9C4", 0.55, 0],
-    [18.2, ["#F79B7C", "#FBC3A6", "#EFD3EC", "#F6EFF9"], "#FFC38A", 0.45, 0],
+    [6.5, ["#F3E1D8", "#F4E9E2", "#F2EDE7", "#EDE8E0"], "#F0C2AC", 0],
+    [9, ["#F2ECE1", "#F3EFE7", "#F1EEE7", "#ECE8DF"], "#EBD8B0", 0],
+    [13, ["#F2EEE6", "#F3F0E9", "#F0ECE4", "#EAE5DB"], "#E6CF9E", 0],
+    [16.5, ["#F3EADB", "#F3EDE2", "#F0EBE2", "#EAE4D8"], "#E8C48C", 0],
+    [18.2, ["#F0D2BD", "#F2DFCE", "#EFE6DD", "#EAE2D6"], "#E39A68", 0],
     at(20, NIGHT_L), at(24, NIGHT_L),
   ],
   dark: [
     NIGHT_D, at(5, NIGHT_D),
-    [6.5, ["#3B2A63", "#7A4470", "#27306B", "#0D1230"], "#FF9E7A", 0.05, 0.3],
-    [9, ["#0F3F9A", "#12348A", "#0F2666", "#0A1740"], "#5AA0FF", 0.07, 0],
-    [13, ["#124AAE", "#143C94", "#10296C", "#0A1844"], "#7DB9FF", 0.08, 0],
-    [16.5, ["#143C94", "#1A2F80", "#141F5C", "#0B143C"], "#6C8CFF", 0.06, 0],
-    [18.2, ["#6A2F6E", "#9A4460", "#2C1F63", "#120F33"], "#FF8A5C", 0.05, 0.25],
+    [6.5, ["#1E1A2C", "#17182A", "#0F1526", "#0A1120"], "#7E5662", 0.2],
+    [9, ["#0F1B31", "#0E182C", "#0C1526", "#0A1120"], "#4A6290", 0],
+    [13, ["#11203A", "#0F1B31", "#0C1628", "#0A1120"], "#5A76A8", 0],
+    [16.5, ["#14203A", "#111B30", "#0D1628", "#0A1120"], "#7A6E78", 0],
+    [18.2, ["#251A2A", "#1B1828", "#0F1526", "#0A1120"], "#9C6A48", 0.2],
     at(20, NIGHT_D), at(24, NIGHT_D),
   ],
 };
@@ -138,7 +139,7 @@ export function skyAt(hour: number, dark: boolean) {
   const isDay = hour >= 5.5 && hour <= 19.5;
   return {
     colors: a[1].map((c, n) => lerp(c, b[1][n], p)), glow: lerp(a[2], b[2], p),
-    cloud: a[3] + (b[3] - a[3]) * p, stars: a[4] + (b[4] - a[4]) * p,
+    stars: a[3] + (b[3] - a[3]) * p,
     x: isDay ? 8 + day * 78 : 78, y: isDay ? 34 - Math.sin(day * Math.PI) * 44 : -8,
     phase: (hour < 5 || hour >= 19.5 ? "night" : hour < 8 ? "dawn" : hour < 17 ? "day" : "sunset") as SkyPhase,
   };

@@ -1,10 +1,12 @@
 "use client";
-import React, { useRef, useState } from "react";
-import { api, useApi, useApp } from "@/lib/client";
-import { Icon, Load, Page, SampleTag, Segmented, SkelCards, Switch } from "@/components/ui";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { api, onWatchRequest, takeWatch, useApi, useApp } from "@/lib/client";
+import { ago } from "@/lib/format";
+import { HandoverScene } from "@/components/handover-scene";
+import { Icon, Load, Page, SampleTag, Section, Segmented, SkelCards, Switch } from "@/components/ui";
 import { BEARDS, Character, DEFAULT_LOOK, HAIRS, HAIR_COLORS, HAIR_COLOR_NAMES, Look, SKINS, SKIN_NAMES, TOPS, TOP_NAMES } from "@/components/character";
 
-const ROLE_TONES = ["mint", "coral", "violet", "amber"];
+const DAY = 24 * 3600000;
 
 function Swatches({ label, colors, names, value, onChange }: { label: string; colors: string[]; names: string[]; value: number; onChange: (n: number) => void }) {
   return (
@@ -63,7 +65,7 @@ function PersonForm({ person, people, close }: { person: any | null; people: any
         <div className="look-row"><span className="t-cap">Hair</span><div className="pills" role="radiogroup" aria-label="Hair">{HAIRS.map(([v, t]) => <button key={v} type="button" role="radio" aria-checked={look.hair === v} className="pill" onClick={() => set({ hair: v })}>{t}</button>)}</div></div>
         <Swatches label="Hair colour" colors={HAIR_COLORS} names={HAIR_COLOR_NAMES} value={look.hairColor} onChange={(n) => set({ hairColor: n })} />
         <div className="look-row"><span className="t-cap">Beard</span><Segmented label="Beard" value={look.beard} onChange={(v) => set({ beard: v })} options={BEARDS.map(([value, label]) => ({ value, label }))} /></div>
-        <Swatches label="Top" colors={TOPS} names={TOP_NAMES} value={look.top} onChange={(n) => set({ top: n })} />
+        <Swatches label="Jacket" colors={TOPS} names={TOP_NAMES} value={look.top} onChange={(n) => set({ top: n })} />
         <div className="look-row"><span className="t-cap">Glasses</span><Switch label="Glasses" checked={look.glasses} onChange={(v) => set({ glasses: v })} /></div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
@@ -74,26 +76,49 @@ function PersonForm({ person, people, close }: { person: any | null; people: any
   );
 }
 
-function PersonCard({ p, people, n }: { p: any; people: any[]; n: number }) {
+function PersonCard({ p, people, n, got }: { p: any; people: any[]; n: number; got: any[] }) {
   const app = useApp();
   const ref = useRef<HTMLButtonElement>(null);
   return (
-    <button ref={ref} className={"card tap person rise" + (p.leader ? " is-leader" : "")} style={{ ["--i" as any]: n }} onClick={() => app.openCard({ title: p.name, chip: "Your team", render: (close) => <PersonForm person={p} people={people} close={close} /> }, ref.current)} aria-label={`${p.name}, ${p.role}. Open to edit`}>
+    <button ref={ref} data-person={p.id} className={"card tap person rise" + (p.leader ? " is-leader" : "")} style={{ ["--i" as any]: n }} onClick={() => app.openCard({ title: p.name, chip: "Your team", render: (close) => <PersonForm person={p} people={people} close={close} /> }, ref.current)} aria-label={`${p.name}, ${p.role}${got.length ? `, ${got.length} new ${got.length === 1 ? "task" : "tasks"}` : ""}. Open to edit`}>
+      {got.length > 0 && <span className="person-tasks" title={got.map((h) => `${h.title} (from ${h.fromName})`).join("\n")}><Icon name="doc" size={13} />{got.length}</span>}
       <span className="person-edit" aria-hidden><Icon name="edit" size={14} /></span>
-      <span className="person-face" style={{ animationDelay: `${-n * 1.300}s` }}><Character look={p.look} size={p.leader ? 124 : 104} /></span>
+      <span className="person-face" style={{ ["--d" as any]: `${-n * 1.7}s` }}><Character look={p.look} size={p.leader ? 124 : 104} /></span>
       <span className="person-name">{p.name}</span>
-      <span className={"chip " + (p.leader ? "leader" : "role " + ROLE_TONES[(n - 1) % ROLE_TONES.length])}>{p.leader && <Icon name="star" size={13} />}{p.role}</span>
+      <span className={"chip " + (p.leader ? "leader" : "role")}>{p.leader && <Icon name="star" size={13} />}{p.role}</span>
     </button>
   );
 }
 
-function Branch({ p, people, order }: { p: any; people: any[]; order: Map<string, number> }) {
+function Branch({ p, people, order, recent }: { p: any; people: any[]; order: Map<string, number>; recent: any[] }) {
   const kids = people.filter((x) => x.parent === p.id);
   return (
     <li>
-      <PersonCard p={p} people={people} n={order.get(p.id) || 0} />
-      {kids.length > 0 && <ul>{kids.map((k) => <Branch key={k.id} p={k} people={people} order={order} />)}</ul>}
+      <PersonCard p={p} people={people} n={order.get(p.id) || 0} got={recent.filter((h) => h.to === p.id)} />
+      {kids.length > 0 && <ul>{kids.map((k) => <Branch key={k.id} p={k} people={people} order={order} recent={recent} />)}</ul>}
     </li>
+  );
+}
+
+/** Recent handovers, each with its own Watch it live. */
+function Handovers({ list, people, play }: { list: any[]; people: any[]; play: (ids: string[]) => void }) {
+  const look = (id: string) => people.find((p) => p.id === id)?.look;
+  return (
+    <Section title="Handovers">
+      <div className="card group">
+        {list.map((h) => (
+          <div key={h.id} className="row handover-row">
+            <span className="handover-pair" aria-hidden="true"><Character look={look(h.from)} size={34} still /><Icon name="chevron" size={14} /><Character look={look(h.to)} size={34} still /></span>
+            <span className="row-main">
+              <span className="row-title" style={{ display: "block" }}>{h.title}</span>
+              <span className="row-sub"><b style={{ fontWeight: 600, color: "var(--text)" }}>{h.fromName}</b> to <b style={{ fontWeight: 600, color: "var(--text)" }}>{h.toName}</b> · {h.via === "alert" ? "Alert" : "Linear"} · {ago(h.at)}</span>
+            </span>
+            <button className="btn sm tinted" onClick={() => play([h.id])} aria-label={`Watch it live: ${h.fromName} hands ${h.title} to ${h.toName}`}><Icon name="play" size={13} />Watch it live</button>
+          </div>
+        ))}
+      </div>
+      <p className="t-foot" style={{ marginTop: 10 }}>A handover is a Linear task you gave someone on your team, or an alert you sent them from an item. Change what everyone says in Settings.</p>
+    </Section>
   );
 }
 
@@ -101,20 +126,34 @@ export default function Team() {
   const app = useApp();
   const q = useApi("team");
   const addRef = useRef<HTMLButtonElement>(null);
+  const [watch, setWatch] = useState<string[] | null>(null);
+  const [plays, setPlays] = useState(0);
   const add = (people: any[]) => app.openCard({ title: "Add a person", chip: "Your team", render: (close) => <PersonForm person={null} people={people} close={close} /> }, addRef.current);
+  const play = useCallback((ids: string[]) => { setWatch(ids); setPlays((n) => n + 1); }, []);
+  // Pick up a Watch it live request from elsewhere in the app, now or while this page is open.
+  useEffect(() => { const w = takeWatch(); if (w) play(w); return onWatchRequest(() => { const w2 = takeWatch(); if (w2) play(w2); }); }, [play]);
+  const d = q.data;
+  const scene = d && watch ? d.handovers.filter((h: any) => watch.includes(h.id)) : [];
+  // Several people alerted at once come from one person: play them together.
+  const together = scene.filter((h: any) => h.from === scene[0]?.from);
   return (
-    <Page title="Your team" sub="Who leads, and who does what. Tap anyone to change their name, role or character." actions={<><SampleTag show={app.boot.workspace.sample} />{q.data && <button ref={addRef} className="btn primary" onClick={() => add(q.data.people)}><Icon name="plus" size={16} />Add person</button>}</>}>
+    <Page title="Your team" sub="Who leads, and who does what. Tap anyone to change their name, role or character." actions={<><SampleTag show={app.boot.workspace.sample} />{d && <button ref={addRef} className="btn primary" onClick={() => add(d.people)}><Icon name="plus" size={16} />Add person</button>}</>}>
       <Load q={q} skeleton={<SkelCards n={3} h={250} cols="grid-3" />}>
         {(d) => {
           const order = new Map<string, number>(d.people.map((p: any, n: number) => [p.id, n]));
+          const recent = d.handovers.filter((h: any) => Date.now() - h.at < 7 * DAY);
           return (
-            <div className="org-wrap">
-              <ul className="org"><Branch p={d.people[0]} people={d.people} order={order} /></ul>
-              {d.people.length === 1 && <p className="t-foot" style={{ textAlign: "center", marginTop: 22 }}>It is just you for now. Add the people you work with and they appear under you.</p>}
-            </div>
+            <>
+              <div className="org-wrap">
+                <ul className="org"><Branch p={d.people[0]} people={d.people} order={order} recent={recent} /></ul>
+                {d.people.length === 1 && <p className="t-foot" style={{ textAlign: "center", marginTop: 22 }}>It is just you for now. Add the people you work with and they appear under you.</p>}
+              </div>
+              {d.handovers.length > 0 && <Handovers list={d.handovers.slice(0, 6)} people={d.people} play={play} />}
+            </>
           );
         }}
       </Load>
+      {d && together.length > 0 && <HandoverScene key={together.map((h: any) => h.id).join("|")} list={together} people={d.people} phrases={d.phrases} plays={plays} onReplay={() => setPlays((n) => n + 1)} onClose={() => setWatch(null)} />}
     </Page>
   );
 }

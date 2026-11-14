@@ -12,7 +12,7 @@ async function gql(wsId: string, query: string, variables: any = {}) {
   return j.data;
 }
 
-const FIELDS = `id identifier title url priority dueDate updatedAt state { name } project { name } assignee { name displayName }`;
+const FIELDS = `id identifier title url priority dueDate createdAt updatedAt state { name } project { name } assignee { name displayName email }`;
 const OPEN = `state: { type: { in: ["unstarted", "started", "backlog"] } }`;
 
 export async function syncLinear(wsId: string, owner: string, now: number) {
@@ -26,7 +26,7 @@ export async function syncLinear(wsId: string, owner: string, now: number) {
     return {
       id: "lin-" + n.id, actionKey: "linear:" + n.identifier, kind: /approv|review|sign.?off/i.test(n.title) ? "approval" : /reply|answer|respond/i.test(n.title) ? "reply" : "decision",
       title: n.title, nextStep: mine ? `Open ${n.identifier} in Linear (${n.state?.name || "open"})` : `${who.split(" ")[0]} has ${n.identifier} (${n.state?.name || "open"})`,
-      scope: null, scopeLabel: n.project?.name || undefined, owner: mine ? owner : who, waitingOn: mine ? "me" : "other", assignee: mine ? owner : who, assignedByMe: !mine,
+      scope: null, scopeLabel: n.project?.name || undefined, owner: mine ? owner : who, waitingOn: mine ? "me" : "other", assignee: mine ? owner : who, assigneeEmail: mine ? undefined : n.assignee?.email || undefined, assignedByMe: !mine, assignedAt: n.createdAt ? Date.parse(n.createdAt) : undefined,
       due: n.dueDate ? Date.parse(n.dueDate + "T17:00:00") : null, followUpDue: mine ? undefined : n.dueDate ? Date.parse(n.dueDate + "T17:00:00") : undefined,
       sources: [{ tool: "linear", label: n.title, ref: n.identifier, url: n.url }],
       evidence: "needs-context", evidenceNote: "Brought in from Linear. Linear does not say what this unblocks or which goal it serves, so those are left unknown.",

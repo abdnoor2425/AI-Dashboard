@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { App, api, scopeParam, store, useApi } from "@/lib/client";
+import { App, api, requestWatch, scopeParam, store, useApi } from "@/lib/client";
 import type { Scope } from "@/lib/client";
 import { SKY_HOURS, darkAtHour, growFrom, installMotion, shrinkTo, skyAt } from "@/lib/motion";
 import type { SkyPhase } from "@/lib/motion";
@@ -14,16 +14,16 @@ export const pageOf = (pathname: string) => (pathname || "/").replace(/^\/+|\/+$
 export const hrefOf = (page: string) => (page === "overview" ? "/" : "/" + page);
 const useIso = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-/** The sky behind everything. Its colours, sun and stars are set from the hour and the theme. */
+/** The sky behind everything. Its colours, glow and stars are set from the hour and the theme. */
 function Sky({ hour, dark }: { hour: number; dark: boolean }) {
   useEffect(() => {
     const k = skyAt(hour, dark), st = document.documentElement.style;
     k.colors.forEach((c, i) => st.setProperty("--sky-" + (i + 1), c));
-    st.setProperty("--sky-glow", k.glow); st.setProperty("--sky-cloud", String(k.cloud)); st.setProperty("--sky-stars", String(k.stars));
+    st.setProperty("--sky-glow", k.glow); st.setProperty("--sky-stars", String(k.stars));
     st.setProperty("--sun-x", String(k.x)); st.setProperty("--sun-y", String(k.y));
     document.documentElement.setAttribute("data-sky", k.phase);
   }, [hour, dark]);
-  return <div className="sky" aria-hidden="true"><i className="sun" /><i className="stars" /><i className="cloud c1" /><i className="cloud c2" /></div>;
+  return <div className="sky" aria-hidden="true"><i className="sun" /><i className="stars" /></div>;
 }
 
 /** A detail card that grows out of whatever was tapped. Used by every card on the Overview and the tool cards. */
@@ -202,6 +202,7 @@ function Palette({ boot, onClose, setScope }: { boot: any; onClose: () => void; 
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const page = pageOf(pathname);
   const bootQ = useApi("bootstrap");
   const boot = bootQ.data;
@@ -241,7 +242,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Accent colour and theme follow the workspace settings.
   useEffect(() => {
     if (!boot) return;
-    const root = document.documentElement, a = boot.accents[boot.workspace.brand.accent] || boot.accents.blue;
+    const root = document.documentElement, a = boot.accents[boot.workspace.brand.accent] || boot.accents.navy;
     root.style.setProperty("--accent-l", a.light); root.style.setProperty("--accent-d", a.dark);
     setThemeState(boot.theme);
   }, [boot?.workspace?.brand?.accent, boot?.theme, boot?.workspace?.id]);
@@ -284,7 +285,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     title, setTitle, titleShown, setTitleShown, syncing,
     sky, setSky, skyPhase: skyAt(hour, dark).phase, dark, collapsed, setCollapsed,
     openCard: (c: Omit<CardSpec, "from">, from?: HTMLElement | null) => setCard({ ...c, from: from || null }),
-  }), [boot, scope, scopeLabel, theme, title, titleShown, syncing, sky, hour, dark, collapsed]);
+    watchLive: (ids: string[]) => { setSheet(null); setCard(null); requestWatch(ids); if (page !== "team") router.push("/team"); },
+  }), [boot, scope, scopeLabel, theme, title, titleShown, syncing, sky, hour, dark, collapsed, page]);
 
   if (!boot) {
     return (

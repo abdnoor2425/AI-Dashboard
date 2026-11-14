@@ -95,6 +95,15 @@ Open any item on **Attention** to act on it:
 
 Nothing is sent unless you press the button yourself.
 
+### Watch it live
+
+When a task goes from one person on Your team to another, the dashboard can play the handover. The person who gave it rises out of their card, leans toward the receiver, says a line and tosses a folder with the task on it. The receiver catches it, nods and answers. Afterwards their card shows a small tag with the number of tasks they got this week.
+
+- **What counts as a handover:** a Linear ticket you assigned to someone on Your team, or an alert you sent someone from an item. People are matched by email first, then full name, then first name when only one person has it.
+- **Where to start it:** the Watch it live button on a Linear item, right after sending an alert, on the "With your team" card on Overview, and in the Handovers list on Your team.
+- **What they say:** a different line is picked each time. Change both lists under Settings, Watch it live.
+- Anyone who has reduced motion turned on in their system settings sees the end of the scene without the movement.
+
 ## Ask your own AI plan
 
 **In the app:** press Cmd K (or Ctrl K), type a question and choose "Ask your AI". If the `claude` or `codex` command is installed on this laptop, the dashboard hands it your question with the numbers on screen and shows the answer. If neither is installed, simple built-in rules answer instead, and say so.

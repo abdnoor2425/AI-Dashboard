@@ -6,6 +6,7 @@ import { DEFAULT_RUBRIC } from "./scoring.ts";
 import type { AttentionItem } from "./scoring.ts";
 
 export const ACCENTS: Record<string, { name: string; light: string; dark: string }> = {
+  navy: { name: "Navy and brass", light: "#142B52", dark: "#D9B970" },
   blue: { name: "Blue", light: "#1D5BFF", dark: "#6FA0FF" },
   indigo: { name: "Indigo", light: "#5450E0", dark: "#7F7BFF" },
   teal: { name: "Teal", light: "#0E8A8F", dark: "#3CC3C8" },
@@ -65,7 +66,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-001", actionKey: "platewise-launch-post", kind: "approval", title: "Approve the Platewise launch post", nextStep: "Read the final cut and approve or send notes",
       scope: "site:platewise", scopeLabel: "Platewise", owner: "Sam", waitingOn: "me", due: t(0, 17), tz: "local",
       consequence: "The post misses tonight's slot and the launch moves to next week.",
-      sources: [S("linear", "PLT-212 Launch post, final cut", "PLT-212")], assignee: "Kenneth", assignedByMe: true, evidence: "verified", lastVerified: now - 40 * 60000,
+      sources: [S("linear", "PLT-212 Launch post, final cut", "PLT-212")], assignee: "Kenneth", assignedByMe: true, assignedAt: now - 50 * 60000, evidence: "verified", lastVerified: now - 40 * 60000,
       factors: { impact: 4, unblocks: 4, alignment: 5 }, why: { unblocks: "Kenneth cannot schedule the post until you approve it.", alignment: "The Platewise launch is this quarter's top goal." }, status: "open",
     },
     {
@@ -85,7 +86,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-004", kind: "decision", title: "Decide the first-quarter ad budget", nextStep: "Pick one of the three budget options Nancy prepared",
       scope: null, owner: "Sam", waitingOn: "me", due: t(4, 18), tz: "local",
       consequence: "Campaign bookings for January close at the end of next week.",
-      sources: [S("drive", "Q1 ad budget options (sheet)", "drv-221"), S("linear", "OPS-41 Decide Q1 ad budget", "OPS-41")], assignee: "Abdullah", assignedByMe: true, evidence: "verified", lastVerified: now - 5 * HOUR,
+      sources: [S("drive", "Q1 ad budget options (sheet)", "drv-221"), S("linear", "OPS-41 Decide Q1 ad budget", "OPS-41")], assignee: "Abdullah", assignedByMe: true, assignedAt: now - 26 * HOUR, evidence: "verified", lastVerified: now - 5 * HOUR,
       factors: { impact: 4, unblocks: 3, alignment: 5 }, status: "open",
     },
     {
@@ -107,7 +108,7 @@ function attention(now: number, t: (d: number, h?: number) => number): Attention
       id: "att-007", kind: "approval", title: "Sign off the Lumen Dental homepage", nextStep: "Check the three fixes on the staging link and approve",
       scope: "client:lumen", scopeLabel: "Lumen Dental", owner: "Sam", waitingOn: "me", due: t(2, 15),
       consequence: "Dr. Shah was promised the new homepage by Friday.",
-      sources: [S("linear", "LUM-77 Homepage fixes ready for review", "LUM-77")], assignee: "Abdullah", assignedByMe: true, evidence: "verified", lastVerified: now - 3 * HOUR,
+      sources: [S("linear", "LUM-77 Homepage fixes ready for review", "LUM-77")], assignee: "Abdullah", assignedByMe: true, assignedAt: now - 3 * HOUR - 20 * 60000, evidence: "verified", lastVerified: now - 3 * HOUR,
       factors: { impact: 3, unblocks: 4, alignment: 3 }, status: "open",
     },
     {
@@ -457,7 +458,7 @@ export function starterTeam(owner: string, sample: boolean) {
 function emptyWorkspace(opts: TemplateOptions, now: number) {
   return {
     id: opts.id, name: opts.name, owner: opts.owner, kind: opts.kind || "owner", sample: false, createdAt: now, templateVersion: "1.0",
-    brand: { name: opts.name, accent: opts.accent || "blue" },
+    brand: { name: opts.name, accent: opts.accent || "navy" },
     modules: Object.fromEntries(MODULES.map((m) => [m.id, !["clients", "reels", "calendar", "outputs", "skills", "suggestions", "usage"].includes(m.id)])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: false, about: { name: opts.owner, role: "", business: opts.name }, goals: [] as string[], step: 0 },
@@ -503,7 +504,7 @@ export function makeWorkspace(opts: TemplateOptions, now: number) {
   };
   return {
     id: opts.id, name: opts.name, owner: opts.owner, kind: opts.kind || "owner", sample: true, createdAt: now, templateVersion: "1.0",
-    brand: { name: opts.name, accent: opts.accent || "blue" },
+    brand: { name: opts.name, accent: opts.accent || "navy" },
     modules: Object.fromEntries(MODULES.map((m) => [m.id, m.id === "calendar" ? false : opts.kind === "client" ? m.id !== "clients" : true])),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     setup: { done: rich, about: { name: opts.owner, role: rich ? "Founder" : "", business: opts.name }, goals: rich ? ["Launch Platewise in three new cities", "Make every client feel looked after"] : [], step: 0 },
@@ -517,7 +518,7 @@ export function makeWorkspace(opts: TemplateOptions, now: number) {
 }
 
 export function makeState(now = Date.now()) {
-  const main = makeWorkspace({ id: "main", name: "Sam's businesses", owner: "Sam", accent: "blue" }, now);
+  const main = makeWorkspace({ id: "main", name: "Sam's businesses", owner: "Sam", accent: "navy" }, now);
   const clientA = makeWorkspace({ id: "sample-meridian", name: "Meridian Capital", owner: "Elena", accent: "indigo", kind: "client", sites: [
     { id: "meridian-main", name: "Meridian Capital", domain: "meridiancapital.example", kind: "Wealth advisory", color: "#B8892B", base: 780, growth: 0.18, leadRate: 0.031, networks: ["linkedin", "x"] },
     { id: "meridian-insights", name: "Meridian Insights", domain: "insights.meridiancapital.example", kind: "Research blog", color: "#5B6CFF", base: 420, growth: 0.3, leadRate: 0.02, networks: ["linkedin"] },

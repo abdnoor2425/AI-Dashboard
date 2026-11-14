@@ -6,6 +6,7 @@ import { ago, clock, dateLong, dueLabel } from "@/lib/format";
 import { Icon, Menu, Skel } from "./ui";
 import { Character } from "./character";
 import { Logo, toolName } from "./logos";
+import { matchPerson } from "@/lib/handover";
 
 /** The tool an item mainly came from. Work tools (Linear, Gmail, Slack) win over supporting files. */
 export const mainSource = (item: any) => (item.sources || []).find((x: any) => ["linear", "gmail", "slack"].includes(x.tool)) || (item.sources || [])[0] || null;
@@ -43,10 +44,12 @@ export function AttentionRow({ item, showScope, team, rank }: { item: any; showS
 const names = (l: string[]) => (l.length < 2 ? l.join("") : l.slice(0, -1).join(", ") + " and " + l[l.length - 1]);
 
 /** For a Linear ticket: who it is assigned to, and a comment box that posts back to the ticket. */
-function LinearBlock({ it, team, ai, act, busy }: { it: any; team: any[]; ai: string; act: (a: string, b?: any, m?: string) => Promise<void>; busy: boolean }) {
+function LinearBlock({ it, team, handovers, ai, act, busy }: { it: any; team: any[]; handovers: any[]; ai: string; act: (a: string, b?: any, m?: string) => Promise<void>; busy: boolean }) {
+  const app = useApp();
   const [text, setText] = useState("");
+  const given = handovers.find((h) => h.itemId === it.id && h.via === "linear");
   const src = it.sources.find((x: any) => x.tool === "linear");
-  const who = team.find((p) => p.name === it.assignee);
+  const who = matchPerson(team, it.assigneeEmail) || matchPerson(team, it.assignee);
   const first = it.assignee ? String(it.assignee).split(" ")[0] : "the team";
   return (
     <div>
@@ -60,6 +63,7 @@ function LinearBlock({ it, team, ai, act, busy }: { it: any; team: any[]; ai: st
           </div>
           <span className="chip line num"><Logo tool="linear" size={16} />{src.ref}</span>
         </div>
+        {given && <button className="btn tinted watch-btn" onClick={() => app.watchLive([given.id])}><Icon name="play" size={14} />Watch it live<span className="t-foot">{given.fromName} hands it to {given.toName}</span></button>}
         {(it.comments || []).map((c: any, i: number) => (
           <div key={i} className="said"><p>{c.text}</p><span className="t-cap"><Icon name="check" size={12} stroke={2.4} />Posted to {c.ref} {ago(c.at)}</span></div>
         ))}
@@ -75,7 +79,7 @@ function LinearBlock({ it, team, ai, act, busy }: { it: any; team: any[]; ai: st
 }
 
 /** Pick one or more people from Your team and send them a nudge about this item: a Linear mention, or an email when Linear cannot reach them. */
-function AlertBlock({ it, team }: { it: any; team: any[] }) {
+function AlertBlock({ it, team, handovers }: { it: any; team: any[]; handovers: any[] }) {
   const app = useApp();
   const others = team.slice(1);
   const [open, setOpen] = useState(false);
@@ -84,6 +88,7 @@ function AlertBlock({ it, team }: { it: any; team: any[] }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
   const last = (it.alerts || [])[it.alerts?.length - 1];
+  const watch = last ? handovers.filter((h) => h.itemId === it.id && h.via === "alert" && last.to.includes(h.toName)).map((h) => h.id) : [];
   const how = last?.how ? [last.how.linear?.length ? `${names(last.how.linear)} on Linear` : "", last.how.email?.length ? `${names(last.how.email)} by email` : ""].filter(Boolean).join(", ") : "";
   const toggle = (id: string) => { setProblem(""); setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); };
   const needsMail = /permission to send from Gmail|allowed to send yet/i.test(problem);
@@ -91,7 +96,7 @@ function AlertBlock({ it, team }: { it: any; team: any[] }) {
     setBusy(true); setProblem("");
     try {
       const r = await api(`attention/${it.id}/alert`, { method: "POST", body: { people: picked, note } });
-      app.toast(r.warning || `Alert sent to ${names(r.to || [])}`);
+      app.toast(r.warning || `Alert sent to ${names(r.to || [])}. Tap Watch it live to see the handover.`);
       setOpen(false); setPicked([]); setNote("");
     } catch (e: any) { setProblem(e.message); } finally { setBusy(false); }
   };
@@ -103,7 +108,7 @@ function AlertBlock({ it, team }: { it: any; team: any[] }) {
   return (
     <div>
       <h3 className="t-head" style={{ marginBottom: 10 }}>Alert your team</h3>
-      {last && !open && <div className="sent" role="status"><span className="sent-tick"><Icon name="check" size={16} stroke={2.6} /></span><div><b>Alert sent to {names(last.to)}</b><span className="t-foot" style={{ display: "block" }}>{ago(last.at)}{how ? ` · ${how}` : ""}{last.note ? ` · "${last.note}"` : ""}</span></div></div>}
+      {last && !open && <div className="sent" role="status"><span className="sent-tick"><Icon name="check" size={16} stroke={2.6} /></span><div><b>Alert sent to {names(last.to)}</b><span className="t-foot" style={{ display: "block" }}>{ago(last.at)}{how ? ` · ${how}` : ""}{last.note ? ` · "${last.note}"` : ""}</span></div>{watch.length > 0 && <button className="btn sm tinted" style={{ marginLeft: "auto", flex: "none" }} onClick={() => app.watchLive(watch)}><Icon name="play" size={13} />Watch it live</button>}</div>}
       {!open ? <button className="btn tinted lg" style={{ width: "100%", marginTop: last ? 10 : 0 }} onClick={() => setOpen(true)}><Icon name="attention" size={17} />{last ? "Alert someone else" : "Alert your team"}</button> : (
         <div className="inset" style={{ padding: 16 }}>
           {!others.length ? <p className="t-foot">Add people on the Your team page first, then you can alert them here.</p> : <>
@@ -179,6 +184,7 @@ export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement
   const snoozed = it?.snoozedUntil && it.snoozedUntil > Date.now();
   const mine = it?.waitingOn === "me";
   const team: any[] = teamQ.data?.people || [];
+  const handovers: any[] = teamQ.data?.handovers || [];
   const linear = it?.sources.some((x: any) => x.tool === "linear");
   const src = it ? mainSource(it) : null;
   const aiName = aiQ.data?.available ? ({ claude: "Claude Code", codex: "Codex" } as any)[aiQ.data.provider] || aiQ.data.provider : "Your AI";
@@ -215,9 +221,9 @@ export function ItemSheet({ id, from, onClose }: { id: string; from: HTMLElement
                 <div className="inset" style={{ padding: "2px 16px 14px" }}><Facts item={it} factors={q.data.factors} onSave={(facts) => act("facts", { facts }, "Saved")} busy={busy} /></div>
               )}
 
-              {linear && <LinearBlock it={it} team={team} ai={aiName} act={act} busy={busy} />}
+              {linear && <LinearBlock it={it} team={team} handovers={handovers} ai={aiName} act={act} busy={busy} />}
 
-              {!isDone && <AlertBlock it={it} team={team} />}
+              {!isDone && <AlertBlock it={it} team={team} handovers={handovers} />}
 
               <div>
                 <h3 className="t-head" style={{ marginBottom: 10 }}>Sources{it.merged > 1 && <span className="t-foot" style={{ fontWeight: 500, marginLeft: 8 }}>{it.merged} records about the same thing, shown as one</span>}</h3>

@@ -24,6 +24,30 @@ function Appearance({ d }: { d: any }) {
   );
 }
 
+/** What people say in Watch it live. One line per phrase; a random one is picked each time. */
+function Phrases({ d }: { d: any }) {
+  const app = useApp();
+  const [give, setGive] = useState(d.phrases.give.join("\n"));
+  const [reply, setReply] = useState(d.phrases.reply.join("\n"));
+  useEffect(() => { setGive(d.phrases.give.join("\n")); setReply(d.phrases.reply.join("\n")); }, [JSON.stringify(d.phrases)]);
+  const lines = (t: string) => t.split("\n").map((x) => x.trim()).filter(Boolean);
+  const dirty = lines(give).join("\n") !== d.phrases.give.join("\n") || lines(reply).join("\n") !== d.phrases.reply.join("\n");
+  const post = (body: any, msg: string) => api("settings", { method: "POST", body }).then(() => app.toast(msg), (e: any) => app.toast(e.message));
+  return (
+    <div className="card pad stack" style={{ gap: 14 }}>
+      <p className="t-foot">When a task goes to someone on Your team, Watch it live plays the handover. These are the lines people say. Put one per line; a different one is picked each time.</p>
+      <div className="grid-2" style={{ gap: 14 }}>
+        <label><span className="t-cap">When giving a task</span><textarea id="phrases-give" className="input" rows={6} style={{ marginTop: 6 }} value={give} onChange={(e) => setGive(e.target.value)} /></label>
+        <label><span className="t-cap">When getting one</span><textarea id="phrases-reply" className="input" rows={6} style={{ marginTop: 6 }} value={reply} onChange={(e) => setReply(e.target.value)} /></label>
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        <button className="btn primary" disabled={!dirty || !lines(give).length || !lines(reply).length} onClick={() => post({ phrases: { give: lines(give), reply: lines(reply) } }, "Phrases saved")}>Save phrases</button>
+        {d.customPhrases && <button className="btn" onClick={() => post({ resetPhrases: true }, "Back to the built-in phrases")}>Use the built-in phrases</button>}
+      </div>
+    </div>
+  );
+}
+
 function Pages({ d }: { d: any }) {
   const app = useApp();
   const toggle = (id: string, on: boolean) => api("settings", { method: "POST", body: { modules: { [id]: on } } }).then(() => app.reloadBoot(), (e: any) => app.toast(e.message));
@@ -153,6 +177,7 @@ export default function Settings() {
           <div className="stack">
             <Section title="Look"><Appearance d={d} /></Section>
             <Section title="Ranking" i={1}><Rubric d={d} /></Section>
+            <Section title="Watch it live" i={2}><Phrases d={d} /></Section>
             <Section title="Pages" i={2}><Pages d={d} /><p className="t-foot faint" style={{ padding: "10px 6px 0" }}>Overview, Attention, Connections, Setup and Settings always stay on.</p></Section>
             <Section title="Workspaces" i={3}><Workspaces d={d} /></Section>
             <Section title="Your data" i={4}><Data /><p className="t-foot faint" style={{ padding: "10px 6px 0" }}>Template version {d.workspace.templateVersion}. Each workspace keeps its own data, connections and ranking rules, and never sees another workspace.</p></Section>

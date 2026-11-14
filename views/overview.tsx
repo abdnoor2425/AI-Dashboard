@@ -99,20 +99,26 @@ function TeamDetail({ team, count, close }: { team: any[]; count: number; close:
   );
 }
 
-const AV = ["#E0A23B", "#4F8BFF", "#9B7BFF", "#2DBE8B", "#F2708B"];
-function TeamCard({ team, count, i }: { team: any[]; count: number; i: number }) {
+function TeamCard({ team, count, i, handover }: { team: any[]; count: number; i: number; handover: any }) {
   const app = useApp();
   const ref = useRef<HTMLButtonElement>(null);
   const people = Array.from(new Set(team.map((t: any) => t.owner))).slice(0, 4) as string[];
   return (
-    <button ref={ref} className="card tap side-card rise" style={{ ["--i" as any]: i }} onClick={() => app.openCard({ title: "With your team", chip: "Waiting on others", render: (close) => <TeamDetail team={team} count={count} close={close} /> }, ref.current)} aria-label={`With your team: ${count} things are waiting on other people. Open details`}>
-      <div className="flex items-center justify-between gap-2"><span className="side-title"><span className="tint mint"><Icon name="clients" size={17} /></span>With your team</span><Icon name="chevron" size={16} className="chev" /></div>
+    // The whole card opens the detail; the Watch it live button sits above that and plays the newest handover.
+    <div className="card side-card rise hit-card" style={{ ["--i" as any]: i }}>
+      <button ref={ref} className="hit" onClick={() => app.openCard({ title: "With your team", chip: "Waiting on others", render: (close) => <TeamDetail team={team} count={count} close={close} /> }, ref.current)} aria-label={`With your team: ${count} ${count === 1 ? "thing" : "things"} in hand. Open details`} />
+      <div className="flex items-center justify-between gap-2"><span className="side-title"><span className="tint"><Icon name="clients" size={17} /></span>With your team</span><Icon name="chevron" size={16} className="chev" /></div>
       <div className="flex items-end justify-between gap-3" style={{ marginTop: 16 }}>
         <span className="side-big num">{count}<small>{count === 1 ? "thing in hand" : "things in hand"}</small></span>
-        <span className="avatars" aria-hidden="true">{people.map((p, n) => <i key={p} style={{ background: AV[n % AV.length] }}>{p.split(" ").map((x) => x[0]).join("").slice(0, 2)}</i>)}</span>
+        <span className="avatars" aria-hidden="true">{people.map((p) => <i key={p}>{p.split(" ").map((x) => x[0]).join("").slice(0, 2)}</i>)}</span>
       </div>
-      <p className="t-foot" style={{ marginTop: 12 }}>{team[0] ? <><b style={{ color: "var(--text)", fontWeight: 650 }}>{team[0].owner}:</b> {team[0].nextStep}</> : "Nothing is waiting on anyone."}</p>
-    </button>
+      {handover ? (
+        <div className="handover-strip">
+          <span className="t-foot" style={{ minWidth: 0, flex: 1 }}><b style={{ color: "var(--text)", fontWeight: 650 }}>{handover.fromName} to {handover.toName}:</b> {handover.title}</span>
+          <button className="btn sm tinted" onClick={() => app.watchLive([handover.id])}><Icon name="play" size={13} />Watch it live</button>
+        </div>
+      ) : <p className="t-foot" style={{ marginTop: 12 }}>{team[0] ? <><b style={{ color: "var(--text)", fontWeight: 650 }}>{team[0].owner}:</b> {team[0].nextStep}</> : "Nothing is waiting on anyone."}</p>}
+    </div>
   );
 }
 
@@ -144,13 +150,19 @@ export default function Overview() {
         {(d) => {
           const all = app.scope.id === "all";
           const m = d.chart?.[metric];
-          const side = [d.reels && <ReelCard key="r" reels={d.reels} i={2} />, d.teamCount > 0 && <TeamCard key="t" team={d.team} count={d.teamCount} i={3} />].filter(Boolean);
+          const side = [d.reels && <ReelCard key="r" reels={d.reels} i={2} />, (d.teamCount > 0 || d.handover) && <TeamCard key="t" team={d.team} count={d.teamCount} i={3} handover={d.handover} />].filter(Boolean);
           if (side.length < 2) side.push(<AskCard key="a" i={2 + side.length} />);
           return (
             <>
               <div className="hero-card rise" data-phase={app.skyPhase}>
-                <span className="hero-orb" aria-hidden="true" />
-                <div style={{ position: "relative", minWidth: 0 }}>
+                {d.numbers?.length > 0 && <div className="hero-figs">{d.numbers.slice(0, 3).map((n: any) => (
+                  <button key={n.id} className="hero-fig" onClick={(e) => app.openCard({ title: n.label, chip: n.source, render: (close) => <NumberDetail n={n} chart={d.chart} close={close} /> }, e.currentTarget)} aria-label={`${n.label}: ${n.value == null ? "Unknown" : full(n.value)}. Open details`}>
+                    <span className="hero-fig-l">{n.label}</span>
+                    <span className="hero-fig-v num">{n.value == null ? "Unknown" : compact(Math.round(n.value)) + (n.unit || "")}</span>
+                    {n.delta != null && <span className={"hero-fig-d num " + (n.delta >= 0 ? "up" : "down")}>{pctText(n.delta)}</span>}
+                  </button>
+                ))}</div>}
+                <div style={{ minWidth: 0 }}>
                   <div className="flex items-center gap-3 flex-wrap"><span className="hero-date">{dateLong(Date.now())}</span><SampleTag show={d.sample} /></div>
                   <h1 className="hello">{d.greeting.hello}</h1>
                   <p className="hello-line">{d.greeting.line}</p>

@@ -20,7 +20,7 @@ const css = readFileSync(p("preview/app.css"), "utf8");
 const js = readFileSync(p("preview/app.js"), "utf8").replace(/<\/script/gi, "<\\/script");
 const html = `<title>Keystone</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
 <style>${css}</style>
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
