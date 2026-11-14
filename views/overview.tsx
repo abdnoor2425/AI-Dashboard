@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApi, useApp } from "@/lib/client";
@@ -135,9 +135,21 @@ function AskCard({ i }: { i: number }) {
 
 export default function Overview() {
   const app = useApp();
-  const q = useApi("overview", { scope: app.scopeKey });
+  const q = useApi("overview", { scope: app.scopeKey }, { keep: true });
   const [metric, setMetric] = useState<"visitors" | "leads">("visitors");
   const sites = app.boot.sites as any[];
+  const clients = app.boot.clients as any[];
+  // The website picked under the chart. It only changes the chart and its tiles, never the rest of the page.
+  const pageSite = app.scope.mode === "sites" ? app.scope.id : "all";
+  const [site, setSite] = useState(pageSite);
+  useEffect(() => setSite(pageSite), [pageSite]);
+  const owner = String(app.boot.workspace?.owner || "").trim().split(" ")[0];
+  const modeSwitch = clients.length > 0 && (
+    <div className="ov-mode rise">
+      <Segmented label="Show websites" value={app.scope.mode} onChange={(m) => app.setScope({ mode: m, id: "all" })}
+        options={[{ value: "sites", label: owner ? `${owner}'s websites` : "Your websites" }, { value: "clients", label: "Client websites" }]} />
+    </div>
+  );
   const skeleton = (
     <>
       <div className="hero-card" style={{ minHeight: 230 }}><Skel h={14} w={160} style={{ opacity: 0.5 }} /><Skel h={46} w="54%" r={12} style={{ marginTop: 16, opacity: 0.5 }} /><Skel h={20} w="40%" style={{ marginTop: 14, opacity: 0.5 }} /></div>
@@ -149,11 +161,13 @@ export default function Overview() {
       <Load q={q} skeleton={skeleton}>
         {(d) => {
           const all = app.scope.id === "all";
-          const m = d.chart?.[metric];
+          const view = (d.bySite && d.bySite[site]) || { numbers: d.numbers, chart: d.chart };
+          const m = view.chart?.[metric];
           const side = [d.reels && <ReelCard key="r" reels={d.reels} i={2} />, (d.teamCount > 0 || d.handover) && <TeamCard key="t" team={d.team} count={d.teamCount} i={3} handover={d.handover} />].filter(Boolean);
           if (side.length < 2) side.push(<AskCard key="a" i={2 + side.length} />);
           return (
             <>
+              {modeSwitch}
               <div className="hero-card rise" data-phase={app.skyPhase}>
                 {d.numbers?.length > 0 && <div className="hero-figs">{d.numbers.slice(0, 3).map((n: any) => (
                   <button key={n.id} className="hero-fig" onClick={(e) => app.openCard({ title: n.label, chip: n.source, render: (close) => <NumberDetail n={n} chart={d.chart} close={close} /> }, e.currentTarget)} aria-label={`${n.label}: ${n.value == null ? "Unknown" : full(n.value)}. Open details`}>
@@ -185,22 +199,22 @@ export default function Overview() {
               {app.scope.mode === "sites" && (
                 <div style={{ marginTop: 48 }}>
                   <Section title="How the websites are doing" i={3} action={<Link className="link" href="/website">Open Website</Link>}>
-                    {sites.length > 0 && (
+                    {sites.length > 1 && d.bySite && (
                       <div className="site-tabs" role="tablist" aria-label="Website">
-                        <button role="tab" aria-selected={all} className={"site-tab" + (all ? " on" : "")} onClick={() => app.setScope({ mode: "sites", id: "all" })}><span className="all-dot"><Icon name="website" size={13} /></span>All websites</button>
-                        {sites.map((s) => <button key={s.id} role="tab" aria-selected={app.scope.id === s.id} className={"site-tab" + (app.scope.id === s.id ? " on" : "")} onClick={() => app.setScope({ mode: "sites", id: s.id })}><i style={{ background: s.color }} />{s.name}</button>)}
+                        <button role="tab" aria-selected={site === "all"} className={"site-tab" + (site === "all" ? " on" : "")} onClick={() => setSite("all")}><span className="all-dot"><Icon name="website" size={13} /></span>All websites</button>
+                        {sites.map((s) => <button key={s.id} role="tab" aria-selected={site === s.id} className={"site-tab" + (site === s.id ? " on" : "")} onClick={() => setSite(s.id)}><i style={{ background: s.color }} />{s.name}</button>)}
                       </div>
                     )}
-                    <div className="tiles">{d.numbers.map((n: any, i: number) => <Tile key={n.id} n={n} i={i} chart={d.chart} />)}</div>
+                    <div className="tiles">{view.numbers.map((n: any, i: number) => <Tile key={n.id} n={n} i={i} chart={view.chart} />)}</div>
                     <div className="card chart-card rise" style={{ ["--i" as any]: 6 }}>
-                      {d.chart && m ? (
+                      {view.chart && m ? (
                         <>
                           <div className="flex items-center justify-between gap-3 flex-wrap" style={{ marginBottom: 14 }}>
-                            <div style={{ minWidth: 0 }}><div className="t-head" style={{ fontSize: 17 }}>{d.chart.name} {metric}</div><div className="t-foot">{full(m.total)} in the last 28 days{m.delta != null ? `, ${pctText(m.delta)} on the four weeks before` : ""}</div></div>
+                            <div style={{ minWidth: 0 }}><div className="t-head" style={{ fontSize: 17 }}>{view.chart.name} {metric}</div><div className="t-foot">{full(m.total)} in the last 28 days{m.delta != null ? `, ${pctText(m.delta)} on the four weeks before` : ""}</div></div>
                             <Segmented label="Show" value={metric} onChange={setMetric} options={[{ value: "visitors", label: "Visitors" }, { value: "leads", label: "Leads" }]} />
                           </div>
-                          <BarChart key={app.scopeKey + metric} data={m.series} label={`${d.chart.name} ${metric}`} />
-                          <p className="t-foot faint" style={{ marginTop: 6 }}>From {d.chart.source}{d.sample ? ", sample data" : ""}. Pick a website above and this chart follows it.</p>
+                          <BarChart key={site + metric} data={m.series} label={`${view.chart.name} ${metric}`} />
+                          <p className="t-foot faint" style={{ marginTop: 6 }}>From {view.chart.source}{d.sample ? ", sample data" : ""}. Pick a website above and only this chart and its numbers change.</p>
                         </>
                       ) : <Empty art="connect" title="No website numbers yet"><p>Connect Google Analytics and your websites and their charts appear here by themselves.</p><Link className="btn tinted" style={{ marginTop: 10 }} href="/connections">Open Connections</Link></Empty>}
                     </div>

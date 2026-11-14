@@ -242,8 +242,6 @@ button.row:active, a.row:active { background: var(--fill); }
 .icon-btn:active { transform: scale(0.9); }
 .seg { position: relative; display: inline-flex; padding: 2px; border-radius: 11px; background: var(--fill); isolation: isolate; max-width: 100%; }
 .seg-thumb { position: absolute; z-index: -1; top: 2px; bottom: 2px; left: 0; border-radius: 9px; background: var(--card-solid); box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 3px 8px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04); transition: transform var(--spring-snappy-ms) var(--spring-snappy), width var(--spring-snappy-ms) var(--spring-snappy); }
-:root[data-theme="dark"] .seg-thumb { background: #3A4A8C; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg-thumb { background: #3A4A8C; } }
 .seg-item { height: 30px; padding: 0 14px; border-radius: 9px; font-size: 13.5px; font-weight: 550; color: var(--text-2); white-space: nowrap; transition: color 0.2s; display: inline-flex; align-items: center; gap: 6px; }
 .seg-item[aria-checked="true"] { color: var(--text); }
 .seg-count { font-size: 11.5px; font-weight: 650; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--fill); display: inline-grid; place-items: center; }
@@ -685,3 +683,13 @@ html[data-theme="dark"] .seg-thumb { background: color-mix(in srgb, var(--text) 
 html .verdicts i { border-radius: 2px; height: 6px; }
 html .bar-fill, html .bar-track { border-radius: 2px; }
 html .empty svg { filter: grayscale(1); opacity: 0.8; }
+
+/* Overview: the switch between the owner's own websites and client websites. */
+.ov-mode { display: flex; justify-content: flex-start; margin: 0 0 16px; }
+html .ov-mode .seg { background: var(--glass); -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%); box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-edge), 0 10px 26px -18px var(--shadow-c); padding: 3px; border-radius: 13px; }
+html .ov-mode .seg-item { height: 34px; padding: 0 18px; font-size: 14px; }
+html .ov-mode .seg-thumb { top: 3px; bottom: 3px; border-radius: 10px; }
+@media (max-width: 640px) { .ov-mode .seg { width: 100%; } .ov-mode .seg-item { flex: 1; justify-content: center; padding: 0 10px; } }
+@media (prefers-color-scheme: dark) { html:not([data-theme="light"]) .seg:not(#x) .seg-thumb { background: color-mix(in srgb, var(--text) 14%, var(--card-solid)); box-shadow: inset 0 0 0 1px var(--line); } }
+html .ov-mode .seg:not(#x) .seg-thumb { background: var(--accent); box-shadow: 0 6px 16px -8px var(--shadow-c); }
+html .ov-mode .seg-item[aria-checked="true"] { color: var(--on-accent); }

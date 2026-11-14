@@ -236,7 +236,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!boot) return;
     const list = scope.mode === "sites" ? boot.sites : boot.clients;
-    if (scope.mode === "clients" || (scope.id !== "all" && !list.some((x: any) => x.id === scope.id))) setScopeState({ mode: "sites", id: "all" });
+    if ((scope.mode === "clients" && !boot.clients.length) || (scope.id !== "all" && !list.some((x: any) => x.id === scope.id))) setScopeState({ mode: boot.clients.length ? scope.mode : "sites", id: "all" });
   }, [boot?.workspace?.id, boot?.sites?.length]);
 
   // Accent colour and theme follow the workspace settings.

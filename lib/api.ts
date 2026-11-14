@@ -191,6 +191,31 @@ function handoverList(ws: any, limit = 12) {
   return handoversFrom(ws.items, team).slice(0, limit).map((h) => ({ ...h, fromName: name(h.from), toName: name(h.to) }));
 }
 
+/** Visitors, leads and social reach for one website or several added together. */
+function siteNumbers(siteList: any[], now: number): any[] {
+  const numbers: any[] = [];
+  const tr = siteList.map((s: any) => siteTraffic(s, 7, now));
+  const v = tr.reduce((a: number, x: any) => a + x.totals.visitors, 0), vp = tr.reduce((a: number, x: any) => a + x.totals.visitorsPrev, 0);
+  const l = tr.reduce((a: number, x: any) => a + x.totals.leads, 0), lp = tr.reduce((a: number, x: any) => a + x.totals.leadsPrev, 0);
+  numbers.push({ id: "visitors", label: "Visitors", value: v, delta: pct(v, vp), spark: addSeries(tr.map((x: any) => x.visitors)), sentence: sentence(pct(v, vp), "Visitors", "week"), href: "website", source: "Google Analytics", period: "Last 7 days" });
+  numbers.push({ id: "leads", label: "Leads", value: l, delta: pct(l, lp), spark: addSeries(tr.map((x: any) => x.leads)), sentence: sentence(pct(l, lp), "Leads", "week"), href: "website", source: "Google Analytics", period: "Last 7 days" });
+  const soc = siteList.map((s: any) => siteSocial(s, now)).filter((s: any) => s.state === "ok");
+  if (soc.length) {
+    const r = soc.reduce((a: number, x: any) => a + x.totals.reach, 0), rp = soc.reduce((a: number, x: any) => a + x.totals.reachPrev, 0);
+    numbers.push({ id: "reach", label: "Social reach", value: r, delta: pct(r, rp), spark: addSeries(soc.map((x: any) => x.reach)), sentence: sentence(pct(r, rp), "Reach", "week"), href: "social", source: "Metricool", period: "Last 7 days" });
+  } else numbers.push({ id: "reach", label: "Social reach", value: null, delta: null, spark: [], sentence: "Confirm this website's Metricool brand to see reach.", href: "connections", source: "Metricool", period: "Last 7 days", state: "unknown" });
+  return numbers;
+}
+
+/** The 28-day visitors and leads chart for one website or several added together. */
+function siteChart(siteList: any[], now: number) {
+  const t28 = siteList.map((s: any) => siteTraffic(s, 28, now));
+  const tv = t28.reduce((a: number, x: any) => a + x.totals.visitors, 0), tvp = t28.reduce((a: number, x: any) => a + x.totals.visitorsPrev, 0);
+  const tl = t28.reduce((a: number, x: any) => a + x.totals.leads, 0), tlp = t28.reduce((a: number, x: any) => a + x.totals.leadsPrev, 0);
+  return { name: siteList.length === 1 ? siteList[0].name : "All websites", color: siteList.length === 1 ? siteList[0].color : null, source: "Google Analytics", period: "Last 28 days",
+    visitors: { series: addSeries(t28.map((x: any) => x.visitors)), total: tv, delta: pct(tv, tvp) }, leads: { series: addSeries(t28.map((x: any) => x.leads)), total: tl, delta: pct(tl, tlp) } };
+}
+
 function overview(ws: any, scope: string, now: number) {
   const q = queueFor(ws, scope, now);
   const sod = startOfDay(now);
@@ -205,16 +230,7 @@ function overview(ws: any, scope: string, now: number) {
     for (const [id, label] of [["visitors", "Visitors"], ["leads", "Leads"]]) numbers.push({ id, label, value: null, delta: null, spark: [], sentence: "Connect Google Analytics to see this.", href: "connections", source: "Google Analytics", period: "Last 7 days", state: "unknown" });
     numbers.push({ id: "reach", label: "Social reach", value: null, delta: null, spark: [], sentence: "Connect Metricool to see reach.", href: "connections", source: "Metricool", period: "Last 7 days", state: "unknown" });
   } else if (!clientsMode) {
-    const tr = siteList.map((s: any) => siteTraffic(s, 7, now));
-    const v = tr.reduce((a: number, x: any) => a + x.totals.visitors, 0), vp = tr.reduce((a: number, x: any) => a + x.totals.visitorsPrev, 0);
-    const l = tr.reduce((a: number, x: any) => a + x.totals.leads, 0), lp = tr.reduce((a: number, x: any) => a + x.totals.leadsPrev, 0);
-    numbers.push({ id: "visitors", label: "Visitors", value: v, delta: pct(v, vp), spark: addSeries(tr.map((x: any) => x.visitors)), sentence: sentence(pct(v, vp), "Visitors", "week"), href: "website", source: "Google Analytics", period: "Last 7 days" });
-    numbers.push({ id: "leads", label: "Leads", value: l, delta: pct(l, lp), spark: addSeries(tr.map((x: any) => x.leads)), sentence: sentence(pct(l, lp), "Leads", "week"), href: "website", source: "Google Analytics", period: "Last 7 days" });
-    const soc = siteList.map((s: any) => siteSocial(s, now)).filter((s: any) => s.state === "ok");
-    if (soc.length) {
-      const r = soc.reduce((a: number, x: any) => a + x.totals.reach, 0), rp = soc.reduce((a: number, x: any) => a + x.totals.reachPrev, 0);
-      numbers.push({ id: "reach", label: "Social reach", value: r, delta: pct(r, rp), spark: addSeries(soc.map((x: any) => x.reach)), sentence: sentence(pct(r, rp), "Reach", "week"), href: "social", source: "Metricool", period: "Last 7 days" });
-    } else numbers.push({ id: "reach", label: "Social reach", value: null, delta: null, spark: [], sentence: "Confirm this website's Metricool brand to see reach.", href: "connections", source: "Metricool", period: "Last 7 days", state: "unknown" });
+    numbers.push(...siteNumbers(siteList, now));
   } else {
     const mine = q.needsYou.filter((i) => inMode(i.scope, scope));
     const replies = mine.filter((i) => i.kind === "reply").length, approvals = mine.filter((i) => i.kind === "approval").length;
@@ -229,20 +245,19 @@ function overview(ws: any, scope: string, now: number) {
   const broken = ws.connections.filter((c: any) => c.status === "error");
   const newSuggestions = ws.suggestions.filter((s: any) => s.status === "new").length;
   // The 28-day chart follows the website that is selected. No website, no chart: never a made-up line.
-  let chart: any = null;
-  if (!clientsMode && siteList.length) {
-    const t28 = siteList.map((s: any) => siteTraffic(s, 28, now));
-    const tv = t28.reduce((a: number, x: any) => a + x.totals.visitors, 0), tvp = t28.reduce((a: number, x: any) => a + x.totals.visitorsPrev, 0);
-    const tl = t28.reduce((a: number, x: any) => a + x.totals.leads, 0), tlp = t28.reduce((a: number, x: any) => a + x.totals.leadsPrev, 0);
-    chart = { name: siteList.length === 1 ? siteList[0].name : "All websites", color: siteList.length === 1 ? siteList[0].color : null, source: "Google Analytics", period: "Last 28 days",
-      visitors: { series: addSeries(t28.map((x: any) => x.visitors)), total: tv, delta: pct(tv, tvp) }, leads: { series: addSeries(t28.map((x: any) => x.leads)), total: tl, delta: pct(tl, tlp) } };
-  }
+  const chart = !clientsMode && siteList.length ? siteChart(siteList, now) : null;
+  // Every website's tiles and chart, ready in advance, so picking a website under the chart swaps them in place
+  // without asking the server again or redrawing the rest of the page.
+  const goalTile = numbers.find((n) => n.id === "goal");
+  const bySite: Record<string, any> | null = !clientsMode && ws.sites.length > 1
+    ? Object.fromEntries([["all", ws.sites], ...ws.sites.map((s: any) => [s.id, [s]])].map(([k, list]: any) => [k, { numbers: [...siteNumbers(list, now), ...(goalTile ? [goalTile] : [])], chart: siteChart(list, now) }]))
+    : null;
   const reelList = ws.modules?.reels === false ? [] : (ws.reels || []).filter((r: any) => inScope(r.scope, scope)).sort((x: any, y: any) => y.publishedAt - x.publishedAt);
   const reelView = (r: any) => { const sc = [r.final.hooks.spoken, r.final.hooks.text, r.final.hooks.visual, ...r.final.buckets.map((b: any) => b.score)]; const site = ws.sites.find((s: any) => s.id === r.site);
     return { id: r.id, title: r.title, siteName: site?.name, color: site?.color, verdict: r.final.verdict, score: Math.round((sc.reduce((a: number, x: number) => a + x, 0) / (sc.length * 5)) * 100), hooks: r.final.hooks, next: r.next, fixes: r.fixes, publishedAt: r.publishedAt, views: (r.perf.d7 || r.perf.h72 || r.perf.h24)?.views ?? null }; };
   const reels = reelList.length ? { pass: reelList.filter((r: any) => r.final.verdict === "PASS").length, hold: reelList.filter((r: any) => r.final.verdict === "HOLD").length, total: reelList.length, list: reelList.slice(0, 6).map(reelView), verdicts: reelList.slice(0, 14).map((r: any) => r.final.verdict), rubric: "v1.2" } : null;
   return {
-    chart, reels,
+    chart, reels, bySite,
     greeting: greetingFor(ws, q, now, scopeName(ws, scope)),
     ring: { done: doneToday, total: doneToday + dueToday, left: dueToday },
     start: top[0] ? { id: top[0].id, title: top[0].title, nextStep: top[0].nextStep } : null,
