@@ -128,3 +128,14 @@ Stack: Next.js, React, Tailwind CSS. No database: one JSON file.
 ## License
 
 MIT
+## Second Brain (local folders)
+
+Open **Second Brain → Connect a project folder**, paste the absolute path of a specific project folder on the computer running Keystone, review it, and choose **Connect and index**. Each connected folder is a project. Use **Projects** to focus its graph or browse its files; use **Manage sources → Rescan** after edits. Disconnect removes its index, never the original folder.
+
+Each client's local installation owns its own `.keystone` data. Indexes are additionally separated by dashboard workspace. Nothing is uploaded or sent to an AI provider by indexing. Moving to another computer requires reconnecting the local folder paths. This is a localhost application, not a hosted multi-tenant service. The normal start/dev commands bind to 127.0.0.1.
+
+Folders occupy the blue central graph core. Containment lines extend outward to files; explicit document references are inspectable from file details. Selecting a project changes from the workspace sphere to a focused radial layout. The surrounding UI uses the existing Keystone shell and components.
+
+The index stores file metadata and explicit Markdown links. UTF-8 text/code documents up to 128 KiB can be read; unsupported formats and larger files retain metadata. Hidden files, known credential/key names, dependencies/build outputs, system directories, symlinks and hard-linked files are excluded. This is not a content-based secret detector: connect only folders you intend this local workspace to read. Current bounds are 8 sources per workspace, 2,000 indexed entries per source, depth 20 and an 8 MiB reference parsing budget. Index warnings disclose skipped or capped content. Updates are manual rescans; background watching, OCR, embeddings and AI wiki synthesis are not included.
+
+The graph renderer is adapted from MIT-licensed [AIS-OS](https://github.com/nateherkai/AIS-OS), pinned to `ce9cb93a1145da5daba84ea37208ec35fd03606e`. Its license and dependency notices are in `public/brain/`. The unmodified upstream renderer bundle uses a Keystone API/layout adapter; no example knowledge is shipped. The static hosted preview cannot connect folders; run the actual local server.

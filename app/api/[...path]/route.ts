@@ -6,6 +6,7 @@ import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib
 import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, redirectUri } from "@/lib/server/google";
 import { isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
+import { dropBrain } from "@/lib/server/brain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -132,8 +133,14 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   }
 
   // --- Housekeeping around the shared router ---
-  if (a === "workspaces" && b === "delete" && post) dropSecrets(String(body.id));
-  if (a === "reset" && post) { if (body.scope === "workspace" || !ws.sample) dropSecrets(ws.id); else dropSecrets(); }
+  if (a === "workspaces" && b === "delete" && post) {
+    if (typeof body.id === "string" && body.id !== "main" && Object.hasOwn(state.workspaces, body.id)) dropBrain(body.id);
+    dropSecrets(String(body.id));
+  }
+  if (a === "reset" && post) {
+    for (const id of body.scope === "workspace" ? [ws.id] : Object.keys(state.workspaces)) dropBrain(id);
+    if (body.scope === "workspace" || !ws.sample) dropSecrets(ws.id); else dropSecrets();
+  }
   if (a === "bootstrap" && !ws.sample && ws.connections.some((x: any) => x.status === "connected") && now - (ws.lastSync || 0) > 15 * 60000) syncWorkspace(ws, now).catch(() => {});
 
   const res = pass();
