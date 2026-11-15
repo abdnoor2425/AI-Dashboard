@@ -25,6 +25,7 @@ export const MODULES: { id: string; label: string; group: "main" | "more"; core?
   { id: "metrics", label: "Metrics", group: "main" },
   { id: "decisions", label: "Decision Room", group: "main" },
   { id: "clients", label: "Clients", group: "main" },
+  { id: "second-brain", label: "Second Brain", group: "main" },
   { id: "inbox", label: "Inbox", group: "more" },
   { id: "calendar", label: "Calendar", group: "more" },
   { id: "files", label: "Files", group: "more" },

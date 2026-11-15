@@ -48,6 +48,12 @@ export function loadState(now = Date.now()) {
   if (rollSamples(cache, now)) writeJson(STATE, cache);
   return cache;
 }
+export function hasWorkspace(id: string) {
+  const saved = cache || readJson(STATE);
+  const workspaces = saved?.version === 1 && saved.workspaces ? saved.workspaces : makeState(Date.now()).workspaces;
+  return Object.hasOwn(workspaces, id);
+}
+
 export function saveState() { if (cache) writeJson(STATE, cache); }
 
 /** Secrets are grouped by workspace, so one workspace can never use another's sign-in. */

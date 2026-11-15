@@ -12,9 +12,10 @@ import { Inbox, Calendar, Files, Outputs, Skills, Suggestions, Usage } from "./m
 import Connections from "./connections";
 import Setup from "./setup";
 import Settings from "./settings";
+import SecondBrain from "./second-brain";
 
 export const VIEWS: Record<string, React.ComponentType> = {
   overview: Overview, attention: Attention, website: Website, social: Social, reels: Reels, goals: Goals, metrics: Metrics,
   decisions: Decisions, clients: Clients, inbox: Inbox, calendar: Calendar, files: Files, outputs: Outputs, skills: Skills,
-  suggestions: Suggestions, usage: Usage, connections: Connections, setup: Setup, settings: Settings,
+  suggestions: Suggestions, usage: Usage, connections: Connections, setup: Setup, settings: Settings, "second-brain": SecondBrain,
 };

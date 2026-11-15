@@ -1,0 +1,4 @@
+/* Canvas only. All product UI is rendered with Keystone components. */
+.topbar,.intro-copy,.scene-status,.legend,.drawer,.inventory,.demo-controls,.demo-caption,.splash,.toast,.hover-label,.project-controls,.project-panel{display:none!important}
+:root{--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--display:var(--sans);--mono:var(--sans)}
+body{font-family:var(--sans)}
