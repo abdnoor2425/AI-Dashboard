@@ -7,6 +7,7 @@ import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, redirectUri, sendMail } from
 import { linearAlert, linearComment } from "@/lib/server/linear";
 import { isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
+import { brainSummary, dropBrain } from "@/lib/server/brain";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -39,6 +40,8 @@ function snapshot(state: any, scope: string, now: number) {
     goals: g.goals?.map((x: any) => ({ title: x.title, progress: x.progress, keyResults: x.krs?.map((k: any) => ({ title: k.title, current: k.current, target: k.target })) })),
     metrics: m.metrics?.map((x: any) => ({ name: x.name, current: x.current, target: x.target, unit: x.unit, period: x.period, state: x.state })),
     today_events: o.today,
+    // The Second Brain as an outline: project names, sizes and which projects connect. Never file contents.
+    secondBrain: brainSummary(state.active),
   };
 }
 
@@ -185,8 +188,14 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   }
 
   // --- Housekeeping around the shared router ---
-  if (a === "workspaces" && b === "delete" && post) dropSecrets(String(body.id));
-  if (a === "reset" && post) { if (body.scope === "workspace" || !ws.sample) dropSecrets(ws.id); else dropSecrets(); }
+  if (a === "workspaces" && b === "delete" && post) {
+    if (typeof body.id === "string" && body.id !== "main" && Object.hasOwn(state.workspaces, body.id)) dropBrain(body.id);
+    dropSecrets(String(body.id));
+  }
+  if (a === "reset" && post) {
+    for (const id of body.scope === "workspace" ? [ws.id] : Object.keys(state.workspaces)) dropBrain(id);
+    if (body.scope === "workspace" || !ws.sample) dropSecrets(ws.id); else dropSecrets();
+  }
   if (a === "bootstrap" && !ws.sample && ws.connections.some((x: any) => x.status === "connected") && now - (ws.lastSync || 0) > 15 * 60000) syncWorkspace(ws, now).catch(() => {});
 
   const res = pass();

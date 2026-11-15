@@ -34,6 +34,7 @@ const TOOLS = [
   ["usage", "usage", "AI usage and cost: plans, extra spend against budget, and entries by task.", {}],
   ["connections", "connections", "Each connected tool and its honest status, and which Metricool brand belongs to which website.", {}],
   ["search", "search", "Search pages, websites, clients, items, goals, metrics, documents and files by name.", { q: { type: "string", description: "What to look for." } }],
+  ["second_brain", "brain", "The Second Brain: the owner's WorkOS as an outline. Each project with its size, when it last changed and which other projects it connects to, plus recently changed files. Names only, never file contents.", {}],
   ["team", "team", "Your team: the leader first, then everyone else with their role and who they work under. Gives the ids for keystone_alert_team.", {}],
 ].map(([name, path, description, properties]) => ({ name: "keystone_" + name, path, description, inputSchema: { type: "object", properties, additionalProperties: false } }));
 

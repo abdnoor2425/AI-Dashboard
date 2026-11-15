@@ -82,7 +82,6 @@ Being straight about this matters more than looking finished:
 - **Not yet tested against live accounts:** the Google, Metricool and Linear connectors. They are written from each service's public documentation. The Metricool analytics calls are the least certain. If a call fails, the tool shows "Needs attention" with the reason, and nothing is made up to fill the gap.
 - Not built yet: Slack, and importing a reel scorecard sheet. Both show as "Coming later". In a real workspace the Reel scores page stays empty until then.
 - The reel scorecard checks in the sample data are placeholders. Swap in your own scorecard's names.
-- The Second Brain is planned for later.
 
 ## Your team, comments and alerts
 
@@ -148,3 +147,14 @@ Stack: Next.js, React, Tailwind CSS. No database: one JSON file.
 ## License
 
 MIT
+## Second Brain
+
+The Second Brain draws your WorkOS as a globe. A WorkOS is a folder of projects: every folder inside it becomes a project, with its files and the connections between them.
+
+- **Connect it.** Open **Second Brain → Edit sources**, choose **A whole WorkOS**, then browse to the top folder (or paste its path) and press **Add**. If some projects live outside your WorkOS, add each one with **One project folder**. Up to 8 sources per workspace.
+- **Read it.** Each project is a region of the globe, each folder a knot inside it, each file a point. Drag to turn it, use + and − to zoom, and use the search to find a file. Pick a project from the dropdown (or click it) and it opens in place: its folders and files in rings, with everything it connects to in other projects around the outside. Click any file to see what it links to, what links to it, and what it says.
+- **Connections.** A line is drawn when a note links to another file (Markdown links and `[[wiki links]]`), and a dashed line when a note names another project. Folders hold their files with thin lines in the project's colour.
+- **Change it.** On the Edit page: **Read again** after files change, **Leave out** a project that does not belong, or **Remove** a source. None of these touch your files.
+- **Ask about it.** Ask your AI knows your projects, how they connect and what changed lately. It is given names and counts only, never file contents. Your own Claude Code or Codex can read the same outline through the `keystone_second_brain` tool.
+
+Everything stays on the computer running Keystone. The index is kept in `.keystone`, separate for each workspace, and nothing is uploaded. The Second Brain only ever reads: it stores file names, sizes, dates and links, and reads text files (up to 128 KB) only when you open one. Hidden files, passwords and keys, dependency and build folders, and shortcuts are always skipped. This is not a secret scanner, so only connect folders you are happy for the dashboard to read. Limits: 6,000 entries per source and 20 folders deep; the Edit page says when a limit was reached. Updates are manual (**Read again**). With nothing connected, and in the static preview, the page shows a clearly marked sample WorkOS.
