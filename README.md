@@ -37,6 +37,8 @@ Every page has its own address and its own endpoint, and the important parts als
 | Clients | `/clients` | `/api/clients` |
 | Inbox, Calendar, Files | `/inbox`, `/calendar`, `/files` | same names |
 | Outputs, Skills, Suggestions, AI usage | `/outputs`, `/skills`, `/suggestions`, `/usage` | same names |
+| Your team (with Watch it live) | `/team` | `/api/team` |
+| Second Brain | `/second-brain`, `/second-brain/edit` | `/api/brain` |
 | Connections, Setup, Settings | `/connections`, `/setup`, `/settings` | same names |
 
 `GET /api` lists every endpoint.
