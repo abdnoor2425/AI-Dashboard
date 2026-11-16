@@ -282,7 +282,7 @@ function navigatorPath() {
 /* ---------- Connect your AI ---------- */
 
 // Simple marks for each AI. They name the app; they are not the companies' own logos.
-function AiMark({ id }: { id: string }) {
+export function AiMark({ id }: { id: string }) {
   const tile = (bg: string, child: React.ReactNode, fg = "#fff") => <span className="fr-tile fr-aimark" style={{ background: bg, color: fg }}>{child}</span>;
   const rays = <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><g stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">{[0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5].map((a) => <path key={a} d="M12 4.2v15.6" transform={`rotate(${a} 12 12)`} />)}</g></svg>;
   if (id === "claude-code") return tile("#C8643F", rays);
@@ -316,7 +316,7 @@ function AiStep({ go }: { go: (step: string) => void }) {
   const pick = async (id: string) => { try { await api("ai/answer", { method: "POST", body: { id } }); q.reload(); setAnswer(null); } catch (e: any) { setErr({ panel: e.message }); } };
   const ask = async () => {
     setAsking(true); setAnswer(null);
-    try { const r = await api("ai/ask", { method: "POST", body: { question } }); setAnswer({ text: r.answer, by: r.provider || "" }); }
+    try { const r = await api("ai/ask", { method: "POST", body: { question } }); setAnswer({ text: r.answer, by: r.provider && r.provider !== "rules" ? r.provider : "" }); }
     catch (e: any) { setAnswer({ text: e.message, by: "" }); }
     setAsking(false);
   };

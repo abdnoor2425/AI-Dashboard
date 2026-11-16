@@ -4,6 +4,7 @@ import { api, useApi, useApp } from "@/lib/client";
 import { ago } from "@/lib/format";
 import { Empty, Icon, Load, Mark, Page, SampleTag, Section, SkelCards, SkelRows } from "@/components/ui";
 import { Logo } from "@/components/logos";
+import { AiMark } from "@/components/first-run";
 
 const LABEL: Record<string, { text: string; tone: string }> = {
   connected: { text: "Connected", tone: "good" }, manual: { text: "Manual", tone: "warn" },
@@ -99,23 +100,54 @@ function ToolCard({ c, i }: { c: any; i: number }) {
 }
 
 function AiCard() {
-  const q = useApi("ai/status");
-  const d = q.data;
-  const path = d?.mcpPath || "/path/to/AI-Dashboard/mcp/server.mjs";
+  const app = useApp();
+  const q = useApi("ai/agents");
+  const st = useApi("ai/status");
+  const [busy, setBusy] = useState<string | null>(null);
+  const agents: any[] = q.data?.agents || [];
+  const local = agents.filter((a) => a.kind !== "cloud");
+  const answerWith = q.data?.answerWith;
+  const act = async (a: any, action: "connect" | "disconnect") => {
+    setBusy(a.id);
+    try { await api("ai/agents/" + a.id, { method: "POST", body: { action } }); q.reload(); app.toast(action === "connect" ? `${a.name} connected${a.id === "claude-app" ? ". Restart the Claude app to see it." : ""}` : `${a.name} disconnected`); }
+    catch (e: any) { app.toast(e.message); }
+    setBusy(null);
+  };
+  const pick = async (a: any) => { try { await api("ai/answer", { method: "POST", body: { id: a.id } }); q.reload(); st.reload(); app.toast(`${a.name} now answers in the dashboard`); } catch (e: any) { app.toast(e.message); } };
+  const path = st.data?.mcpPath || "/path/to/AI-Dashboard/mcp/server.mjs";
+  const linked = local.filter((a) => a.connected).length;
   return (
     <div className="card pad ai-card">
       <div className="flex items-start gap-3">
         <span className="tint" style={{ width: 48, height: 48, borderRadius: 15 }}><Icon name="sparkle" size={22} /></span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="flex items-center gap-2 flex-wrap"><h3 className="t-head">Your AI plan</h3>{d && <span className={"chip " + (d.available ? "good" : "")}>{d.available ? `${d.provider} linked` : "Not linked"}</span>}</div>
-          <p className="muted" style={{ marginTop: 4, maxWidth: "62ch" }}>The dashboard never asks for a paid API key. Link the Claude Code or Codex plan you already pay for, then ask it anything about this dashboard, in the app or in your own terminal.</p>
+          <div className="flex items-center gap-2 flex-wrap"><h3 className="t-head">Your AI</h3>{q.data && !q.data.preview && <span className={"chip " + (linked ? "good" : "")}>{linked ? `${linked} connected` : "None connected"}</span>}</div>
+          <p className="muted" style={{ marginTop: 4, maxWidth: "62ch" }}>Ask about your business in plain words, using the AI plan you already pay for. No API keys. Your AI can only read the dashboard.</p>
         </div>
       </div>
-      <div className="grid-2" style={{ marginTop: 16 }}>
-        <div className="stack" style={{ gap: 8 }}><div className="t-cap">Claude Code</div><CopyLine label="Claude Code command" text={`claude mcp add ai-dashboard -- node ${path}`} /></div>
-        <div className="stack" style={{ gap: 8 }}><div className="t-cap">Codex</div><CopyLine label="Codex command" text={`codex mcp add ai-dashboard -- node ${path}`} /></div>
-      </div>
-      <p className="t-foot faint" style={{ marginTop: 12 }}>Run one line once, in the terminal on this computer. After that, try asking: "What needs my attention today?" {d?.note ? d.note : ""}</p>
+      {q.loading && !q.data ? <div style={{ marginTop: 14 }}><SkelRows n={3} /></div> : q.data?.preview ? (
+        <div className="grid-2" style={{ marginTop: 16 }}>
+          <div className="stack" style={{ gap: 8 }}><div className="t-cap">Claude Code</div><CopyLine label="Claude Code command" text={`claude mcp add ai-dashboard -- node ${path}`} /></div>
+          <div className="stack" style={{ gap: 8 }}><div className="t-cap">Codex</div><CopyLine label="Codex command" text={`codex mcp add ai-dashboard -- node ${path}`} /></div>
+        </div>
+      ) : (
+        <div className="card group inset" style={{ marginTop: 16 }}>
+          {agents.map((a) => (
+            <div className="row" key={a.id} style={a.kind === "cloud" ? { opacity: 0.6 } : undefined}>
+              <span className="ai-row-mark"><AiMark id={a.id} /></span>
+              <span className="row-main"><span className="row-title" style={{ display: "block" }}>{a.name}</span><span className="row-sub">{a.sub}</span></span>
+              <span className="flex gap-2 items-center flex-wrap justify-end">
+                {a.connected && a.answers && (answerWith === a.id ? <span className="chip accent">Answers here</span> : <button className="btn sm plain" onClick={() => pick(a)}>Answer here</button>)}
+                {a.kind === "cloud" ? <span className="chip">Not yet</span>
+                  : !a.installed ? <a className="btn sm" href={a.getUrl} target="_blank" rel="noreferrer">Get it</a>
+                  : a.connected ? <button className="btn sm" disabled={busy === a.id} onClick={() => act(a, "disconnect")}>Disconnect</button>
+                  : <button className="btn sm primary" disabled={busy === a.id} onClick={() => act(a, "connect")}>{busy === a.id ? "Connecting…" : "Connect"}</button>}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="t-foot faint" style={{ marginTop: 12 }}>After connecting, try asking your AI: "What needs my attention today?" ChatGPT and Grok run in the cloud, so they can't reach a dashboard on your computer yet.</p>
     </div>
   );
 }

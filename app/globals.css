@@ -1001,3 +1001,6 @@ html .ov-mode .seg-item[aria-checked="true"] { color: var(--on-accent); }
 .fr-ai-safe svg { flex: none; margin-top: 1px; color: #E0B663; }
 @media (max-width: 960px) { .fr-ai { grid-template-columns: 1fr; } .fr-ai-panel { position: static; } }
 @media (prefers-reduced-motion: reduce) { .fr-dots i { animation: none; } }
+.ai-row-mark { display: flex; flex: none; }
+.ai-row-mark .fr-tile { width: 36px; height: 36px; border-radius: 10px; }
+.ai-row-mark .fr-tile svg { transform: scale(0.8); }
