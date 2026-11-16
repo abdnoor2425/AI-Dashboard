@@ -29,7 +29,8 @@ export async function api(path: string, opts: { method?: string; body?: any; que
 }
 
 /** Load an endpoint. Shows `loading` only the first time; later refreshes swap data in quietly. */
-export function useApi<T = any>(path: string | null, query: Record<string, any> = {}) {
+/** Loads from the API. With keep, the last answer stays on screen while a new one loads, so a filter change never blanks the page. */
+export function useApi<T = any>(path: string | null, query: Record<string, any> = {}, opts: { keep?: boolean } = {}) {
   const key = path ? path + "?" + JSON.stringify(query) : null;
   const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean; key: string | null }>({ data: null, error: null, loading: !!path, key });
   const latest = useRef(key);
@@ -46,8 +47,15 @@ export function useApi<T = any>(path: string | null, query: Record<string, any> 
   useEffect(() => { load(false); }, [load]);
   useEffect(() => { const l = () => load(true); listeners.add(l); return () => { listeners.delete(l); }; }, [load]);
   const fresh = state.key === key;
-  return { data: fresh ? state.data : null, error: state.error, loading: state.loading || !fresh, reload: () => load(true) };
+  return { data: fresh || opts.keep ? state.data : null, error: state.error, loading: state.loading || !fresh, reload: () => load(true) };
 }
+
+/** Watch it live: a request to play handovers on Your team. It waits here until that page picks it up. */
+let pendingWatch: string[] | null = null;
+const watchListeners = new Set<() => void>();
+export function requestWatch(ids: string[]) { pendingWatch = ids; watchListeners.forEach((l) => l()); }
+export function takeWatch(): string[] | null { const w = pendingWatch; pendingWatch = null; return w; }
+export function onWatchRequest(l: () => void) { watchListeners.add(l); return () => { watchListeners.delete(l); }; }
 
 export interface Scope { mode: "sites" | "clients"; id: string }
 export const scopeParam = (s: Scope) => (s.id === "all" ? `${s.mode}:all` : `${s.mode === "sites" ? "site" : "client"}:${s.id}`);
@@ -61,6 +69,10 @@ export interface AppCtx {
   toast: (msg: string) => void;
   title: string; setTitle: (t: string) => void; titleShown: boolean; setTitleShown: (b: boolean) => void;
   syncing: string | null;
+  sky: string; setSky: (k: any) => void; skyPhase: string; dark: boolean; collapsed: boolean; setCollapsed: (c: boolean) => void;
+  openCard: (c: { title: string; chip?: string; render: (close: () => void) => React.ReactNode }, from?: HTMLElement | null) => void;
+  /** Opens Your team and plays these handovers (ids from the team endpoint). */
+  watchLive: (ids: string[]) => void;
 }
 export const App = createContext<AppCtx>(null as any);
 export const useApp = () => useContext(App);

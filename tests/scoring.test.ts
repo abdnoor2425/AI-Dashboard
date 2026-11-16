@@ -236,3 +236,43 @@ test("an item added by hand is provisional until its missing facts are answered"
   assert.ok(mine && mine.complete);
   assert.equal(mine.score, 7 * 2 + 6 * 3 + 4 * 4 + 2 * 1);
 });
+
+test("the team always starts with the leader, and other people can be added, moved and removed", () => {
+  const state = makeState(NOW);
+  const get = () => handle(state, { method: "GET", path: "/api/team", now: NOW }).data.people;
+  const first = get();
+  assert.equal(first[0].role, "The Leader");
+  assert.ok(first[0].leader);
+  handle(state, { method: "POST", path: `/api/team/${first[0].id}`, body: { name: "Jo", role: "Intern" }, now: NOW });
+  assert.equal(get()[0].name, "Jo");
+  assert.equal(get()[0].role, "The Leader");
+  assert.equal(handle(state, { method: "POST", path: `/api/team/${first[0].id}`, body: { action: "remove" }, now: NOW }).status, 400);
+  const added = handle(state, { method: "POST", path: "/api/team", body: { name: "Mina", role: "Designer", parent: first[1].id, email: "mina@example.com" }, now: NOW }).data;
+  assert.equal(added.parent, first[1].id);
+  // A person cannot be moved under someone who works under them.
+  handle(state, { method: "POST", path: `/api/team/${first[1].id}`, body: { parent: added.id }, now: NOW });
+  assert.equal(get().find((p: any) => p.id === first[1].id).parent, first[0].id);
+  handle(state, { method: "POST", path: `/api/team/${first[1].id}`, body: { action: "remove" }, now: NOW });
+  assert.equal(get().find((p: any) => p.id === added.id).parent, first[0].id);
+});
+
+test("comments only go to Linear items, and alerts need at least one team member", () => {
+  const state = makeState(NOW);
+  const q = handle(state, { method: "GET", path: "/api/attention", query: { scope: "all" }, now: NOW }).data;
+  const all = [...q.needsYou, ...q.team, ...q.verify];
+  const lin = all.find((i: any) => i.sources.some((s: any) => s.tool === "linear"));
+  const other = all.find((i: any) => !i.sources.some((s: any) => s.tool === "linear"));
+  assert.ok(lin.assignee);
+  assert.equal(handle(state, { method: "POST", path: `/api/attention/${other.id}/comment`, body: { text: "Hello there" }, now: NOW }).status, 400);
+  assert.equal(handle(state, { method: "POST", path: `/api/attention/${lin.id}/comment`, body: { text: "Looks good" }, now: NOW }).status, 200);
+  assert.equal(handle(state, { method: "POST", path: `/api/attention/${lin.id}/alert`, body: { people: [] }, now: NOW }).status, 400);
+  const team = handle(state, { method: "GET", path: "/api/team", now: NOW }).data.people;
+  // The leader cannot be alerted about their own item.
+  assert.equal(handle(state, { method: "POST", path: `/api/attention/${lin.id}/alert`, body: { people: [team[0].id] }, now: NOW }).status, 400);
+  const sent = handle(state, { method: "POST", path: `/api/attention/${other.id}/alert`, body: { people: [team[1].id, team[2].id], note: "Please look" }, now: NOW }).data;
+  assert.deepEqual(sent.to, [team[1].name, team[2].name]);
+  assert.deepEqual(sent.how.email, sent.to);
+  const after = handle(state, { method: "GET", path: "/api/attention", query: { scope: "all" }, now: NOW }).data;
+  const again = [...after.needsYou, ...after.team, ...after.verify].find((i: any) => i.id === lin.id);
+  assert.equal(again.comments.length, 1);
+});

@@ -5,8 +5,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { HOME } from "./store.ts";
 
 const MAX_SOURCES = 8;
-const MAX_NODES = 2000;
-const MAX_ENTRIES = 10000;
+const MAX_NODES = 6000;
+const MAX_ENTRIES = 30000;
 const MAX_DEPTH = 20;
 const MAX_TEXT = 128 * 1024;
 const MAX_REFERENCE_BYTES = 8 * 1024 * 1024;
@@ -22,9 +22,11 @@ export class BrainError extends Error {
   }
 }
 
-type Source = { id: string; name: string; path: string; indexedAt: number; fileCount: number; skipped: number; warnings: string[] };
+// A source is either a whole WorkOS (every folder inside it is a project) or one project folder on its own.
+type Kind = "workos" | "project";
+type Source = { id: string; name: string; path: string; kind?: Kind; excluded?: string[]; indexedAt: number; fileCount: number; skipped: number; warnings: string[] };
 type Node = { id: string; sourceId: string; name: string; path: string; kind: "folder" | "file"; extension: string; size: number; modifiedAt: number; readable: boolean };
-type Link = { source: string; target: string; kind: "contains" | "reference" };
+type Link = { source: string; target: string; kind: "contains" | "reference" | "mention" };
 type Indexed = { source: Source; nodes: Node[]; links: Link[] };
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 32);
@@ -95,8 +97,10 @@ function readText(file: string, info: fs.Stats) {
   }
 }
 
-function scan(id: string, name: string, root: string): Indexed {
-  const source: Source = { id, name, path: root, indexedAt: Date.now(), fileCount: 0, skipped: 0, warnings: [] };
+function scan(id: string, name: string, root: string, kind: Kind = "project", excluded: string[] = []): Indexed {
+  const source: Source = { id, name, path: root, kind, excluded, indexedAt: Date.now(), fileCount: 0, skipped: 0, warnings: [] };
+  const leftOut = new Set(excluded.map(normalize));
+  const notes: { node: Node; content: string }[] = [];
   const nodes: Node[] = [];
   const links: Link[] = [];
   const markdown: { node: Node; content: string }[] = [];
@@ -116,6 +120,7 @@ function scan(id: string, name: string, root: string): Indexed {
       source.skipped++;
       return;
     }
+    if (relative && leftOut.has(normalize(relative))) return; // left out on the Edit page: not a skip, a choice
     try {
       const info = localStat(file);
       if (!info || (!info.isDirectory() && !info.isFile())) {
@@ -130,13 +135,13 @@ function scan(id: string, name: string, root: string): Indexed {
       if (parent) links.push({ source: parent.id, target: node.id, kind: "contains" });
       if (!folder) {
         source.fileCount++;
-        if (node.readable && [".md", ".mdx", ".markdown"].includes(extension)) {
+        if (node.readable && [".md", ".mdx", ".markdown", ".txt"].includes(extension)) {
           if (referenceBytes + info.size > MAX_REFERENCE_BYTES) referenceLimited = true;
           else {
             referenceBytes += info.size;
             const content = readText(file, info);
             if (content === null) node.readable = false;
-            else markdown.push({ node, content });
+            else { if (extension !== ".txt") markdown.push({ node, content }); notes.push({ node, content }); }
           }
         }
         return;
@@ -193,6 +198,24 @@ function scan(id: string, name: string, root: string): Indexed {
     }
     if (references >= MAX_REFERENCES) break;
   }
+  // A note that names another project is connected to it, even without a link. This is what ties projects together.
+  if (kind === "workos") {
+    const projects = nodes.filter(node => node.kind === "folder" && node.path && !node.path.includes("/") && node.name.replace(/^[\d\s._-]+/, "").trim().length >= 4);
+    const linked = new Set(links.filter(link => link.kind === "reference").map(link => link.source + ">" + link.target));
+    for (const { node, content } of notes) {
+      if (references >= MAX_REFERENCES) { referenceLimited = true; break; }
+      const text = content.toLowerCase();
+      const home = node.path.split("/")[0];
+      for (const project of projects) {
+        if (project.path === home || linked.has(node.id + ">" + project.id)) continue;
+        const name = project.name.replace(/^[\d\s._-]+/, "").trim().toLowerCase();
+        const at = text.indexOf(name);
+        if (at < 0 || /[a-z0-9]/.test(text[at - 1] || "") || /[a-z0-9]/.test(text[at + name.length] || "")) continue;
+        links.push({ source: node.id, target: project.id, kind: "mention" });
+        references++;
+      }
+    }
+  }
   if (referenceLimited) source.warnings.push("Some Markdown references were skipped at the reference limit.");
   return { source, nodes, links };
 }
@@ -224,9 +247,63 @@ function save(workspaceId: string, indexes: Indexed[], home: string) {
   }
 }
 
+type Project = { id: string; sourceId: string; name: string; path: string; files: number; folders: number; modifiedAt: number };
+
+/** Which project every entry belongs to. In a WorkOS, each top-level folder is a project and loose files belong to the WorkOS itself. */
+function projectsOf(index: Indexed) {
+  const kind = index.source.kind || "project";
+  const root = index.nodes.find(node => !node.path) || index.nodes[0];
+  const top = new Map(index.nodes.filter(node => node.kind === "folder" && node.path && !node.path.includes("/")).map(node => [node.path, node]));
+  const stats = new Map<string, Project>();
+  const nodes = index.nodes.map(node => {
+    const owner = kind === "workos" ? top.get(node.path.split("/")[0]) || root : root;
+    let project = stats.get(owner.id);
+    if (!project) stats.set(owner.id, project = { id: owner.id, sourceId: index.source.id, name: owner.name, path: owner.path, files: 0, folders: 0, modifiedAt: 0 });
+    if (node.kind === "file") { project.files++; project.modifiedAt = Math.max(project.modifiedAt, node.modifiedAt); }
+    else if (node.id !== owner.id) project.folders++;
+    return { ...node, project: owner.id };
+  });
+  // A WorkOS with no loose files is not itself a project: it is the core everything hangs from.
+  if (kind === "workos" && stats.size > 1 && !stats.get(root.id)?.files) stats.delete(root.id);
+  return { nodes, projects: [...stats.values()] };
+}
+
 function view(indexes: Indexed[]) {
-  const sources = indexes.map(index => index.source);
-  return { sources, projects: sources, nodes: indexes.flatMap(index => index.nodes), links: indexes.flatMap(index => index.links) };
+  const parts = indexes.map(projectsOf);
+  const sources = indexes.map(index => ({ ...index.source, kind: index.source.kind || "project", excluded: index.source.excluded || [] }));
+  return { sources, projects: parts.flatMap(part => part.projects), nodes: parts.flatMap(part => part.nodes), links: indexes.flatMap(index => index.links) };
+}
+
+/** A short, content-free outline for Ask your AI: project names, sizes and which projects connect. Never file contents. */
+export function brainSummary(workspaceId: string, home = HOME) {
+  let brain: ReturnType<typeof view>;
+  try { brain = view(load(workspaceId, home)); } catch { return null; }
+  if (!brain.sources.length) return null;
+  const owner = new Map(brain.nodes.map(node => [node.id, node.project]));
+  const names = new Map(brain.projects.map(project => [project.id, project.name]));
+  const ties = new Map<string, Set<string>>();
+  for (const link of brain.links) {
+    const from = owner.get(link.source), to = owner.get(link.target);
+    if (link.kind === "contains" || !from || !to || from === to) continue;
+    for (const [a, b] of [[from, to], [to, from]]) { if (!ties.has(a)) ties.set(a, new Set()); ties.get(a)!.add(names.get(b) || ""); }
+  }
+  const recent = brain.nodes.filter(node => node.kind === "file").sort((a, b) => b.modifiedAt - a.modifiedAt).slice(0, 12);
+  return {
+    sources: brain.sources.map(source => ({ name: source.name, kind: source.kind, files: source.fileCount })),
+    projects: brain.projects.slice(0, 60).map(project => ({ name: project.name, files: project.files, lastChanged: new Date(project.modifiedAt).toISOString().slice(0, 10), connectedTo: [...(ties.get(project.id) || [])].filter(Boolean).slice(0, 12) })),
+    recentlyChanged: recent.map(node => ({ file: node.name, project: names.get(node.project) || "", changed: new Date(node.modifiedAt).toISOString().slice(0, 10) })),
+  };
+}
+
+/** Folders the owner can pick from on the Edit page. Names only, never file contents. */
+export function browseFolders(value: unknown) {
+  const start = typeof value === "string" && value.trim() && path.isAbsolute(value.trim()) && !value.split(/[\\/]/).includes("..") ? path.resolve(value.trim()) : os.homedir();
+  let entries: fs.Dirent[];
+  try { entries = fs.readdirSync(start, { withFileTypes: true }); } catch { throw new BrainError("That folder could not be opened.", 404); }
+  const folders = entries.filter(entry => entry.isDirectory() && !EXCLUDED.test(entry.name) && !entry.name.startsWith("$"))
+    .map(entry => ({ name: entry.name, path: path.join(start, entry.name) })).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 400);
+  const parent = path.dirname(start);
+  return { path: start, name: path.basename(start) || start, parent: parent === start ? null : parent, home: os.homedir(), folders };
 }
 
 export function dropBrain(workspaceId: string, home = HOME) {
@@ -262,24 +339,34 @@ export function getBrainNode(workspaceId: string, id: string, home = HOME) {
   throw new BrainError("This item is not in the selected workspace.", 404);
 }
 
-export function changeBrain(workspaceId: string, body: { action?: unknown; path?: unknown; name?: unknown; sourceId?: unknown }, home = HOME) {
+export function changeBrain(workspaceId: string, body: { action?: unknown; path?: unknown; name?: unknown; sourceId?: unknown; kind?: unknown; leftOut?: unknown }, home = HOME) {
   const indexes = load(workspaceId, home);
   if (body.action === "connect") {
     const root = sourceRoot(body.path, home);
     if (indexes.some(index => within(index.source.path, root) || within(root, index.source.path))) {
-      throw new BrainError("This folder overlaps a source already connected to this workspace.", 409);
+      throw new BrainError("This folder is already part of your Second Brain: it sits inside a source you connected, or contains one.", 409);
     }
     if (indexes.length >= MAX_SOURCES) throw new BrainError("This workspace has reached its folder limit.");
     const name = (typeof body.name === "string" && body.name.trim().slice(0, 100)) || path.basename(root);
-    indexes.push(scan(randomUUID(), name, root));
-  } else if (body.action === "rescan" || body.action === "disconnect") {
+    indexes.push(scan(randomUUID(), name, root, body.kind === "workos" ? "workos" : "project"));
+  } else if (body.action === "rescan" || body.action === "disconnect" || body.action === "leave-out") {
     const position = indexes.findIndex(index => index.source.id === body.sourceId);
     if (position < 0) throw new BrainError("This folder is not connected to the selected workspace.", 404);
-    const { id, name, path: folder } = indexes[position].source;
-    if (body.action === "rescan") indexes[position] = scan(id, name, sourceRoot(folder, home));
-    else indexes.splice(position, 1);
+    const { id, name, path: folder, kind, excluded = [] } = indexes[position].source;
+    if (body.action === "disconnect") indexes.splice(position, 1);
+    else {
+      let next = excluded;
+      if (body.action === "leave-out") {
+        // Leave a folder inside this source out of the Second Brain, or bring it back. The folder itself is never touched.
+        const relative = typeof body.path === "string" ? body.path.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "") : "";
+        if (!relative || relative.length > 1024 || relative.split("/").some(part => !part || part === "." || part === "..")) throw new BrainError("Choose a folder inside this source.");
+        next = excluded.filter(item => normalize(item) !== normalize(relative));
+        if (body.leftOut !== false) next = [...next, relative].slice(-200);
+      }
+      indexes[position] = scan(id, name, sourceRoot(folder, home), kind || "project", next);
+    }
   } else {
-    throw new BrainError("Choose connect, rescan, or disconnect.");
+    throw new BrainError("Choose connect, rescan, leave-out, or disconnect.");
   }
   save(workspaceId, indexes, home);
   return view(indexes);

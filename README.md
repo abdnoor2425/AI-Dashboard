@@ -59,11 +59,11 @@ The rules live in `lib/scoring.ts` and are covered by `npm test`.
 
 ## Connect your tools
 
-Open **Connections**. Everything is read only, and sign-ins are saved in `.keystone/secrets.json` on your laptop, apart from your data.
+Open **Connections**. The dashboard only reads from your tools, apart from the comments and alerts you choose to send (see below), and sign-ins are saved in `.keystone/secrets.json` on your laptop, apart from your data.
 
-**Google (Analytics, Calendar, Gmail, Drive)** uses one sign-in with your own Google OAuth client, so no shared key ships with this app:
+**Google (Analytics, Gmail, Drive)** uses one sign-in with your own Google OAuth client, so no shared key ships with this app:
 
-1. In [Google Cloud Console](https://console.cloud.google.com), make a project and enable the Google Analytics Admin, Google Analytics Data, Calendar, Gmail and Drive APIs.
+1. In [Google Cloud Console](https://console.cloud.google.com), make a project and enable the Google Analytics Admin, Google Analytics Data, Gmail and Drive APIs. Google Calendar is optional: connect it from Connections if you want it, and enable the Calendar API first.
 2. Under "Credentials", create an OAuth client ID of type "Web application".
 3. Add the return address shown on the Connections page (`http://localhost:3210/api/oauth/google/callback`).
 4. Paste the client ID and secret into Connections and sign in.
@@ -82,20 +82,39 @@ Being straight about this matters more than looking finished:
 - **Not yet tested against live accounts:** the Google, Metricool and Linear connectors. They are written from each service's public documentation. The Metricool analytics calls are the least certain. If a call fails, the tool shows "Needs attention" with the reason, and nothing is made up to fill the gap.
 - Not built yet: Slack, and importing a reel scorecard sheet. Both show as "Coming later". In a real workspace the Reel scores page stays empty until then.
 - The reel scorecard checks in the sample data are placeholders. Swap in your own scorecard's names.
-- The Second Brain is planned for later.
+
+## Your team, comments and alerts
+
+**Your team** shows who leads and who does what. The first person is always The Leader; everyone else can have any name, role, place in the tree and character. Add an email to a person if you want alerts to be able to reach them by email.
+
+Open any item on **Attention** to act on it:
+
+- **Comment on Linear.** When an item comes from Linear you see who the ticket is assigned to, and a box that posts your comment straight onto the ticket with your saved Linear key. If you created the key as read only, make a new one that can write.
+- **Alert your team.** Pick one or more people. On a Linear ticket each person is subscribed and mentioned in a comment, so Linear notifies them. Anyone not found in Linear, and every alert on an item from another tool, goes by email from your Gmail. The first time, the dashboard asks you to allow Gmail to send; until you do, it cannot send anything.
+
+Nothing is sent unless you press the button yourself.
+
+### Watch it live
+
+When a task goes from one person on Your team to another, the dashboard can play the handover. The person who gave it rises out of their card, leans toward the receiver, says a line and tosses a folder with the task on it. The receiver catches it, nods and answers. Afterwards their card shows a small tag with the number of tasks they got this week.
+
+- **What counts as a handover:** a Linear ticket you assigned to someone on Your team, or an alert you sent someone from an item. People are matched by email first, then full name, then first name when only one person has it.
+- **Where to start it:** the Watch it live button on a Linear item, right after sending an alert, on the "With your team" card on Overview, and in the Handovers list on Your team.
+- **What they say:** a different line is picked each time. Change both lists under Settings, Watch it live.
+- Anyone who has reduced motion turned on in their system settings sees the end of the scene without the movement.
 
 ## Ask your own AI plan
 
 **In the app:** press Cmd K (or Ctrl K), type a question and choose "Ask your AI". If the `claude` or `codex` command is installed on this laptop, the dashboard hands it your question with the numbers on screen and shows the answer. If neither is installed, simple built-in rules answer instead, and say so.
 
-**In your terminal:** give Claude Code or Codex read-only access to the dashboard. Run one line once (the Connections page shows it with your real path):
+**In your terminal:** give Claude Code or Codex access to the dashboard. Run one line once (the Connections page shows it with your real path):
 
 ```bash
 claude mcp add keystone -- node /full/path/to/keystone/mcp/server.mjs
 codex  mcp add keystone -- node /full/path/to/keystone/mcp/server.mjs
 ```
 
-Then ask things like "What needs my attention today?" or "Which reels are on hold and why?". The dashboard has to be running. The AI can read every page, and it cannot change anything.
+Then ask things like "What needs my attention today?" or "Which reels are on hold and why?". The dashboard has to be running. The AI can read every page. It can also do two things when you ask it to: post a comment on a Linear ticket ("Comment on PLT-212 that the cut is approved") and alert people on your team about an item.
 
 ## Workspaces
 
@@ -128,14 +147,14 @@ Stack: Next.js, React, Tailwind CSS. No database: one JSON file.
 ## License
 
 MIT
-## Second Brain (local folders)
+## Second Brain
 
-Open **Second Brain → Connect a project folder**, paste the absolute path of a specific project folder on the computer running Keystone, review it, and choose **Connect and index**. Each connected folder is a project. Use **Projects** to focus its graph or browse its files; use **Manage sources → Rescan** after edits. Disconnect removes its index, never the original folder.
+The Second Brain draws your WorkOS as a globe. A WorkOS is a folder of projects: every folder inside it becomes a project, with its files and the connections between them.
 
-Each client's local installation owns its own `.keystone` data. Indexes are additionally separated by dashboard workspace. Nothing is uploaded or sent to an AI provider by indexing. Moving to another computer requires reconnecting the local folder paths. This is a localhost application, not a hosted multi-tenant service. The normal start/dev commands bind to 127.0.0.1.
+- **Connect it.** Open **Second Brain → Edit sources**, choose **A whole WorkOS**, then browse to the top folder (or paste its path) and press **Add**. If some projects live outside your WorkOS, add each one with **One project folder**. Up to 8 sources per workspace.
+- **Read it.** Each project is a region of the globe, each folder a knot inside it, each file a point. Drag to turn it, use + and − to zoom, and use the search to find a file. Pick a project from the dropdown (or click it) and it opens in place: its folders and files in rings, with everything it connects to in other projects around the outside. Click any file to see what it links to, what links to it, and what it says.
+- **Connections.** A line is drawn when a note links to another file (Markdown links and `[[wiki links]]`), and a dashed line when a note names another project. Folders hold their files with thin lines in the project's colour.
+- **Change it.** On the Edit page: **Read again** after files change, **Leave out** a project that does not belong, or **Remove** a source. None of these touch your files.
+- **Ask about it.** Ask your AI knows your projects, how they connect and what changed lately. It is given names and counts only, never file contents. Your own Claude Code or Codex can read the same outline through the `keystone_second_brain` tool.
 
-Folders occupy the blue central graph core. Containment lines extend outward to files; explicit document references are inspectable from file details. Selecting a project changes from the workspace sphere to a focused radial layout. The surrounding UI uses the existing Keystone shell and components.
-
-The index stores file metadata and explicit Markdown links. UTF-8 text/code documents up to 128 KiB can be read; unsupported formats and larger files retain metadata. Hidden files, known credential/key names, dependencies/build outputs, system directories, symlinks and hard-linked files are excluded. This is not a content-based secret detector: connect only folders you intend this local workspace to read. Current bounds are 8 sources per workspace, 2,000 indexed entries per source, depth 20 and an 8 MiB reference parsing budget. Index warnings disclose skipped or capped content. Updates are manual rescans; background watching, OCR, embeddings and AI wiki synthesis are not included.
-
-The graph renderer is adapted from MIT-licensed [AIS-OS](https://github.com/nateherkai/AIS-OS), pinned to `ce9cb93a1145da5daba84ea37208ec35fd03606e`. Its license and dependency notices are in `public/brain/`. The unmodified upstream renderer bundle uses a Keystone API/layout adapter; no example knowledge is shipped. The static hosted preview cannot connect folders; run the actual local server.
+Everything stays on the computer running Keystone. The index is kept in `.keystone`, separate for each workspace, and nothing is uploaded. The Second Brain only ever reads: it stores file names, sizes, dates and links, and reads text files (up to 128 KB) only when you open one. Hidden files, passwords and keys, dependency and build folders, and shortcuts are always skipped. This is not a secret scanner, so only connect folders you are happy for the dashboard to read. Limits: 6,000 entries per source and 20 folders deep; the Edit page says when a limit was reached. Updates are manual (**Read again**). With nothing connected, and in the static preview, the page shows a clearly marked sample WorkOS.

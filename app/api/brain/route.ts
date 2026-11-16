@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BrainError, changeBrain, getBrain, getBrainNode } from "@/lib/server/brain";
-import { hasWorkspace } from "@/lib/server/store";
+import { BrainError, brainSummary, browseFolders, changeBrain, getBrain, getBrainNode } from "@/lib/server/brain";
+import { hasWorkspace, loadState } from "@/lib/server/store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -46,12 +46,15 @@ async function serve(req: NextRequest) {
   try {
     const body = post ? await readRequest(req) : {};
     const query = req.nextUrl.searchParams;
+    // Asked without a workspace (this is what the owner's own AI does): an outline of the open workspace. Names and counts, never contents.
+    if (!post && !query.get("workspaceId")) return json(brainSummary(loadState().active) || { connected: false, note: "No WorkOS or project folder is connected to the Second Brain yet." });
     const workspaceId = post ? body.workspaceId : query.get("workspaceId");
     if (typeof workspaceId !== "string" || !workspaceId || !hasWorkspace(workspaceId)) {
       throw new BrainError("Select an existing workspace.", 404);
     }
     if (post) return json(changeBrain(workspaceId, body));
     if (query.get("action") === "node") return json(getBrainNode(workspaceId, query.get("id") || ""));
+    if (query.get("action") === "browse") return json(browseFolders(query.get("path")));
     return json(getBrain(workspaceId));
   } catch (err) {
     if (err instanceof BrainError) return json({ error: err.message }, err.status);

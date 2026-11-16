@@ -98,29 +98,51 @@ export function countTo(from: number, to: number, ms: number, onFrame: (v: numbe
   return () => cancelAnimationFrame(raf);
 }
 
-/** Daylight: background tints that drift from warm morning to cool evening. Returns three colours for the hour. */
-export function daylight(hour: number): [string, string, string] {
-  const stops: [number, [number, number, number][]][] = [
-    [0, [[232, 60, 62], [262, 55, 66], [215, 60, 60]]],   // night: indigo and violet
-    [6, [[28, 95, 78], [345, 85, 82], [48, 95, 80]]],     // dawn: peach and rose
-    [10, [[45, 95, 80], [190, 80, 80], [20, 90, 82]]],    // morning: warm sun, first blue
-    [14, [[205, 90, 78], [175, 70, 78], [230, 85, 82]]],  // afternoon: clear sky
-    [18, [[18, 95, 76], [330, 80, 78], [265, 75, 80]]],   // sunset: amber into lilac
-    [21, [[250, 70, 72], [290, 60, 74], [215, 75, 70]]],  // evening: cool violet
-    [24, [[232, 60, 62], [262, 55, 66], [215, 60, 60]]],
-  ];
+/** The sky: the page background moves through dawn, day, sunset and night with the clock.
+ *  It is a still paper field (ivory by day, ink navy at night); only its tint and a soft glow change.
+ *  Returns four gradient colours (top to bottom), a glow colour, how many stars to show, and where the glow sits. */
+export type SkyPhase = "dawn" | "day" | "sunset" | "night";
+export const SKY_HOURS: Record<SkyPhase, number> = { dawn: 6.5, day: 13, sunset: 18.2, night: 23 };
+type Stop = [number, string[], string, number]; // hour, 4 colours, glow, stars
+const NIGHT_L: Stop = [0, ["#E6E5EA", "#EBEAEC", "#EEEDEC", "#EAE8E3"], "#BFC8E4", 0];
+const NIGHT_D: Stop = [0, ["#070D1A", "#0A1222", "#0B1424", "#080F1C"], "#2E4478", 0.6];
+const at = (h: number, s: Stop): Stop => [h, s[1], s[2], s[3]];
+const SKY: Record<"light" | "dark", Stop[]> = {
+  light: [
+    NIGHT_L, at(5, NIGHT_L),
+    [6.5, ["#F3E1D8", "#F4E9E2", "#F2EDE7", "#EDE8E0"], "#F0C2AC", 0],
+    [9, ["#F2ECE1", "#F3EFE7", "#F1EEE7", "#ECE8DF"], "#EBD8B0", 0],
+    [13, ["#F2EEE6", "#F3F0E9", "#F0ECE4", "#EAE5DB"], "#E6CF9E", 0],
+    [16.5, ["#F3EADB", "#F3EDE2", "#F0EBE2", "#EAE4D8"], "#E8C48C", 0],
+    [18.2, ["#F0D2BD", "#F2DFCE", "#EFE6DD", "#EAE2D6"], "#E39A68", 0],
+    at(20, NIGHT_L), at(24, NIGHT_L),
+  ],
+  dark: [
+    NIGHT_D, at(5, NIGHT_D),
+    [6.5, ["#1E1A2C", "#17182A", "#0F1526", "#0A1120"], "#7E5662", 0.2],
+    [9, ["#0F1B31", "#0E182C", "#0C1526", "#0A1120"], "#4A6290", 0],
+    [13, ["#11203A", "#0F1B31", "#0C1628", "#0A1120"], "#5A76A8", 0],
+    [16.5, ["#14203A", "#111B30", "#0D1628", "#0A1120"], "#7A6E78", 0],
+    [18.2, ["#251A2A", "#1B1828", "#0F1526", "#0A1120"], "#9C6A48", 0.2],
+    at(20, NIGHT_D), at(24, NIGHT_D),
+  ],
+};
+const hex = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+const lerp = (a: string, b: string, p: number) => { const x = hex(a), y = hex(b); return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * p)).join(" ")})`; };
+export function skyAt(hour: number, dark: boolean) {
+  const stops = SKY[dark ? "dark" : "light"];
   let i = 0;
   while (i < stops.length - 2 && hour >= stops[i + 1][0]) i++;
-  const [h0, a] = stops[i], [h1, b] = stops[i + 1];
-  const p = (hour - h0) / (h1 - h0);
-  // Blend in RGB, not around the hue wheel, so sun-yellow to sky-blue passes through soft neutrals instead of green.
-  const rgb = ([h, sat, l]: [number, number, number]) => {
-    const s1 = sat / 100, l1 = l / 100, k = (n: number) => (n + h / 30) % 12, a1 = s1 * Math.min(l1, 1 - l1);
-    return [0, 8, 4].map((n) => 255 * (l1 - a1 * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+  const a = stops[i], b = stops[i + 1], p = Math.max(0, Math.min(1, (hour - a[0]) / (b[0] - a[0] || 1)));
+  // The sun (or moon) crosses from left to right during the day and rests high on the right at night.
+  const day = Math.max(0, Math.min(1, (hour - 5.5) / 14));
+  const isDay = hour >= 5.5 && hour <= 19.5;
+  return {
+    colors: a[1].map((c, n) => lerp(c, b[1][n], p)), glow: lerp(a[2], b[2], p),
+    stars: a[3] + (b[3] - a[3]) * p,
+    x: isDay ? 8 + day * 78 : 78, y: isDay ? 34 - Math.sin(day * Math.PI) * 44 : -8,
+    phase: (hour < 5 || hour >= 19.5 ? "night" : hour < 8 ? "dawn" : hour < 17 ? "day" : "sunset") as SkyPhase,
   };
-  const mix = (x: [number, number, number], y: [number, number, number]) => {
-    const c0 = rgb(x), c1 = rgb(y);
-    return `rgb(${c0.map((v, n) => Math.round(v + (c1[n] - v) * p)).join(" ")})`;
-  };
-  return [mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2])];
 }
+/** In the automatic theme the app is light by day and dark at night. */
+export const darkAtHour = (hour: number) => hour >= 19.5 || hour < 5.5;

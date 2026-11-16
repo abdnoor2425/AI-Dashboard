@@ -13,14 +13,17 @@ const SCOPES = [
   "https://www.googleapis.com/auth/drive.metadata.readonly",
   "openid", "email",
 ];
+/** Only asked for when you choose to send team alerts by email. Without it the dashboard cannot send anything. */
+const SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 export const redirectUri = (origin: string) => `${origin}/api/oauth/google/callback`;
 
-export function googleAuthUrl(wsId: string, origin: string) {
+/** Calendar access is only asked for when the Calendar page is switched on. It is off by default. */
+export function googleAuthUrl(wsId: string, origin: string, withCalendar = false, withSend = false) {
   const s = getSecrets(wsId).google || {};
   if (!s.clientId || !s.clientSecret) return null;
   const state = crypto.randomBytes(16).toString("hex");
   setSecrets(wsId, { google: { ...s, state } });
-  const p = new URLSearchParams({ client_id: s.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope: SCOPES.join(" "), access_type: "offline", prompt: "consent", state: `${wsId}.${state}` });
+  const p = new URLSearchParams({ client_id: s.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope: [...SCOPES.filter((x) => withCalendar || !x.includes("calendar")), ...(withSend ? [SEND_SCOPE] : [])].join(" "), access_type: "offline", prompt: "consent", state: `${wsId}.${state}` });
   return "https://accounts.google.com/o/oauth2/v2/auth?" + p;
 }
 
@@ -56,6 +59,14 @@ async function g(wsId: string, url: string, body?: any) {
   const j: any = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error?.message || `Google answered ${r.status}.`);
   return j;
+}
+
+/** Send one plain-text email from the signed-in Gmail account. Used only for team alerts you send yourself. */
+export async function sendMail(wsId: string, to: string[], subject: string, text: string) {
+  const clean = (v: string) => v.replace(/[\r\n]+/g, " ").trim();
+  const raw = [`To: ${to.map(clean).join(", ")}`, `Subject: =?UTF-8?B?${Buffer.from(clean(subject)).toString("base64")}?=`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", Buffer.from(text).toString("base64")].join("\r\n");
+  try { await g(wsId, "https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { raw: Buffer.from(raw).toString("base64url") }); }
+  catch (e: any) { throw new Error(/scope|permission|insufficient/i.test(String(e?.message)) ? "Gmail is not allowed to send yet. Allow it first." : String(e?.message || e)); }
 }
 
 const PALETTE = ["#0A6CFF", "#1F8F4E", "#D9630B", "#5450E0", "#0E8A8F", "#D6336C", "#B8892B", "#4A4F5A"];
