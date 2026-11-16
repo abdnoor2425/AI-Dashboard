@@ -61,7 +61,8 @@ const which = (cmd) => spawnSync(process.platform === "win32" ? "where" : "which
 
 /** Opens the dashboard in its own app window, using Chrome or Edge when there is one, else the default browser. */
 export function openWindow(url = APP_URL) {
-  const app = [`--app=${url}`, "--window-size=1440,920"];
+  // A Mac keeps the window at a calm size; Windows and Linux fill the screen, so it fits a small laptop too.
+  const app = [`--app=${url}`, ...(process.platform === "darwin" ? ["--window-size=1440,920"] : ["--start-maximized"])];
   const go = (cmd, args) => { const c = spawn(cmd, args, { detached: true, stdio: "ignore", windowsHide: true }); c.on("error", () => console.log("  Open " + url + " in your browser.")); c.unref(); };
   if (process.platform === "win32") {
     const pf = process.env.ProgramFiles || "C:\\Program Files", pf86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)", local = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
