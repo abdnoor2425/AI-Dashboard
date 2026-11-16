@@ -65,7 +65,7 @@ Open **Connections**. The dashboard only reads from your tools, apart from the c
 
 **Google Analytics, Gmail, Drive and Calendar:** click **Connect with Google** on the app you want and sign in. That's it. Each app connects on its own, so you only give access to what you use.
 
-While the dashboard's Google app is waiting for Google's review, Google shows a "Google hasn't verified this app" screen once. Click **Advanced**, then **Go to Keystone**.
+While the dashboard's Google app is waiting for Google's review, Google shows a "Google hasn't verified this app" screen once. Click **Advanced**, then **Go to AI-Dashboard**.
 
 <details><summary>For maintainers: the built-in Google app</summary>
 
