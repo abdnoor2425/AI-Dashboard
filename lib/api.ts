@@ -280,6 +280,10 @@ function simulateDebate(question: string) {
   ];
 }
 
+/** First run: a new install opens on the welcome flow, never on sample data. Older installs with real data count as done. */
+export const isOnboarded = (state: any) => state.onboarded ?? (!state.firstRun && Object.values<any>(state.workspaces).some((w) => !w.sample));
+const FIRST_RUN_STEPS = ["intro", "signin", "connect", "profile", "welcome"];
+
 export function activeWs(state: State) { return state.workspaces[state.active] || Object.values(state.workspaces)[0]; }
 
 export function handle(state: State, req: Req): Res {
@@ -294,8 +298,47 @@ export function handle(state: State, req: Req): Res {
 
   if (!a) return ok({ name: "Keystone", endpoints: ENDPOINTS.map(([path, about]) => ({ path: "/api/" + path, about })) });
 
+  if (a === "firstrun" && post) {
+    const fr = ((state as any).firstRun ||= { step: "intro" });
+    if (b === "start") {
+      // The person's own, empty workspace. Their Google sign-in and tools belong to it.
+      let id = fr.wsId;
+      if (!id || !state.workspaces[id]) {
+        id = state.workspaces.home ? "ws-" + now.toString(36) : "home";
+        state.workspaces[id] = makeWorkspace({ id, name: "My business", owner: "You", accent: "navy", kind: "owner", empty: true }, now);
+        fr.wsId = id;
+      }
+      state.active = id; fr.step = "signin";
+      return ok({ id }, true);
+    }
+    if (b === "step") {
+      if (!FIRST_RUN_STEPS.includes(body.step)) return bad("No such step.");
+      fr.step = body.step;
+      return ok({ step: fr.step }, true);
+    }
+    if (b === "profile") {
+      const name = String(body.name || "").trim().slice(0, 40), business = String(body.business || "").trim().slice(0, 60), role = String(body.role || "").trim().slice(0, 40);
+      if (name.length < 1) return bad("Tell us your name.");
+      if (business.length < 2) return bad("Give your business a name.");
+      ws.name = business; ws.owner = name; ws.brand = { ...ws.brand, name: business };
+      ws.setup = { ...(ws.setup || {}), about: { ...(ws.setup?.about || {}), name, role, business } };
+      if (ws.team?.[0]) ws.team[0].name = name;
+      if (["system", "light", "dark"].includes(body.theme)) state.theme = body.theme;
+      fr.step = "welcome";
+      return ok({ ok: true }, true);
+    }
+    if (b === "finish") {
+      (state as any).onboarded = true; delete (state as any).firstRun;
+      ws.setup = { ...(ws.setup || {}), done: true };
+      return ok({ ok: true }, true);
+    }
+    return bad("No such step.", 404);
+  }
+
   if (a === "bootstrap") {
+    const done = isOnboarded(state), fr = (state as any).firstRun;
     return ok({
+      firstRun: done ? null : { step: fr?.step || "intro", wsId: fr?.wsId || null, email: fr?.email || "", name: fr?.name || "", picture: fr?.picture || "" },
       theme: state.theme || "system",
       workspace: { id: ws.id, name: ws.name, owner: ws.owner, kind: ws.kind, sample: ws.sample, brand: ws.brand, modules: ws.modules, setupDone: !!ws.setup?.done },
       workspaces: Object.values(state.workspaces).map((w: any) => ({ id: w.id, name: w.name, kind: w.kind, accent: w.brand.accent })),
@@ -643,7 +686,7 @@ export function handle(state: State, req: Req): Res {
     const fresh = makeState(now);
     if (body.scope === "workspace" && !ws.sample) { state.workspaces[ws.id] = makeWorkspace({ id: ws.id, name: ws.name, owner: ws.owner, accent: ws.brand.accent, kind: ws.kind, empty: true }, now); }
     else if (body.scope === "workspace") { state.workspaces[ws.id] = fresh.workspaces[ws.id] || makeWorkspace({ id: ws.id, name: ws.name, owner: ws.owner, accent: ws.brand.accent, kind: ws.kind, sites: ws.kind === "client" ? ws.sites : undefined }, now); }
-    else { state.workspaces = fresh.workspaces; state.active = "main"; state.theme = "system"; }
+    else { state.workspaces = fresh.workspaces; state.active = "main"; state.theme = "system"; (state as any).onboarded = false; delete (state as any).firstRun; }
     return ok({ ok: true }, true);
   }
 

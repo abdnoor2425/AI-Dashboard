@@ -1,24 +1,28 @@
-# Keystone
+# AI-Dashboard
 
-A calm business dashboard that runs on your own laptop.
+Your whole business on one calm page, on your own computer.
 
 You connect your own tools, it shows you what needs you today, and you can ask the Claude Code or Codex plan you already pay for about any of it. There is no cloud account, no shared server and no paid API key.
 
-"Keystone" is a working name. Change it in Settings.
+## Install it
 
-## Start it
+Ask your AI (Claude Code, Codex or similar):
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+> Install AI-Dashboard from https://github.com/abdnoor2425/AI-Dashboard
+
+It follows [INSTALL.md](INSTALL.md): it downloads and builds the dashboard, adds an AI-Dashboard icon to your desktop and Start menu (or Applications and the Dock on a Mac), and opens it.
+
+To do it yourself, you need [Node.js](https://nodejs.org) 20 or newer:
 
 ```bash
+git clone https://github.com/abdnoor2425/AI-Dashboard.git
+cd AI-Dashboard
 npm install
 npm run build
-npm start
+npm run setup
 ```
 
-Then open http://localhost:3210.
-
-It opens on a **sample workspace** full of made-up examples, so you can look around first. Every sample screen says "Sample data". When you are ready, go to **Settings, Workspaces, Start with my own data**. That workspace starts empty and only ever shows what your connected tools report.
+The first time it opens, a short welcome flow walks you through signing in with Google, connecting your tools and setting up your profile. Then your own data loads in. The sample workspace is still there if you want to look around: **Settings, Workspaces**.
 
 ## What is in it
 

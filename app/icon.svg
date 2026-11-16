@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B3358"/><stop offset="1" stop-color="#0C1A30"/></linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3D493"/><stop offset=".55" stop-color="#E0B663"/><stop offset="1" stop-color="#B98A3A"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".58" r=".5"><stop offset="0" stop-color="#E0B663" stop-opacity=".28"/><stop offset="1" stop-color="#E0B663" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="4"/>
+  <circle cx="256" cy="296" r="200" fill="url(#glow)"/>
+  <g transform="translate(0,-14)">
+  <!-- gauge arc -->
+  <path d="M 106 336 A 150 150 0 0 1 406 336" fill="none" stroke="#F1E6CF" stroke-opacity=".16" stroke-width="30" stroke-linecap="round"/>
+  <path d="M 106 336 A 150 150 0 0 1 344.2 214.6" fill="none" stroke="url(#brass)" stroke-width="30" stroke-linecap="round"/>
+  <!-- AI spark -->
+  <path transform="translate(256 286) scale(.84) translate(-256 -286)" d="M256 196 C 264 262 278 276 336 286 C 278 296 264 310 256 376 C 248 310 234 296 176 286 C 234 276 248 262 256 196 Z" fill="url(#brass)"/>
+  <circle cx="344.2" cy="214.6" r="10" fill="#FFF6E0"/>
+  </g>
+</svg>

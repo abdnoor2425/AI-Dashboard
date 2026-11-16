@@ -8,6 +8,7 @@ import { SKY_HOURS, darkAtHour, growFrom, installMotion, shrinkTo, skyAt } from 
 import type { SkyPhase } from "@/lib/motion";
 import { Icon, Mark, Menu, Segmented, Skel } from "./ui";
 import { ItemSheet } from "./attention";
+import { FirstRun } from "./first-run";
 
 export interface CardSpec { title: string; chip?: string; render: (close: () => void) => React.ReactNode; from: HTMLElement | null }
 export const pageOf = (pathname: string) => (pathname || "/").replace(/^\/+|\/+$/g, "").split("/")[0] || "overview";
@@ -247,7 +248,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setThemeState(boot.theme);
   }, [boot?.workspace?.brand?.accent, boot?.theme, boot?.workspace?.id]);
   // Automatic means light by day and dark at night, so the whole app follows the sky.
-  useEffect(() => { document.documentElement.setAttribute("data-theme", dark ? "dark" : "light"); }, [dark]);
+  // First run: a new install opens on the welcome flow (the in-browser preview keeps its sample data).
+  const firstRun = !!boot?.firstRun && !(globalThis as any).__KEYSTONE_LOCAL__;
+  useEffect(() => { document.documentElement.setAttribute("data-theme", dark && !firstRun ? "dark" : "light"); }, [dark, firstRun]);
 
   // The sync pill: says what is being refreshed, then steps out of the way.
   useEffect(() => {
@@ -296,6 +299,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+  if (firstRun) return <App.Provider value={ctx as any}><FirstRun boot={boot} reloadBoot={bootQ.reload} /></App.Provider>;
   const nextTheme = theme === "system" ? "light" : theme === "light" ? "dark" : "system";
   const tabs = [["overview", "Overview"], ["attention", "Attention"], ["website", "Website"], ["social", "Social"]];
   return (
