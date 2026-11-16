@@ -296,7 +296,7 @@ export function handle(state: State, req: Req): Res {
   const post = req.method === "POST";
   const body = req.body || {};
 
-  if (!a) return ok({ name: "Keystone", endpoints: ENDPOINTS.map(([path, about]) => ({ path: "/api/" + path, about })) });
+  if (!a) return ok({ name: "AI-Dashboard", endpoints: ENDPOINTS.map(([path, about]) => ({ path: "/api/" + path, about })) });
 
   if (a === "firstrun" && post) {
     const fr = ((state as any).firstRun ||= { step: "intro" });
@@ -330,6 +330,9 @@ export function handle(state: State, req: Req): Res {
     if (b === "finish") {
       (state as any).onboarded = true; delete (state as any).firstRun;
       ws.setup = { ...(ws.setup || {}), done: true };
+      // The made-up example workspaces go away for good: from here on, everything shown is the person's own.
+      for (const [id, w] of Object.entries<any>(state.workspaces)) if (w.sample && id !== ws.id) delete state.workspaces[id];
+      state.active = ws.id;
       return ok({ ok: true }, true);
     }
     return bad("No such step.", 404);
@@ -340,7 +343,7 @@ export function handle(state: State, req: Req): Res {
     return ok({
       firstRun: done ? null : { step: fr?.step || "intro", wsId: fr?.wsId || null, email: fr?.email || "", name: fr?.name || "", picture: fr?.picture || "" },
       theme: state.theme || "system",
-      workspace: { id: ws.id, name: ws.name, owner: ws.owner, kind: ws.kind, sample: ws.sample, brand: ws.brand, modules: ws.modules, setupDone: !!ws.setup?.done },
+      workspace: { id: ws.id, name: ws.name, owner: ws.owner, kind: ws.kind, sample: ws.sample, brand: ws.brand, modules: ws.modules, setupDone: !!ws.setup?.done, tools: ws.connections.filter((c: any) => c.status === "connected").map((c: any) => c.name) },
       workspaces: Object.values(state.workspaces).map((w: any) => ({ id: w.id, name: w.name, kind: w.kind, accent: w.brand.accent })),
       sites: ws.sites.map((s: any) => ({ id: s.id, name: s.name, domain: s.domain, color: s.color, kind: s.kind })),
       clients: ws.clients.map((c: any) => ({ id: c.id, name: c.name, color: c.color, sub: c.sub })),
@@ -620,7 +623,7 @@ export function handle(state: State, req: Req): Res {
       if (!cn) return bad("No such connection", 404);
       if (b === "calendar") ws.modules.calendar = body.action !== "disconnect";
       if (body.action === "disconnect") { cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; }
-      else { cn.status = "connected"; cn.detail = ws.sample ? "Connected (sample data)" : "Connected"; cn.lastSync = now; cn.account = cn.account || (cn.auth === "token" ? "Token saved on this laptop" : "Signed in"); }
+      else { cn.status = "connected"; cn.detail = ws.sample ? "Connected (sample data)" : "Connected"; cn.lastSync = now; cn.account = cn.account || (cn.auth === "token" ? "Token saved on this computer" : "Signed in"); }
       return ok(cn, true);
     }
     return ok({ connections: ws.connections, brands: ws.sites.map((s: any) => ({ siteId: s.id, site: s.name, domain: s.domain, color: s.color, ...s.metricoolBrand })), sample: ws.sample });
@@ -659,13 +662,19 @@ export function handle(state: State, req: Req): Res {
 
   if (a === "workspaces") {
     if (post && b === "switch") { if (!state.workspaces[body.id]) return bad("No such workspace", 404); state.active = body.id; return ok({ active: body.id }, true); }
-    if (post && b === "delete") { if (body.id === "main" || !state.workspaces[body.id]) return bad("This workspace cannot be removed."); delete state.workspaces[body.id]; if (state.active === body.id) state.active = "main"; return ok({ ok: true }, true); }
+    if (post && b === "delete") {
+      if (!state.workspaces[body.id] || Object.keys(state.workspaces).length < 2 || (body.id === "main" && state.workspaces.main.sample)) return bad("This workspace cannot be removed.");
+      delete state.workspaces[body.id];
+      if (state.active === body.id) state.active = Object.keys(state.workspaces)[0];
+      return ok({ ok: true }, true);
+    }
     if (post) {
       const name = String(body.name || "").trim().slice(0, 40);
       if (name.length < 2) return bad("Give the workspace a name.");
       const id = "ws-" + now.toString(36);
-      if (body.real) {
-        state.workspaces[id] = makeWorkspace({ id, name, owner: String(body.owner || "Owner").slice(0, 40), accent: ACCENTS[body.accent] ? body.accent : "navy", kind: "owner", empty: true }, now);
+      // Once someone has their own data, a new workspace is theirs too: empty, never filled with examples.
+      if (body.real || isOnboarded(state)) {
+        state.workspaces[id] = makeWorkspace({ id, name, owner: String(body.owner || "Owner").slice(0, 40), accent: ACCENTS[body.accent] ? body.accent : "navy", kind: body.real ? "owner" : "client", empty: true }, now);
         state.active = id;
         return ok({ id }, true);
       }
@@ -679,7 +688,7 @@ export function handle(state: State, req: Req): Res {
   if (a === "export") {
     const copy = JSON.parse(JSON.stringify(ws));
     copy.connections.forEach((x: any) => { delete x.token; delete x.tokens; });
-    return ok({ exportedAt: now, app: "Keystone", workspace: copy });
+    return ok({ exportedAt: now, app: "AI-Dashboard", workspace: copy });
   }
 
   if (a === "reset" && post) {

@@ -10,9 +10,9 @@ const LABEL: Record<string, { text: string; tone: string }> = {
   error: { text: "Needs attention", tone: "bad" }, off: { text: "Not connected", tone: "" }, soon: { text: "Coming later", tone: "" },
 };
 const HOW: Record<string, string> = {
-  google: "Click Connect and sign in with Google. Read-only access, and the sign-in stays on this laptop.",
+  google: "Click Connect and sign in with Google. Read-only access, and the sign-in stays on this computer.",
   oauth: "Sign in on the tool's own page. The dashboard asks for read-only access.",
-  token: "Paste the access token from the tool's settings. It is saved on this laptop only and never leaves it.",
+  token: "Paste the access token from the tool's settings. It is saved on this computer only and never leaves it.",
   file: "Upload or point to the file. Nothing is sent anywhere.",
   soon: "This tool is planned but not built yet, so it is shown honestly as not available.",
 };
@@ -101,7 +101,7 @@ function ToolCard({ c, i }: { c: any; i: number }) {
 function AiCard() {
   const q = useApi("ai/status");
   const d = q.data;
-  const path = d?.mcpPath || "/path/to/keystone/mcp/server.mjs";
+  const path = d?.mcpPath || "/path/to/AI-Dashboard/mcp/server.mjs";
   return (
     <div className="card pad ai-card">
       <div className="flex items-start gap-3">
@@ -112,10 +112,10 @@ function AiCard() {
         </div>
       </div>
       <div className="grid-2" style={{ marginTop: 16 }}>
-        <div className="stack" style={{ gap: 8 }}><div className="t-cap">Claude Code</div><CopyLine label="Claude Code command" text={`claude mcp add keystone -- node ${path}`} /></div>
-        <div className="stack" style={{ gap: 8 }}><div className="t-cap">Codex</div><CopyLine label="Codex command" text={`codex mcp add keystone -- node ${path}`} /></div>
+        <div className="stack" style={{ gap: 8 }}><div className="t-cap">Claude Code</div><CopyLine label="Claude Code command" text={`claude mcp add ai-dashboard -- node ${path}`} /></div>
+        <div className="stack" style={{ gap: 8 }}><div className="t-cap">Codex</div><CopyLine label="Codex command" text={`codex mcp add ai-dashboard -- node ${path}`} /></div>
       </div>
-      <p className="t-foot faint" style={{ marginTop: 12 }}>Run one line once, in the terminal on this laptop. After that, try asking: "What needs my attention today?" {d?.note ? d.note : ""}</p>
+      <p className="t-foot faint" style={{ marginTop: 12 }}>Run one line once, in the terminal on this computer. After that, try asking: "What needs my attention today?" {d?.note ? d.note : ""}</p>
     </div>
   );
 }
@@ -133,7 +133,7 @@ export default function Connections() {
   }, []);
   const confirm = async (b: any) => { try { await api("connections/brands", { method: "POST", body: { siteId: b.siteId, confirmed: true } }); app.toast(`${b.site} matched`); } catch (e: any) { app.toast(e.message); } };
   return (
-    <Page title="Connections" sub="Each person connects their own tools. Everything stays on this laptop. The dashboard only reads, apart from comments and alerts you send yourself." actions={<SampleTag show={app.boot.workspace.sample} />}>
+    <Page title="Connections" sub="Each person connects their own tools. Everything stays on this computer. The dashboard only reads, apart from comments and alerts you send yourself." actions={<SampleTag show={app.boot.workspace.sample} />}>
       <div className="stack">
         <Section><AiCard /></Section>
         <Load q={q} skeleton={<SkelCards n={6} h={190} cols="tool-grid" />}>

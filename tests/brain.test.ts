@@ -80,7 +80,7 @@ test("refuses broad roots, traversal, symlinks, and hard links", t => {
   assert.throws(() => getBrainNode("main", real.id, home), /no longer available/);
   fs.renameSync(root, path.join(temp, "previous-project"));
   fs.symlinkSync(other, root, process.platform === "win32" ? "junction" : "dir");
-  assert.throws(() => changeBrain("main", { action: "rescan", sourceId: index.sources[0].id }, home), /through a link/);
+  assert.throws(() => changeBrain("main", { action: "rescan", sourceId: index.sources[0].id }, home), /could not be found or opened/);
   assert.deepEqual(getBrain("main", home), index);
 });
 

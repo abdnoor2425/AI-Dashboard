@@ -12,7 +12,7 @@ export function Inbox() {
   const q = useApi("inbox", { scope: app.scopeKey });
   const [f, setF] = useState<"reply" | "all">("reply");
   return (
-    <Page title="Inbox" sub="Email and Slack messages in one list. The ones that need a reply come first." actions={<SampleTag show={app.boot.workspace.sample} />}>
+    <Page title="Inbox" sub="Emails that need a reply come first. Slack joins this list in a later version." actions={<SampleTag show={app.boot.workspace.sample} />}>
       <Load q={q} skeleton={<SkelRows n={6} />}>
         {(d) => {
           const list = d.messages.filter((m: any) => f === "all" || m.needsReply);
@@ -103,7 +103,7 @@ export function Outputs() {
                     <Fold open={open === o.id}><div style={{ padding: "0 16px 14px 60px" }}>{o.revisions.map((r: any) => <div key={r.version} className="flex items-center gap-3" style={{ padding: "6px 0", fontSize: 14 }}><span className="num" style={{ fontWeight: 620, width: 54 }}>{r.version}</span><Status>{r.state}</Status><span className="faint">{ago(r.at)}</span>{o.latestApproved?.version === r.version && <span className="t-cap" style={{ color: "var(--good)" }}>Latest approved</span>}</div>)}</div></Fold>
                     <hr className="divider" style={{ marginLeft: 60 }} />
                   </div>
-                )) : <Empty art="search" title="Nothing matches"><p>Try a different word.</p></Empty>}
+                )) : term ? <Empty art="search" title="Nothing matches"><p>Try a different word.</p></Empty> : <Empty art="quiet" title="No documents yet"><p>Finished documents show here, with the task they came from.</p></Empty>}
               </div>
             );
           }}
@@ -185,12 +185,13 @@ export function Usage() {
                 {d.plans.map((p: any, i: number) => <div key={p.provider} className="card pad rise" style={{ ["--i" as any]: i }}><div className="flex items-center justify-between"><span className="t-head">{p.provider}</span><Status>{p.status}</Status></div><div className="t-big num" style={{ marginTop: 12 }}>${p.monthly}<span className="t-foot" style={{ fontWeight: 500 }}> a month</span></div><div className="t-foot" style={{ marginTop: 6 }}>{p.plan} plan{p.status === "Connected" ? ". Summaries and answers run on this." : ". Link it on the Connections page."}</div></div>)}
                 <div className="card pad rise" style={{ ["--i" as any]: 2 }}><div className="flex items-center justify-between"><span className="t-head">Extra spend</span><span className={"chip " + (over ? "bad" : "good")}>{over ? "Over budget" : "Within budget"}</span></div><div className="t-big num" style={{ marginTop: 12 }}>${d.extraSpend.toFixed(2)}<span className="t-foot" style={{ fontWeight: 500 }}> of ${d.budget.monthlyExtra}</span></div><div className="bar-track" style={{ marginTop: 12 }}><div className="bar-fill" style={{ width: `${Math.min(100, (d.extraSpend / d.budget.monthlyExtra) * 100)}%`, background: over ? "var(--bad)" : undefined }} /></div><div className="t-foot" style={{ marginTop: 8 }}>{d.budget.note}</div></div>
               </div>
+              {!d.entries.length ? <div className="card"><Empty art="quiet" title="No AI questions yet"><p>Each time you ask your AI about the dashboard, the question shows here with the plan it ran on.</p></Empty></div> : <>
               <Section title="Where the usage went" i={3}><div className="card pad"><HBars rows={byTask.map((e: any) => ({ label: e.task, value: e.tokens, sub: "tokens" }))} /></div></Section>
               <Section title="Every entry" i={4}>
                 <div className="card tbl-wrap"><table className="tbl"><thead><tr><th>Task</th><th>For</th><th>Ran on</th><th className="r">Tokens</th><th className="r">Cost</th><th>When</th></tr></thead><tbody>
                   {d.entries.map((e: any) => <tr key={e.id}><td style={{ fontWeight: 560 }}>{e.task}</td><td>{e.scopeLabel}</td><td>{e.provider}</td><td className="r num">{e.tokens == null ? <span style={{ color: "var(--warn)" }}>Unknown</span> : compact(e.tokens)}</td><td className="r num">{e.kind === "plan" ? <span className="faint">{e.tokens == null ? "Unknown" : "In plan"}</span> : e.cost == null ? "Unknown" : `$${e.cost.toFixed(2)}${e.estimated ? " est." : ""}`}</td><td className="faint">{dateShort(e.at)}</td></tr>)}
                 </tbody></table></div>
-              </Section>
+              </Section></>}
               <p className="t-foot faint" style={{ padding: "0 6px" }}>{d.note} {d.unknown > 0 ? `${d.unknown} entr${d.unknown > 1 ? "ies have" : "y has"} no usage reported and shows as Unknown.` : ""}</p>
             </div>
           );

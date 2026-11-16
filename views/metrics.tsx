@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import { useApi, useApp } from "@/lib/client";
 import { ago, withUnit } from "@/lib/format";
 import { Spark } from "@/components/charts";
-import { Fold, Icon, Load, Page, SampleTag, SkelCards } from "@/components/ui";
+import Link from "next/link";
+import { Empty, Fold, Icon, Load, Page, SampleTag, SkelCards } from "@/components/ui";
 
 const STATE: Record<string, [string, string]> = { missing: ["Not connected", "warn"], stale: ["Out of date", "warn"], conflicting: ["Sources disagree", "bad"] };
 
@@ -45,7 +46,9 @@ export default function Metrics() {
   return (
     <Page title="Metrics" sub="The numbers you want to keep healthy. Tap one to see exactly what it measures and where it comes from." actions={<SampleTag show={app.boot.workspace.sample} />}>
       <Load q={q} skeleton={<SkelCards n={6} h={180} cols="grid-auto" />}>
-        {(d) => (
+        {(d) => !d.metrics.length ? (
+          <div className="card"><Empty art="connect" title="No numbers yet"><p>Connect Google Analytics or Metricool, and the numbers that matter for your business appear here with where each one comes from.</p><Link className="btn primary" style={{ marginTop: 14 }} href="/connections">Open Connections</Link></Empty></div>
+        ) : (
           <>
             <div className="grid-auto" style={{ alignItems: "start" }}>{d.metrics.map((m: any, i: number) => <Metric key={m.id} m={m} i={i} />)}</div>
             <p className="t-foot faint" style={{ padding: "16px 6px 0" }}>A number that cannot be measured shows as Unknown, never as 0. Finished tasks and AI usage are activity, so they are not shown here as business results.</p>

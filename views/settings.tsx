@@ -74,7 +74,7 @@ function Rubric({ d }: { d: any }) {
     <div className="card group">
       <button className="row flush" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="glyph accent"><Icon name="attention" size={16} /></span>
-        <span className="row-main"><span className="row-title" style={{ display: "block" }}>How "Needs your attention" is ranked</span><span className="row-sub">Version {d.rubric.version} · owned by the {d.rubric.owner} · advice only, it never acts on its own</span></span>
+        <span className="row-main"><span className="row-title" style={{ display: "block" }}>How "Needs your attention" is ranked</span><span className="row-sub">Version {d.rubric.version} · advice only, it never acts on its own</span></span>
         <Icon name="chevron" size={16} className={"caret" + (open ? " open" : "")} />
       </button>
       <Fold open={open}>
@@ -104,7 +104,8 @@ function Workspaces({ d }: { d: any }) {
   const [form, setForm] = useState({ name: "", owner: "", kind: "", accent: "green" });
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const run = (p: Promise<any>, msg: string) => p.then(() => { app.reloadBoot(); app.toast(msg); }, (e: any) => app.toast(e.message));
-  const create = () => run(api("workspaces", { method: "POST", body: form }).then(() => { setAdding(false); setForm({ name: "", owner: "", kind: "", accent: "green" }); }), `${form.name} created from the template`);
+  const examples = !!q.data?.workspaces?.some((x: any) => x.sample);
+  const create = () => run(api("workspaces", { method: "POST", body: form }).then(() => { setAdding(false); setForm({ name: "", owner: "", kind: "", accent: "green" }); }), examples ? `${form.name} created from the template` : `${form.name} is ready. Open it and connect its tools.`);
   return (
     <Load q={q} skeleton={<SkelRows n={3} />}>
       {(w) => (
@@ -113,9 +114,9 @@ function Workspaces({ d }: { d: any }) {
             {w.workspaces.map((x: any) => (
               <div className="row" key={x.id}>
                 <Mark name={x.name} color={d.accents[x.accent]?.light} />
-                <span className="row-main"><span className="row-title" style={{ display: "block" }}>{x.name}</span><span className="row-sub">{x.sample ? "Sample · " : "Your data · "}{x.kind === "client" ? "client workspace" : "owner workspace"} · {x.sites} website{x.sites === 1 ? "" : "s"} · ranking v{x.rubric}</span></span>
+                <span className="row-main"><span className="row-title" style={{ display: "block" }}>{x.name}</span><span className="row-sub">{x.sample ? "Sample · " : ""}{x.kind === "client" ? "client workspace" : "owner workspace"} · {x.sites} website{x.sites === 1 ? "" : "s"} · ranking v{x.rubric}</span></span>
                 {x.id === w.active ? <span className="chip accent">Open now</span> : <button className="btn tinted sm" onClick={() => run(api("workspaces/switch", { method: "POST", body: { id: x.id } }), `Switched to ${x.name}`)}>Open</button>}
-                {x.id !== "main" && (confirmDel === x.id
+                {w.workspaces.length > 1 && !(x.id === "main" && x.sample) && (confirmDel === x.id
                   ? <span className="flex gap-1"><button className="btn sm danger" onClick={() => { setConfirmDel(null); run(api("workspaces/delete", { method: "POST", body: { id: x.id } }), `${x.name} removed`); }}>Remove</button><button className="btn sm" onClick={() => setConfirmDel(null)}>Keep</button></span>
                   : <button className="icon-btn sm" aria-label={`Remove ${x.name}`} onClick={() => setConfirmDel(x.id)}><Icon name="trash" size={15} /></button>)}
               </div>
@@ -123,19 +124,19 @@ function Workspaces({ d }: { d: any }) {
           </div>
           <Fold open={adding}>
             <div className="card pad stack" style={{ gap: 12 }}>
-              <div className="t-head">New workspace from the template</div>
+              <div className="t-head">{examples ? "New workspace from the template" : "New workspace"}</div>
               <div className="grid-2">
                 <label><span className="t-cap">Business name</span><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={40} placeholder="Harbor Coffee Co." /></label>
                 <label><span className="t-cap">Owner's first name</span><input className="input" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} maxLength={40} placeholder="Jo" /></label>
-                <label><span className="t-cap">Kind of business</span><input className="input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} maxLength={40} placeholder="Coffee roaster" /></label>
+                {examples && <label><span className="t-cap">Kind of business</span><input className="input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} maxLength={40} placeholder="Coffee roaster" /></label>}
                 <div><span className="t-cap">Accent colour</span><div className="flex gap-2 flex-wrap" style={{ marginTop: 6 }} role="radiogroup" aria-label="Workspace accent">{Object.entries(d.accents).map(([id, a]: any) => <button key={id} role="radio" aria-checked={form.accent === id} aria-label={a.name} className="swatch" style={{ background: a.light, color: a.light }} onClick={() => setForm({ ...form, accent: id })} />)}</div></div>
               </div>
-              <p className="t-foot faint">A new workspace starts with the same pages and ranking rules, its own sample examples, and no connections. Nothing is copied from any other workspace.</p>
+              <p className="t-foot faint">{examples ? "A new workspace starts with the same pages and ranking rules, its own sample examples, and no connections." : "A new workspace starts empty, with the same pages and ranking rules and no connections. Use one for each client or business you look after."} Nothing is copied from any other workspace.</p>
               <div className="flex gap-2 justify-end"><button className="btn" onClick={() => setAdding(false)}>Cancel</button><button className="btn primary" disabled={form.name.trim().length < 2} onClick={create}>Create workspace</button></div>
             </div>
           </Fold>
-          {!adding && <div className="flex gap-2 flex-wrap"><button className="btn tinted" onClick={() => setAdding(true)}><Icon name="plus" size={16} />New workspace from the template</button>{!w.workspaces.some((x: any) => !x.sample) && <button className="btn" onClick={() => run(api("workspaces", { method: "POST", body: { name: "My business", owner: app.boot.workspace.owner, real: true } }), "Your own workspace is ready. Connect a tool to fill it.")}>Start with my own data</button>}</div>}
-          <p className="t-foot faint" style={{ padding: "0 6px" }}>Sample workspaces are made-up examples to explore. A workspace with your own data starts empty and only ever shows what your connected tools report.</p>
+          {!adding && <div className="flex gap-2 flex-wrap"><button className="btn tinted" onClick={() => setAdding(true)}><Icon name="plus" size={16} />{examples ? "New workspace from the template" : "New workspace"}</button>{!w.workspaces.some((x: any) => !x.sample) && <button className="btn" onClick={() => run(api("workspaces", { method: "POST", body: { name: "My business", owner: app.boot.workspace.owner, real: true } }), "Your own workspace is ready. Connect a tool to fill it.")}>Start with my own data</button>}</div>}
+          {examples && <p className="t-foot faint" style={{ padding: "0 6px" }}>Sample workspaces are made-up examples to explore. A workspace with your own data starts empty and only ever shows what your connected tools report.</p>}
         </div>
       )}
     </Load>
@@ -148,14 +149,15 @@ function Data() {
   const [ask, setAsk] = useState<"workspace" | "all" | null>(null);
   const exportIt = async () => { try { const d = await api("export"); setJson(JSON.stringify(d, null, 2)); } catch (e: any) { app.toast(e.message); } };
   const copy = async () => { try { await navigator.clipboard.writeText(json || ""); app.toast("Copied"); } catch { app.toast("Select the text and copy it by hand"); } };
-  const reset = (scope: "workspace" | "all") => api("reset", { method: "POST", body: { scope } }).then(() => { setAsk(null); app.reloadBoot(); app.toast(scope === "all" ? "Everything is back to the starting examples" : "This workspace is back to its starting examples"); }, (e: any) => app.toast(e.message));
+  const sample = !!app.boot.workspace.sample;
+  const reset = (scope: "workspace" | "all") => api("reset", { method: "POST", body: { scope } }).then(() => { setAsk(null); app.reloadBoot(); app.toast(scope === "all" ? "Everything is deleted. Starting fresh." : sample ? "This workspace is back to its starting examples" : "This workspace is cleared. Your connections will fill it again."); }, (e: any) => app.toast(e.message));
   return (
     <div className="stack" style={{ gap: 12 }}>
       <div className="card group">
         <div className="row"><span className="glyph"><Icon name="download" size={16} /></span><span className="row-main"><span className="row-title" style={{ display: "block" }}>Export this workspace</span><span className="row-sub">Everything as one file you can read. Sign-ins and tokens are left out.</span></span><button className="btn tinted sm" onClick={exportIt}>Export</button></div>
-        <div className="row"><span className="glyph"><Icon name="refresh" size={16} /></span><span className="row-main"><span className="row-title" style={{ display: "block" }}>Reset this workspace</span><span className="row-sub">Clears your changes here and brings back the starting examples.</span></span>
+        <div className="row"><span className="glyph"><Icon name="refresh" size={16} /></span><span className="row-main"><span className="row-title" style={{ display: "block" }}>Reset this workspace</span><span className="row-sub">{sample ? "Clears your changes here and brings back the starting examples." : "Clears everything in this workspace, including its connections. You connect your tools again afterwards."}</span></span>
           {ask === "workspace" ? <span className="flex gap-1"><button className="btn sm danger" onClick={() => reset("workspace")}>Reset</button><button className="btn sm" onClick={() => setAsk(null)}>Cancel</button></span> : <button className="btn sm" onClick={() => setAsk("workspace")}>Reset</button>}</div>
-        <div className="row"><span className="glyph bad"><Icon name="trash" size={16} /></span><span className="row-main"><span className="row-title" style={{ display: "block" }}>Delete all data</span><span className="row-sub">Removes every workspace and connection from this laptop.</span></span>
+        <div className="row"><span className="glyph bad"><Icon name="trash" size={16} /></span><span className="row-main"><span className="row-title" style={{ display: "block" }}>Delete all data</span><span className="row-sub">Removes every workspace and connection from this computer, and starts the welcome steps again.</span></span>
           {ask === "all" ? <span className="flex gap-1"><button className="btn sm danger" onClick={() => reset("all")}>Delete everything</button><button className="btn sm" onClick={() => setAsk(null)}>Cancel</button></span> : <button className="btn sm danger" onClick={() => setAsk("all")}>Delete</button>}</div>
       </div>
       <Fold open={!!json}>
@@ -171,7 +173,7 @@ function Data() {
 export default function Settings() {
   const q = useApi("settings");
   return (
-    <Page title="Settings" sub="Make it yours. Changes save on this laptop straight away.">
+    <Page title="Settings" sub="Make it yours. Changes save on this computer straight away.">
       <Load q={q} skeleton={<SkelRows n={6} />}>
         {(d) => (
           <div className="stack">

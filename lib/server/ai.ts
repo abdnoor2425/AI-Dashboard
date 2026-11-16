@@ -1,5 +1,5 @@
 // The AI link. The dashboard has no API key of its own. It hands the question, plus the numbers already on screen,
-// to the Claude Code or Codex command-line app installed on this laptop, which answers using the plan its owner pays for.
+// to the Claude Code or Codex command-line app installed on this computer, which answers using the plan its owner pays for.
 import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -26,7 +26,7 @@ export async function status(prefer = "auto") {
   const provider = providers.find((p) => prefer !== "auto" && p.toLowerCase().startsWith(prefer)) || providers[0] || null;
   return {
     available: !!provider, provider, providers, mode: provider ? "plan" : "rules", mcpPath: mcpPath(),
-    note: provider ? `${provider} was found on this laptop and answers questions in the app.` : "Claude Code or Codex was not found on this laptop, so answers in the app are written by simple rules for now.",
+    note: provider ? `${provider} was found on this computer and answers questions in the app.` : "Claude Code or Codex was not found on this computer, so answers in the app are written by simple rules for now.",
   };
 }
 

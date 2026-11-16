@@ -38,10 +38,12 @@ const within = (root: string, candidate: string) => {
 };
 
 function sourceRoot(value: unknown, home: string) {
-  if (typeof value !== "string" || value.length > 4096 || !path.isAbsolute(value.trim())) {
-    throw new BrainError("Enter an absolute folder path on the computer running Keystone.");
+  // Windows "Copy as path" wraps the path in quotes, so take them off.
+  if (typeof value === "string") value = value.trim().replace(/^(["'])(.*)\1$/, "$2").trim();
+  if (typeof value !== "string" || value.length > 4096 || !path.isAbsolute(value)) {
+    throw new BrainError("Paste the folder's full path, for example " + (process.platform === "win32" ? "C:\\Users\\you\\Documents\\WorkOS." : "/Users/you/Documents/WorkOS."));
   }
-  const raw = value.trim();
+  const raw = value;
   if (/^(?:[\\/]{2}|[a-z]:[^\\/]|[\\/](?![\\/]))/i.test(raw) && process.platform === "win32") {
     throw new BrainError("Enter a local folder path with a drive letter.");
   }
@@ -66,7 +68,7 @@ function sourceRoot(value: unknown, home: string) {
     if (!info.isDirectory() || info.isSymbolicLink() || !equal(root, fs.realpathSync(root))) throw new Error();
     return root;
   } catch {
-    throw new BrainError("The folder is unavailable, unreadable, or reached through a link.");
+    throw new BrainError("That folder could not be found or opened. Check the path, or pick the real folder rather than a shortcut.");
   }
 }
 
@@ -229,7 +231,7 @@ function load(workspaceId: string, home: string): Indexed[] {
     return value.indexes;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw new BrainError("Keystone could not read this workspace's Second Brain index.", 500);
+    throw new BrainError("AI-Dashboard could not read this workspace's Second Brain index.", 500);
   }
 }
 
@@ -241,7 +243,7 @@ function save(workspaceId: string, indexes: Indexed[], home: string) {
     fs.writeFileSync(temporary, JSON.stringify({ version: 1, indexes }), { mode: 0o600, flag: "wx" });
     fs.renameSync(temporary, file);
   } catch {
-    throw new BrainError("Keystone could not save this workspace's Second Brain index.", 500);
+    throw new BrainError("AI-Dashboard could not save this workspace's Second Brain index.", 500);
   } finally {
     try { fs.rmSync(temporary, { force: true }); } catch {}
   }

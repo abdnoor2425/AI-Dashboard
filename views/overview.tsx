@@ -172,7 +172,8 @@ export default function Overview() {
                 {d.numbers?.length > 0 && <div className="hero-figs">{d.numbers.slice(0, 3).map((n: any) => (
                   <button key={n.id} className="hero-fig" onClick={(e) => app.openCard({ title: n.label, chip: n.source, render: (close) => <NumberDetail n={n} chart={d.chart} close={close} /> }, e.currentTarget)} aria-label={`${n.label}: ${n.value == null ? "Unknown" : full(n.value)}. Open details`}>
                     <span className="hero-fig-l">{n.label}</span>
-                    <span className="hero-fig-v num">{n.value == null ? "Unknown" : compact(Math.round(n.value)) + (n.unit || "")}</span>
+                    <span className={"hero-fig-v num" + (n.value == null ? " none" : "")}>{n.value == null ? "—" : compact(Math.round(n.value)) + (n.unit || "")}</span>
+                    {n.value == null && <span className="hero-fig-d quiet">{/^Connect\b/.test(n.sentence || "") ? "Not connected yet" : "Not measured yet"}</span>}
                     {n.delta != null && <span className={"hero-fig-d num " + (n.delta >= 0 ? "up" : "down")}>{pctText(n.delta)}</span>}
                   </button>
                 ))}</div>}
@@ -191,7 +192,7 @@ export default function Overview() {
                   <div className="card group top5">
                     {d.top.length ? d.top.map((it: any, n: number) => <AttentionRow key={it.id} item={it} showScope={all} rank={n + 1} />) : <Empty art="clear" title="All clear"><p>Nothing needs you{all ? "" : ` for ${app.scopeLabel}`} right now.</p></Empty>}
                   </div>
-                  <p className="t-foot on-sky" style={{ padding: "12px 6px 0" }}>Pulled from Linear, Gmail and Slack, then ranked for you. Tap a card to see why it is there.</p>
+                  <p className="t-foot on-sky" style={{ padding: "12px 6px 0" }}>Pulled from your connected tools, then ranked for you. Tap a card to see why it is there.</p>
                 </Section>
                 <div className="stack" style={{ gap: 20, paddingTop: 38 }}>{side}</div>
               </div>

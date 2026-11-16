@@ -119,8 +119,8 @@ When a task goes from one person on Your team to another, the dashboard can play
 **In your terminal:** give Claude Code or Codex access to the dashboard. Run one line once (the Connections page shows it with your real path):
 
 ```bash
-claude mcp add keystone -- node /full/path/to/keystone/mcp/server.mjs
-codex  mcp add keystone -- node /full/path/to/keystone/mcp/server.mjs
+claude mcp add ai-dashboard -- node /full/path/to/AI-Dashboard/mcp/server.mjs
+codex  mcp add ai-dashboard -- node /full/path/to/AI-Dashboard/mcp/server.mjs
 ```
 
 Then ask things like "What needs my attention today?" or "Which reels are on hold and why?". The dashboard has to be running. The AI can read every page. It can also do two things when you ask it to: post a comment on a Linear ticket ("Comment on PLT-212 that the cut is approved") and alert people on your team about an item.

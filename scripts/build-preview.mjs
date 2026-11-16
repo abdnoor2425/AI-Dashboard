@@ -18,7 +18,7 @@ execFileSync(p("node_modules/.bin/tailwindcss"), ["-i", p("app/globals.css"), "-
 
 const css = readFileSync(p("preview/app.css"), "utf8");
 const js = readFileSync(p("preview/app.js"), "utf8").replace(/<\/script/gi, "<\\/script");
-const html = `<title>Keystone</title>
+const html = `<title>AI-Dashboard</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
 <style>${css}</style>

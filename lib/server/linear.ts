@@ -8,6 +8,7 @@ async function gql(wsId: string, query: string, variables: any = {}) {
   if (!key) throw new Error("Linear needs an API key. Add it on the Connections page.");
   const r = await fetch("https://api.linear.app/graphql", { method: "POST", headers: { "content-type": "application/json", authorization: key }, body: JSON.stringify({ query, variables }) });
   const j: any = await r.json().catch(() => ({}));
+  if (r.status === 401 || /authenticat/i.test(j.errors?.[0]?.message || "")) throw new Error("Linear didn't accept that API key. Copy it again from Linear and paste it here.");
   if (!r.ok || j.errors) throw new Error(j.errors?.[0]?.message || "Linear refused the key.");
   return j.data;
 }

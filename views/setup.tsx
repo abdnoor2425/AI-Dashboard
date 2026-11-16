@@ -16,7 +16,7 @@ function Wizard({ d }: { d: any }) {
   const [step, setStep] = useState(Math.min(d.setup.step || 0, 2));
   const [about, setAbout] = useState(d.setup.about);
   const [goals, setGoals] = useState<string[]>(d.setup.goals.length ? d.setup.goals : [""]);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(!!d.setup.done);
   useEffect(() => { setAbout(d.setup.about); }, [d.setup.about.name, d.setup.about.role, d.setup.about.business]);
   const save = (body: any) => api("setup", { method: "POST", body }).catch((e: any) => app.toast(e.message));
   const go = async (n: number) => {
@@ -27,9 +27,12 @@ function Wizard({ d }: { d: any }) {
   if (done) return (
     <div className="card pad setup-card rise" style={{ textAlign: "center", padding: "44px 24px" }}>
       <span className="done-badge"><Icon name="check" size={30} stroke={2.4} /></span>
-      <h2 className="t-mid" style={{ marginTop: 16 }}>You are set up</h2>
-      <p className="muted" style={{ margin: "6px auto 20px", maxWidth: "40ch" }}>Your Overview is ready. It will keep itself up to date from the tools you connected.</p>
-      <Link className="btn primary lg" href={hrefOf("overview")}>Open Overview</Link>
+      <h2 className="t-mid" style={{ marginTop: 16 }}>You are set up{about?.name ? `, ${about.name.split(" ")[0]}` : ""}</h2>
+      <p className="muted" style={{ margin: "6px auto 20px", maxWidth: "42ch" }}>Your Overview is ready. It keeps itself up to date from the {connected === 1 ? "tool" : "tools"} you connected{connected ? ` (${connected} so far)` : ""}.</p>
+      <div className="flex gap-2 justify-center flex-wrap">
+        <Link className="btn primary lg" href={hrefOf("overview")}>Open Overview</Link>
+        <button className="btn lg" onClick={() => { setStep(0); setDone(false); }}>Change your answers</button>
+      </div>
     </div>
   );
   return (
@@ -91,7 +94,7 @@ export default function Setup() {
             <Section><Wizard d={d} /></Section>
             <Section i={1}>
               <div className="stack" style={{ gap: 10 }}>
-                {[["person", "Private by design", "Your data and sign-ins live in one folder on this laptop. There is no cloud account."], ["eye", "Read only", "The dashboard looks at your tools. It never sends, posts or changes anything in them."], ["sparkle", "Your own AI plan", "Answers come from the Claude Code or Codex plan you already have. No extra key to buy."]].map(([ic, t, s]) => (
+                {[["person", "Private by design", "Your data and sign-ins live in one folder on this computer. There is no cloud account."], ["eye", "Read only", "The dashboard looks at your tools. It never sends, posts or changes anything in them."], ["sparkle", "Your own AI plan", "Answers come from the Claude Code or Codex plan you already have. No extra key to buy."]].map(([ic, t, s]) => (
                   <div className="flex gap-3 items-start" key={t}><span className="glyph"><Icon name={ic} size={16} /></span><div><div className="row-title">{t}</div><div className="t-foot" style={{ marginTop: 2 }}>{s}</div></div></div>
                 ))}
               </div>

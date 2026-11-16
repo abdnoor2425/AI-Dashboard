@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { api, useApi, useApp } from "@/lib/client";
 import { dateShort, withUnit } from "@/lib/format";
-import { Fold, Icon, Load, Page, Ring, SampleTag, Section, SkelCards } from "@/components/ui";
+import { Empty, Fold, Icon, Load, Page, Ring, SampleTag, Section, SkelCards } from "@/components/ui";
 
 function KR({ kr }: { kr: any }) {
   const app = useApp();
@@ -52,7 +52,9 @@ export default function Goals() {
   return (
     <Page title="Goals" sub="What you are trying to change this quarter, and how far along each goal really is." actions={<SampleTag show={app.boot.workspace.sample} />}>
       <Load q={q} skeleton={<SkelCards n={3} h={200} cols="stack" />}>
-        {(d) => (
+        {(d) => !d.goals.length ? (
+          <div className="card"><Empty art="quiet" title="No goals yet"><p>Goals you set for this quarter show here, with how far along each one really is.</p></Empty></div>
+        ) : (
           <div className="stack">
             {d.goals.map((g: any, i: number) => (
               <Section key={g.id} i={i}>

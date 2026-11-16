@@ -4,5 +4,5 @@ import { ENDPOINTS } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 export function GET() {
-  return NextResponse.json({ name: "Keystone", note: "Every page has its own endpoint. All are read from this laptop only.", endpoints: ENDPOINTS.map(([path, about]) => ({ path: "/api/" + path, about })) });
+  return NextResponse.json({ name: "AI-Dashboard", note: "Every page has its own endpoint. All are read from this computer only.", endpoints: ENDPOINTS.map(([path, about]) => ({ path: "/api/" + path, about })) });
 }

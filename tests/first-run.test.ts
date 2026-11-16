@@ -43,3 +43,28 @@ test("older installs that already have real data skip the welcome flow", () => {
   state.workspaces.mine = { ...state.workspaces.main, id: "mine", sample: false };
   assert.equal(isOnboarded(state), true);
 });
+
+test("after the welcome flow only the person's own workspaces are left, and new ones start empty", () => {
+  const now = Date.parse("2026-11-16T10:00:00Z");
+  const state: any = makeState(now);
+  const call = (method: string, path: string, body?: any) => handle(state, { method, path: "/api/" + path, body, now });
+  assert.ok(Object.values<any>(state.workspaces).some((w) => w.sample));
+  const { id } = call("POST", "firstrun/start").data;
+  call("POST", "firstrun/profile", { name: "Maya", business: "Harbor & Pine" });
+  call("POST", "firstrun/finish");
+  assert.deepEqual(Object.keys(state.workspaces), [id]);
+  assert.equal(state.active, id);
+  assert.ok(call("GET", "workspaces").data.workspaces.every((w: any) => !w.sample));
+
+  // A second workspace, for a client, has no made-up examples in it.
+  const extra = call("POST", "workspaces", { name: "Client Co", owner: "Jo", kind: "Bakery", accent: "green" }).data.id;
+  const w = state.workspaces[extra];
+  assert.equal(w.sample, false);
+  assert.equal(w.sites.length, 0);
+  assert.equal(w.items.length, 0);
+
+  // Removing works, but the last workspace always stays.
+  assert.equal(call("POST", "workspaces/delete", { id: extra }).status, 200);
+  assert.equal(call("POST", "workspaces/delete", { id }).status, 400);
+  assert.equal(state.active, id);
+});
