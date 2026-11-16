@@ -966,3 +966,41 @@ html .ov-mode .seg-item[aria-checked="true"] { color: var(--on-accent); }
   .fr-tool { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { .fr *, .fr *::before { animation: none !important; transition: none !important; } }
+
+/* Connect your AI */
+.fr-ai { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 26px; align-items: start; margin-top: 8px; }
+.fr-ai-list .fr-group.first { margin-top: 22px; }
+.fr-stack { display: grid; gap: 12px; }
+.fr-stack.muted .fr-tool { opacity: 0.62; }
+.fr-ai-wait { gap: 12px; font-size: 15px; color: var(--fr-ink-2); margin-top: 22px; }
+.fr-spin.dark { border-color: rgba(20, 30, 50, 0.15); border-top-color: var(--fr-navy); }
+.fr-aimark { box-shadow: inset 0 0 0 1px rgba(20, 30, 50, 0.08), 0 6px 14px -8px rgba(20, 30, 50, 0.35); }
+.fr-note { font-size: 13px; line-height: 1.5; color: var(--fr-ink-3); margin: 12px 4px 0; max-width: 560px; }
+.fr-ai-panel { position: sticky; top: 24px; margin-top: 22px; border-radius: 24px; padding: 26px 26px 22px; color: #F2EDE2; background: radial-gradient(120% 80% at 80% 0%, rgba(224, 182, 99, 0.16), transparent 60%), linear-gradient(160deg, #1B3358, #0C1A30); box-shadow: 0 40px 70px -40px rgba(12, 26, 48, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.06); animation: fr-rise 500ms var(--spring-smooth) both; }
+.fr-ai-p { font-size: 15px; line-height: 1.55; color: rgba(240, 230, 205, 0.86); margin-top: 10px; }
+.fr-ai-p.dim { color: rgba(240, 230, 205, 0.6); font-size: 14px; }
+.fr-ai-pick { display: grid; gap: 8px; margin-top: 16px; }
+.fr-ai-pick button { display: flex; align-items: center; gap: 12px; padding: 8px 14px 8px 8px; border-radius: 14px; border: 0; text-align: left; font-size: 15px; font-weight: 600; color: #F2EDE2; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.fr-ai-pick button > span:not(.fr-tile) { flex: 1; }
+.fr-ai-pick button .fr-tile { flex: none; }
+.fr-ai-pick button .fr-tile { width: 36px; height: 36px; border-radius: 10px; }
+.fr-ai-pick button .fr-tile svg { transform: scale(0.8); }
+.fr-ai-pick button.on { background: rgba(224, 182, 99, 0.14); box-shadow: inset 0 0 0 1.5px #E0B663; color: #fff; }
+.fr-ai-pick button.on > svg { color: #E0B663; }
+.fr-ai-try { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.09); }
+.fr-ai-ask { display: flex; gap: 8px; margin-top: 10px; padding: 6px; border-radius: 14px; background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.fr-ai-ask input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F7F3EA; font-size: 15px; padding: 0 10px; }
+.fr-ai-ask .fr-btn { height: 40px; }
+.fr-ai-answer { margin-top: 12px; padding: 16px 18px; border-radius: 16px 16px 16px 4px; background: #F7F1E3; color: #172238; font-size: 15px; line-height: 1.55; animation: fr-rise 400ms var(--spring-smooth) both; }
+.fr-ai-answer span { display: block; margin-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #8A6A2E; }
+.fr-ai-answer.wait { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.06); color: rgba(240, 230, 205, 0.8); font-size: 14px; }
+.fr-dots { display: inline-flex; gap: 4px; } .fr-dots i { width: 6px; height: 6px; border-radius: 50%; background: #E0B663; animation: fr-dot 1s ease-in-out infinite; } .fr-dots i:nth-child(2) { animation-delay: 0.15s; } .fr-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes fr-dot { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+.fr-ai-empty { margin-top: 4px; }
+.fr-ai-safe { display: flex; gap: 10px; align-items: flex-start; margin-top: 22px; font-size: 12.5px; line-height: 1.5; color: rgba(240, 230, 205, 0.62); }
+.fr-ai-safe svg { flex: none; margin-top: 1px; color: #E0B663; }
+@media (max-width: 960px) { .fr-ai { grid-template-columns: 1fr; } .fr-ai-panel { position: static; } }
+@media (prefers-reduced-motion: reduce) { .fr-dots i { animation: none; } }
+.ai-row-mark { display: flex; flex: none; }
+.ai-row-mark .fr-tile { width: 36px; height: 36px; border-radius: 10px; }
+.ai-row-mark .fr-tile svg { transform: scale(0.8); }

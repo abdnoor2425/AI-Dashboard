@@ -7,6 +7,7 @@ import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, sendMail, signO
 import { linearAlert, linearComment } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
+import { connectAgent, disconnectAgent, listAgents } from "@/lib/server/agents";
 import { brainSummary, dropBrain } from "@/lib/server/brain";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +100,24 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
 
   // --- The AI link ---
   if (a === "ai" && b === "status") return json(await ai.status(ws.ai?.provider));
+  if (a === "ai" && b === "agents") {
+    if (post) {
+      if (typeof c !== "string" || !c) return json({ error: "Pick an AI app." }, 400);
+      try { if (body.action === "disconnect") await disconnectAgent(c); else await connectAgent(c); }
+      catch (e: any) { return json({ error: String(e?.message || e).slice(0, 240) }, 400); }
+    }
+    const [agents, st] = await Promise.all([listAgents(), ai.status(ws.ai?.provider)]);
+    const answerWith = Object.entries(ai.PROVIDER_IDS).find(([, p]) => p === st.provider)?.[0] || null;
+    return json({ agents, answerWith });
+  }
+  if (a === "ai" && b === "answer" && post) {
+    const provider = ai.PROVIDER_IDS[String(body.id)];
+    if (!provider) return json({ error: "That AI can't write answers inside the dashboard." }, 400);
+    if (!(await ai.detect()).includes(provider)) return json({ error: `${provider} is not installed on this computer.` }, 400);
+    ws.ai = { ...(ws.ai || {}), provider: provider.split(" ")[0].toLowerCase() };
+    saveState();
+    return json({ ok: true, provider });
+  }
   if (a === "ai" && b === "ask" && post) {
     const st = await ai.status(ws.ai?.provider);
     if (st.provider) {

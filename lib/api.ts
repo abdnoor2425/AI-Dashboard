@@ -282,7 +282,7 @@ function simulateDebate(question: string) {
 
 /** First run: a new install opens on the welcome flow, never on sample data. Older installs with real data count as done. */
 export const isOnboarded = (state: any) => state.onboarded ?? (!state.firstRun && Object.values<any>(state.workspaces).some((w) => !w.sample));
-const FIRST_RUN_STEPS = ["intro", "signin", "connect", "profile", "welcome"];
+const FIRST_RUN_STEPS = ["intro", "signin", "connect", "ai", "profile", "welcome"];
 
 export function activeWs(state: State) { return state.workspaces[state.active] || Object.values(state.workspaces)[0]; }
 
@@ -714,6 +714,7 @@ export function handle(state: State, req: Req): Res {
 
   if (a === "ai") {
     if (b === "status") return ok({ available: false, provider: null, mode: "rules", note: "No Claude Code or Codex found. Summaries are written by simple rules." });
+    if (b === "agents") return ok({ agents: [], answerWith: null, preview: true });
     if (b === "ask" && post) return ok(localAnswer(ws, String(body.question || ""), scope, now));
   }
 
@@ -730,7 +731,7 @@ export function localAnswer(ws: any, question: string, scope: string, now: numbe
     answer = hold.length ? `${hold.length} reel${hold.length > 1 ? "s are" : " is"} on HOLD: ${hold.map((r: any) => r.title).join(", ")}. The first fix for each is on the Reel scores page.` : "Every scored reel has passed. Nothing is on HOLD.";
   } else if (/visitor|traffic|website|lead/.test(ql)) {
     const v = o.numbers.find((n: any) => n.id === "visitors"), l = o.numbers.find((n: any) => n.id === "leads");
-    answer = v ? `${v.value.toLocaleString("en-US")} visitors in the last 7 days. ${v.sentence} ${l ? `${l.value.toLocaleString("en-US")} leads. ${l.sentence}` : ""}` : "Website numbers are not available in this view.";
+    answer = v && v.value != null ? `${v.value.toLocaleString("en-US")} visitors in the last 7 days. ${v.sentence} ${l && l.value != null ? `${l.value.toLocaleString("en-US")} leads. ${l.sentence}` : ""}`.trim() : "Website numbers aren't available yet. Connect Google Analytics on the Connections page and they appear by themselves.";
   } else if (/social|reach|follower|metricool/.test(ql)) {
     const r = o.numbers.find((n: any) => n.id === "reach");
     answer = r && r.value != null ? `Social reach is ${r.value.toLocaleString("en-US")} in the last 7 days. ${r.sentence}` : "Social reach is not available yet. Confirm the Metricool brand on the Connections page.";
@@ -740,5 +741,5 @@ export function localAnswer(ws: any, question: string, scope: string, now: numbe
   } else {
     answer = o.top.length ? `${o.greeting.line} Start with: ${o.top[0].title}. Then: ${o.top.slice(1, 3).map((t: any) => t.title).join("; ") || "nothing else is pressing"}.` : o.greeting.line;
   }
-  return { answer, provider: "rules", note: "Written by simple rules from your dashboard data. Link Claude Code or Codex for fuller answers." };
+  return { answer, provider: "rules", note: "Written by simple rules from your dashboard data. Connect Claude Code, Codex or Gemini CLI for fuller answers." };
 }

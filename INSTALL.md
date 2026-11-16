@@ -34,7 +34,7 @@ This does three things:
 - Starts it quietly in the background whenever the person logs in.
 - Opens it once, in its own window (Chrome or Edge app mode, with no tabs or address bar).
 
-The first time it opens, the person sees the welcome flow. They sign in with Google, connect their tools, and set up their profile. There is nothing for you to configure, no keys to paste and no sample data.
+The first time it opens, the person sees the welcome flow. They sign in with Google, connect their tools, connect their AI (Claude Code, Codex, the Claude desktop app, Gemini CLI or Cursor, one click each), and set up their profile. There is nothing for you to configure, no keys to paste and no sample data.
 
 ## 4. Tell the person
 
@@ -65,7 +65,7 @@ Everything the dashboard stores stays in the `.keystone` folder inside the AI-Da
 
 ## Let the person ask their AI about the dashboard
 
-After it's installed, connect this same AI to the dashboard so the person can ask it questions:
+The welcome flow's "Your AI" step, and the Connections page, connect AI apps with one click. To do it by hand instead:
 
 ```bash
 claude mcp add ai-dashboard -- node /full/path/to/AI-Dashboard/mcp/server.mjs
