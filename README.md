@@ -63,12 +63,15 @@ The rules live in `lib/scoring.ts` and are covered by `npm test`.
 
 Open **Connections**. The dashboard only reads from your tools, apart from the comments and alerts you choose to send (see below), and sign-ins are saved in `.keystone/secrets.json` on your laptop, apart from your data.
 
-**Google (Analytics, Gmail, Drive)** uses one sign-in with your own Google OAuth client, so no shared key ships with this app:
+**Google Analytics, Gmail, Drive and Calendar:** click **Connect with Google** on the app you want and sign in. That's it. Each app connects on its own, so you only give access to what you use.
 
-1. In [Google Cloud Console](https://console.cloud.google.com), make a project and enable the Google Analytics Admin, Google Analytics Data, Gmail and Drive APIs. Google Calendar is optional: connect it from Connections if you want it, and enable the Calendar API first.
-2. Under "Credentials", create an OAuth client ID of type "Web application".
-3. Add the return address shown on the Connections page (`http://localhost:3210/api/oauth/google/callback`).
-4. Paste the client ID and secret into Connections and sign in.
+While the dashboard's Google app is waiting for Google's review, Google shows a "Google hasn't verified this app" screen once. Click **Advanced**, then **Go to AI-Dashboard**.
+
+<details><summary>For maintainers: the built-in Google app</summary>
+
+The dashboard signs in with one Google app, set in `lib/server/google-app.ts`. It is a Google "Desktop app" client, which Google treats as safe to ship inside apps people run themselves. Anyone who prefers their own Google app can set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`. It needs the Google Analytics Admin, Google Analytics Data, Gmail, Drive and Calendar APIs switched on.
+
+</details>
 
 Your websites are then found in Google Analytics by themselves. You never type them in.
 

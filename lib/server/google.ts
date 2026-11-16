@@ -1,29 +1,43 @@
-// Google: one read-only sign-in covers Analytics, Calendar, Gmail and Drive.
-// Each person uses their own Google Cloud OAuth client, so no shared key ships with the app.
+// Google: each app (Analytics, Gmail, Drive, Calendar) connects on its own with one click and a Google sign-in.
+// The dashboard ships with one Google app (see google-app.ts), so nobody has to set anything up in Google Cloud.
 // NOTE: written against Google's public REST docs and not yet run against a live account.
 import crypto from "node:crypto";
 import { getSecrets, setSecrets } from "./store.ts";
+import { GOOGLE_APP } from "./google-app.ts";
 import { DAY, hash } from "../rand.ts";
 
 export const GOOGLE_TOOLS = ["google-analytics", "calendar", "gmail", "drive"];
-const SCOPES = [
-  "https://www.googleapis.com/auth/analytics.readonly",
-  "https://www.googleapis.com/auth/calendar.readonly",
-  "https://www.googleapis.com/auth/gmail.metadata",
-  "https://www.googleapis.com/auth/drive.metadata.readonly",
-  "openid", "email",
-];
-/** Only asked for when you choose to send team alerts by email. Without it the dashboard cannot send anything. */
+/** What each app asks Google for. Read only, apart from Gmail sending, which is only asked for when you turn on email alerts. */
+const TOOL_SCOPES: Record<string, string[]> = {
+  "google-analytics": ["https://www.googleapis.com/auth/analytics.readonly"],
+  calendar: ["https://www.googleapis.com/auth/calendar.readonly"],
+  gmail: ["https://www.googleapis.com/auth/gmail.metadata"],
+  drive: ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+};
 const SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 export const redirectUri = (origin: string) => `${origin}/api/oauth/google/callback`;
 
-/** Calendar access is only asked for when the Calendar page is switched on. It is off by default. */
-export function googleAuthUrl(wsId: string, origin: string, withCalendar = false, withSend = false) {
+/** The Google app to sign in with: the one built into this copy, or (for older setups) one saved on this laptop. */
+function appKeys(wsId: string) {
+  if (GOOGLE_APP.clientId && GOOGLE_APP.clientSecret) return { clientId: GOOGLE_APP.clientId, clientSecret: GOOGLE_APP.clientSecret };
   const s = getSecrets(wsId).google || {};
-  if (!s.clientId || !s.clientSecret) return null;
+  return s.clientId && s.clientSecret ? { clientId: s.clientId, clientSecret: s.clientSecret } : null;
+}
+export const googleReady = (wsId: string) => !!appKeys(wsId);
+
+/** The Google sign-in page for one app. Apps you connected before stay connected (Google adds the new access to the same sign-in). */
+export function googleAuthUrl(wsId: string, origin: string, tool: string, withSend = false) {
+  const keys = appKeys(wsId);
+  if (!keys || !TOOL_SCOPES[tool]) return null;
+  const s = getSecrets(wsId).google || {};
   const state = crypto.randomBytes(16).toString("hex");
-  setSecrets(wsId, { google: { ...s, state } });
-  const p = new URLSearchParams({ client_id: s.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope: [...SCOPES.filter((x) => withCalendar || !x.includes("calendar")), ...(withSend ? [SEND_SCOPE] : [])].join(" "), access_type: "offline", prompt: "consent", state: `${wsId}.${state}` });
+  const verifier = crypto.randomBytes(32).toString("base64url");
+  setSecrets(wsId, { google: { ...s, state, verifier, pending: tool } });
+  const scope = ["openid", "email", ...TOOL_SCOPES[tool], ...(tool === "gmail" && withSend ? [SEND_SCOPE] : [])].join(" ");
+  const p = new URLSearchParams({
+    client_id: keys.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope, access_type: "offline", prompt: "consent",
+    include_granted_scopes: "true", code_challenge: crypto.createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", state: `${wsId}.${state}`,
+  });
   return "https://accounts.google.com/o/oauth2/v2/auth?" + p;
 }
 
@@ -34,22 +48,35 @@ async function tokenCall(params: Record<string, string>) {
   return j;
 }
 
+/** Google sends you back here after sign-in. Returns which app was connected and which Google account it was. */
 export async function finishGoogle(stateParam: string, code: string, origin: string) {
   const [wsId, state] = String(stateParam).split(".");
   const s = getSecrets(wsId).google || {};
-  if (!s.state || s.state !== state) throw new Error("This sign-in link has expired. Start again from Connections.");
-  const t = await tokenCall({ code, client_id: s.clientId, client_secret: s.clientSecret, redirect_uri: redirectUri(origin), grant_type: "authorization_code" });
+  const keys = appKeys(wsId);
+  if (!keys || !s.state || s.state !== state) throw new Error("This sign-in link has expired. Click Connect again.");
+  const t = await tokenCall({ code, client_id: keys.clientId, client_secret: keys.clientSecret, redirect_uri: redirectUri(origin), grant_type: "authorization_code", code_verifier: s.verifier || "" });
+  const granted = String(t.scope || "").split(" ");
+  const tool = String(s.pending || "");
+  if (TOOL_SCOPES[tool] && !TOOL_SCOPES[tool].every((x) => granted.includes(x))) throw new Error("Google did not give access. Click Connect again and tick the box on Google's page.");
   let email = "";
   try { email = JSON.parse(Buffer.from(String(t.id_token).split(".")[1], "base64url").toString()).email || ""; } catch {}
   setSecrets(wsId, { google: { clientId: s.clientId, clientSecret: s.clientSecret, refreshToken: t.refresh_token || s.refreshToken, accessToken: t.access_token, expiry: Date.now() + (t.expires_in - 60) * 1000, email } });
-  return { wsId, email };
+  return { wsId, email, tool };
+}
+
+/** Disconnecting the last Google app also signs this laptop out of Google and tells Google to forget the access. */
+export async function signOutGoogle(wsId: string) {
+  const s = getSecrets(wsId).google || {};
+  if (s.refreshToken) await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(s.refreshToken), { method: "POST" }).catch(() => {});
+  setSecrets(wsId, { google: s.clientId ? { clientId: s.clientId, clientSecret: s.clientSecret } : null });
 }
 
 async function accessToken(wsId: string) {
   const s = getSecrets(wsId).google;
-  if (!s?.refreshToken) throw new Error("Google is not signed in.");
+  const keys = appKeys(wsId);
+  if (!s?.refreshToken || !keys) throw new Error("Google is not signed in.");
   if (s.accessToken && s.expiry > Date.now()) return s.accessToken;
-  const t = await tokenCall({ client_id: s.clientId, client_secret: s.clientSecret, refresh_token: s.refreshToken, grant_type: "refresh_token" });
+  const t = await tokenCall({ client_id: keys.clientId, client_secret: keys.clientSecret, refresh_token: s.refreshToken, grant_type: "refresh_token" });
   setSecrets(wsId, { google: { ...s, accessToken: t.access_token, expiry: Date.now() + (t.expires_in - 60) * 1000 } });
   return t.access_token;
 }

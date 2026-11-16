@@ -3,9 +3,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handle, activeWs } from "@/lib/api";
 import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib/server/store";
-import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, redirectUri, sendMail } from "@/lib/server/google";
+import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, sendMail, signOutGoogle } from "@/lib/server/google";
 import { linearAlert, linearComment } from "@/lib/server/linear";
-import { isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
+import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
 import { brainSummary, dropBrain } from "@/lib/server/brain";
 
@@ -70,8 +70,13 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       if (query.error) throw new Error("Google sign-in was cancelled.");
       const done = await finishGoogle(query.state, query.code, origin);
       const target = state.workspaces[done.wsId];
-      if (target) { markGoogle(target, "connected", done.email); saveState(); syncWorkspace(target).catch(() => {}); }
-      return NextResponse.redirect(`${origin}/connections?connected=google`);
+      if (target && GOOGLE_TOOLS.includes(done.tool)) {
+        if (done.tool === "calendar") target.modules.calendar = true;
+        // Apps connected earlier keep working, and now use the newest sign-in.
+        for (const c of target.connections) if (GOOGLE_TOOLS.includes(c.id) && c.status !== "off") c.account = done.email;
+        markGoogle(target, done.tool, "connected", done.email); saveState(); syncWorkspace(target, Date.now(), done.tool).catch(() => {});
+      }
+      return NextResponse.redirect(`${origin}/connections?connected=${encodeURIComponent(done.tool)}`);
     } catch (e: any) { return NextResponse.redirect(`${origin}/connections?problem=${encodeURIComponent(e.message)}`); }
   }
 
@@ -104,27 +109,28 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
 
   // --- Real connections (sample workspaces only pretend, and say so) ---
   if (a === "connections" && !ws.sample) {
-    const g = getSecrets(ws.id).google || {};
     if (!post) {
       const res = pass();
-      return json({ ...res.data, google: { ready: !!(g.clientId && g.clientSecret), redirectUri: redirectUri(origin) }, syncing: isSyncing(ws.id) });
+      return json({ ...res.data, google: { ready: googleReady(ws.id) }, syncing: isSyncing(ws.id) });
     }
     if (b && b !== "brands") {
       const cn = ws.connections.find((x: any) => x.id === b);
       if (!cn) return json({ error: "No such connection" }, 404);
       if (cn.auth === "soon") return json({ error: `${cn.name} is not available in this version yet.` }, 400);
       if (body.action === "disconnect") {
-        if (GOOGLE_TOOLS.includes(b)) { setSecrets(ws.id, { google: g.clientId ? { clientId: g.clientId, clientSecret: g.clientSecret } : null }); markGoogle(ws, "off"); ws.sites = []; ws.events = []; ws.files = []; ws.inbox = ws.inbox.filter((m: any) => m.tool !== "gmail"); }
+        if (GOOGLE_TOOLS.includes(b)) {
+          markGoogle(ws, b, "off"); clearGoogle(ws, b);
+          if (b === "calendar") ws.modules.calendar = false;
+          if (!ws.connections.some((x: any) => GOOGLE_TOOLS.includes(x.id) && x.status !== "off")) await signOutGoogle(ws.id);
+        }
         else { setSecrets(ws.id, { [b]: null }); cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; if (b === "linear") ws.items = ws.items.filter((i: any) => !String(i.id).startsWith("lin-")); if (b === "metricool") ws.sites.forEach((s: any) => { if (s.live) delete s.live.social; s.metricoolBrand = { id: "", name: "", matched: false, confirmed: false }; }); }
         saveState();
         return json({ ok: true });
       }
       if (GOOGLE_TOOLS.includes(b)) {
-        if (body.clientId && body.clientSecret) setSecrets(ws.id, { google: { ...g, clientId: String(body.clientId).trim(), clientSecret: String(body.clientSecret).trim() } });
-        if (b === "calendar") { ws.modules.calendar = true; saveState(); }
         if (body.send === true) { ws.modules.mailSend = true; saveState(); }
-        const to = googleAuthUrl(ws.id, origin, ws.modules?.calendar === true, ws.modules?.mailSend === true);
-        return json(to ? { redirect: to } : { needs: "Add your Google client ID and secret first." });
+        const to = googleAuthUrl(ws.id, origin, b, ws.modules?.mailSend === true);
+        return json(to ? { redirect: to } : { needs: "Google sign-in is not switched on in this copy of the dashboard yet." });
       }
       if (!body.token) return json({ needs: `Paste your ${cn.name} token first.` });
       if (b === "metricool" && !body.userId) return json({ needs: "Metricool also needs your user ID." });
