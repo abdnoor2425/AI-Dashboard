@@ -58,6 +58,18 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
   } finally { running.delete(ws.id); }
 }
 
-export function markGoogle(ws: any, status: "connected" | "off", account = "") {
-  for (const c of ws.connections) if (GOOGLE_TOOLS.includes(c.id) && (c.id !== "calendar" || status === "off" || ws.modules?.calendar === true)) { c.status = status; c.account = account; c.detail = status === "connected" ? "Signed in. Fetching for the first time." : "Not connected"; if (status === "off") c.lastSync = null; }
+/** Marks one Google app as connected or off. Each app connects on its own. */
+export function markGoogle(ws: any, tool: string, status: "connected" | "off", account = "") {
+  const c = ws.connections.find((x: any) => x.id === tool);
+  if (!c || !GOOGLE_TOOLS.includes(tool)) return;
+  c.status = status; c.account = account; c.detail = status === "connected" ? "Signed in. Fetching for the first time." : "Not connected";
+  if (status === "off") c.lastSync = null;
+}
+
+/** Clears what one Google app brought in, when it is disconnected. */
+export function clearGoogle(ws: any, tool: string) {
+  if (tool === "google-analytics") ws.sites = [];
+  if (tool === "calendar") ws.events = [];
+  if (tool === "drive") ws.files = [];
+  if (tool === "gmail") ws.inbox = ws.inbox.filter((m: any) => m.tool !== "gmail");
 }

@@ -10,7 +10,7 @@ const LABEL: Record<string, { text: string; tone: string }> = {
   error: { text: "Needs attention", tone: "bad" }, off: { text: "Not connected", tone: "" }, soon: { text: "Coming later", tone: "" },
 };
 const HOW: Record<string, string> = {
-  google: "Sign in with Google. The dashboard asks for read-only access and keeps the sign-in on this laptop.",
+  google: "Click Connect and sign in with Google. Read-only access, and the sign-in stays on this laptop.",
   oauth: "Sign in on the tool's own page. The dashboard asks for read-only access.",
   token: "Paste the access token from the tool's settings. It is saved on this laptop only and never leaves it.",
   file: "Upload or point to the file. Nothing is sent anywhere.",
@@ -37,18 +37,17 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
   const q = useApi("connections");
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState(""); const [userId, setUserId] = useState("");
-  const [clientId, setClientId] = useState(""); const [clientSecret, setClientSecret] = useState("");
   const c = q.data?.connections.find((x: any) => x.id === id);
   if (!c) return <SkelRows n={3} />;
   const google = q.data.google;
   const soon = c.auth === "soon";
   const s = soon ? LABEL.soon : LABEL[c.status] || LABEL.off;
-  const needsKeys = c.auth === "google" && google && !google.ready && c.status === "off";
+  const notReady = c.auth === "google" && google && !google.ready && c.status === "off";
   const needsToken = c.auth === "token" && c.status !== "connected";
   const act = async (action: "connect" | "disconnect") => {
     setBusy(true);
     try {
-      const r = await api("connections/" + c.id, { method: "POST", body: { action, token: token || undefined, userId: userId || undefined, clientId: clientId || undefined, clientSecret: clientSecret || undefined } });
+      const r = await api("connections/" + c.id, { method: "POST", body: { action, token: token || undefined, userId: userId || undefined } });
       if (r?.redirect) { window.location.href = r.redirect; return; }
       if (r?.needs) { app.toast(r.needs); return; }
       app.toast(action === "connect" ? `${c.name} connected` : `${c.name} disconnected`); setToken("");
@@ -67,16 +66,7 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
         <div><dt>Access</dt><dd>{c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
         <div><dt>How it connects</dt><dd>{HOW[c.auth] || HOW.oauth}</dd></div>
       </dl>
-      {needsKeys && (
-        <div className="inset stack" style={{ gap: 12, padding: 18 }}>
-          <p className="t-foot">One-time step: create a free "OAuth client" in your own Google Cloud account and add this return address to it. The README walks through it in two minutes.</p>
-          <CopyLine label="return address" text={google.redirectUri} />
-          <label><span className="t-cap">Google client ID</span><input className="input" value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" /></label>
-          <label><span className="t-cap">Client secret</span><input className="input" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} autoComplete="off" /></label>
-          <button className="btn primary lg" disabled={busy || !clientId || !clientSecret} onClick={() => act("connect")}>Sign in with Google</button>
-          <p className="t-foot faint">One Google sign-in connects Analytics, Gmail and Drive together, all read only.</p>
-        </div>
-      )}
+      {notReady && <p className="t-foot inset" style={{ padding: 18 }}>Google sign-in is not switched on in this copy of the dashboard yet. Download the latest version and it will be.</p>}
       {needsToken && (
         <div className="inset stack" style={{ gap: 12, padding: 18 }}>
           {c.id === "metricool" && <label><span className="t-cap">User ID</span><input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="1234567" inputMode="numeric" autoComplete="off" /></label>}
@@ -85,7 +75,7 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
           {c.id === "metricool" && <p className="t-foot faint">Metricool only allows this on its Advanced or Custom plan. The token is under Account settings, API, in Metricool.</p>}
         </div>
       )}
-      {c.status === "off" && !soon && !needsKeys && !needsToken && <button className="btn primary lg" disabled={busy} onClick={() => act("connect")}>Connect {c.name}</button>}
+      {c.status === "off" && !soon && !notReady && !needsToken && <button className="btn primary lg" disabled={busy} onClick={() => act("connect")}>{c.auth === "google" ? "Connect with Google" : "Connect " + c.name}</button>}
       {c.status === "error" && !needsToken && <button className="btn primary lg" disabled={busy} onClick={() => act("connect")}>Sign in again</button>}
       {soon && <p className="t-foot">This tool is planned. It will appear here as soon as it is built, and nothing is pretended in the meantime.</p>}
       {c.status !== "off" && !soon && <div><button className="btn sm danger" disabled={busy} onClick={() => act("disconnect")}>Disconnect {c.name}</button></div>}
@@ -137,7 +127,7 @@ export default function Connections() {
     try {
       const p = new URLSearchParams(window.location.search);
       if (p.get("problem")) app.toast(p.get("problem") as string);
-      if (p.get("connected")) app.toast("Google connected. Your websites are being fetched.");
+      if (p.get("connected")) app.toast(({ "google-analytics": "Google Analytics connected. Your websites are being fetched.", gmail: "Gmail connected", drive: "Google Drive connected", calendar: "Google Calendar connected" } as Record<string, string>)[p.get("connected") as string] || "Connected");
       if (p.get("problem") || p.get("connected")) window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     } catch { /* nothing to show */ }
   }, []);
