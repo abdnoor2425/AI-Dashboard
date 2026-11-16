@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 const json = (data: any, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
 const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
-/** This server is for the person at this laptop only. Refuse anything that arrives under another name or from another site. */
+/** This server is for the person at this computer only. Refuse anything that arrives under another name or from another site. */
 function guard(req: NextRequest) {
   const host = req.headers.get("host") || "";
   if (!LOCAL.test(host)) return "This dashboard only answers on localhost.";
@@ -150,10 +150,19 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       if (!body.token) return json({ needs: `Paste your ${cn.name} token first.` });
       if (b === "metricool" && !body.userId) return json({ needs: "Metricool also needs your user ID." });
       setSecrets(ws.id, { [b]: { token: String(body.token).trim(), userId: body.userId ? String(body.userId).trim() : undefined } });
-      cn.status = "connected"; cn.account = "Token saved on this laptop"; cn.detail = "Fetching for the first time";
+      cn.status = "connected"; cn.account = "Token saved on this computer"; cn.detail = "Fetching for the first time";
+      // Wait for a sync that is already running, so this key is really checked now.
+      for (let i = 0; i < 60 && isSyncing(ws.id); i++) await new Promise((r) => setTimeout(r, 500));
       await syncWorkspace(ws, now, b);
+      if (cn.status === "error") {
+        // A key that does not work is not kept: the tool stays off and the person sees why.
+        const why = cn.detail;
+        setSecrets(ws.id, { [b]: null }); cn.status = "off"; cn.detail = "Not connected"; cn.account = ""; cn.lastSync = null;
+        saveState();
+        return json({ error: why }, 400);
+      }
       saveState();
-      return json(cn, cn.status === "error" ? 400 : 200);
+      return json(cn);
     }
     if (b === "brands") { const res = pass(); await syncWorkspace(ws, now, "metricool"); return json(res.data, res.status); }
   }
@@ -210,8 +219,10 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
 
   // --- Housekeeping around the shared router ---
   if (a === "workspaces" && b === "delete" && post) {
-    if (typeof body.id === "string" && body.id !== "main" && Object.hasOwn(state.workspaces, body.id)) dropBrain(body.id);
-    dropSecrets(String(body.id));
+    if (typeof body.id === "string" && Object.hasOwn(state.workspaces, body.id) && Object.keys(state.workspaces).length > 1 && !(body.id === "main" && state.workspaces.main.sample)) { dropBrain(body.id); dropSecrets(body.id); }
+  }
+  if (a === "firstrun" && b === "finish" && post) {
+    for (const [id, w] of Object.entries<any>(state.workspaces)) if (w.sample && id !== ws.id) { dropBrain(id); dropSecrets(id); }
   }
   if (a === "reset" && post) {
     for (const id of body.scope === "workspace" ? [ws.id] : Object.keys(state.workspaces)) dropBrain(id);

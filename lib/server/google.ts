@@ -19,7 +19,7 @@ const TOOL_SCOPES: Record<string, string[]> = {
 const SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 export const redirectUri = (origin: string) => `${origin}/api/oauth/google/callback`;
 
-/** The Google app to sign in with: the one built into this copy, or (for older setups) one saved on this laptop. */
+/** The Google app to sign in with: the one built into this copy, or (for older setups) one saved on this computer. */
 function appKeys(wsId: string) {
   if (GOOGLE_APP.clientId && GOOGLE_APP.clientSecret) return { clientId: GOOGLE_APP.clientId, clientSecret: GOOGLE_APP.clientSecret };
   const s = getSecrets(wsId).google || {};
@@ -66,7 +66,7 @@ export async function finishGoogle(stateParam: string, code: string, origin: str
   return { wsId, email, tool, name, picture };
 }
 
-/** Disconnecting the last Google app also signs this laptop out of Google and tells Google to forget the access. */
+/** Disconnecting the last Google app also signs this computer out of Google and tells Google to forget the access. */
 export async function signOutGoogle(wsId: string) {
   const s = getSecrets(wsId).google || {};
   if (s.refreshToken) await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(s.refreshToken), { method: "POST" }).catch(() => {});

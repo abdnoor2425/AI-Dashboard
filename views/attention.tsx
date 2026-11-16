@@ -75,7 +75,7 @@ export default function Attention() {
                   <Fold open={logOpen}><hr className="divider" />{d.overrides.map((o: any, i: number) => <div key={i} className="row flush" style={{ minHeight: 48 }}><span className="row-main"><span style={{ fontSize: 14.5, fontWeight: 540 }}>{o.title}</span><span className="row-sub">{o.action} by {o.by}{o.why ? `: "${o.why}"` : ""}</span></span><span className="t-foot faint">{ago(o.at)}</span></div>)}</Fold>
                 </div>
               )}
-              <p className="t-foot faint" style={{ padding: "0 6px" }}>Scoring rules version {d.rubric.version}, owned by your {d.rubric.owner}. Urgency counts most, then business impact, then what only you can unblock. You can change the weights in Settings. The order is a suggestion: nothing is sent or changed for you.</p>
+              <p className="t-foot faint" style={{ padding: "0 6px" }}>Scoring rules version {d.rubric.version}. Urgency counts most, then business impact, then what only you can unblock. You can change the weights in Settings. The order is a suggestion: nothing is sent or changed for you.</p>
             </div>
           );
         }}

@@ -85,12 +85,12 @@ function Sidebar({ boot, page, open, onNavigate, collapsed, onToggle }: { boot: 
       <div className={collapsed ? "show-sm" : ""}><Menu align="left" label="Switch workspace" button={(p) => (
         <button className="ws-btn" {...p}>
           <span className="ws-mark">{boot.workspace.brand.name.slice(0, 1).toUpperCase()}</span>
-          <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 650, fontSize: 14.5, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boot.workspace.brand.name}</span><span className="t-cap" style={{ fontWeight: 500 }}>{boot.workspace.sample ? "Sample workspace" : "On this laptop"}</span></span>
+          <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 650, fontSize: 14.5, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boot.workspace.brand.name}</span><span className="t-cap" style={{ fontWeight: 500 }}>{boot.workspace.sample ? "Sample workspace" : "On this computer"}</span></span>
           <Icon name="updown" size={16} className="chev" />
         </button>
       )}>
         {(close) => <>
-          <div className="menu-label">Workspaces on this laptop</div>
+          <div className="menu-label">Workspaces on this computer</div>
           {boot.workspaces.map((w: any) => (
             <button key={w.id} role="menuitem" className={"menu-item" + (w.id === boot.workspace.id ? " on" : "")} onClick={async () => { close(); if (w.id !== boot.workspace.id) { await api("workspaces/switch", { method: "POST", body: { id: w.id } }); router.push("/"); } }}>
               <Mark name={w.name} color={boot.accents[w.accent]?.light} /><span style={{ flex: 1 }}>{w.name}</span>{w.id === boot.workspace.id && <Icon name="check" size={16} />}
@@ -255,7 +255,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // The sync pill: says what is being refreshed, then steps out of the way.
   useEffect(() => {
     if (!boot) return;
-    const steps = ["Syncing Google Analytics", "Syncing Metricool", "Up to date"];
+    // Only tools that are really connected are named. With none, the pill stays out of the way.
+    const tools: string[] = boot.workspace.sample ? ["Google Analytics", "Metricool"] : boot.workspace.tools || [];
+    if (!tools.length) { setSyncing(null); return; }
+    const steps = [...tools.slice(0, 4).map((t) => "Syncing " + t), "Up to date"];
     let i = 0; setSyncing(steps[0]);
     const t = setInterval(() => { i++; if (i < steps.length) setSyncing(steps[i]); else { setSyncing(null); clearInterval(t); } }, 1100);
     return () => clearInterval(t);

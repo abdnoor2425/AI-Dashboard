@@ -58,7 +58,7 @@ async function serve(req: NextRequest) {
     return json(getBrain(workspaceId));
   } catch (err) {
     if (err instanceof BrainError) return json({ error: err.message }, err.status);
-    return json({ error: "Keystone could not complete the Second Brain request." }, 500);
+    return json({ error: "AI-Dashboard could not complete the Second Brain request." }, 500);
   }
 }
 

@@ -1,4 +1,4 @@
-// Everything the dashboard remembers lives in one folder on this laptop:
+// Everything the dashboard remembers lives in one folder on this computer:
 //   .keystone/state.json    workspaces, settings and anything you changed
 //   .keystone/secrets.json  sign-ins and tokens, kept apart so an export can never include them
 // Nothing here is sent anywhere. Delete the folder to start again.

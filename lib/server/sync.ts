@@ -7,6 +7,13 @@ import { saveState } from "./store.ts";
 const running = new Set<string>();
 const USER_FIELDS = ["status", "doneAt", "snoozedUntil", "dismissed", "pin", "override", "comments", "alerts"];
 
+/** Turns a failed fetch into words a person can act on. */
+export function plainError(e: any, name: string) {
+  const msg = String(e?.message || e || "");
+  if (/fetch failed|ENOTFOUND|ECONN|EAI_AGAIN|ETIMEDOUT|network|socket/i.test(msg)) return `Couldn't reach ${name}. Check your internet connection, then try again.`;
+  return msg.slice(0, 180) || `${name} did not answer.`;
+}
+
 export function isSyncing(wsId: string) { return running.has(wsId); }
 
 export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
@@ -18,7 +25,7 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
     const c = conn(id);
     if (!c || (c.status !== "connected" && c.status !== "error") || (only && only !== id)) return;
     try { c.detail = await fn(); c.status = "connected"; c.lastSync = now; }
-    catch (e: any) { c.status = "error"; c.detail = String(e?.message || e).slice(0, 180); }
+    catch (e: any) { c.status = "error"; c.detail = plainError(e, c.name); }
   };
   try {
     await step("google-analytics", async () => { ws.sites = await syncAnalytics(ws.id, ws.sites); return `${ws.sites.length} website${ws.sites.length === 1 ? "" : "s"} found`; });
