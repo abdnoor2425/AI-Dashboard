@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/shell";
 
-export const metadata: Metadata = { title: "Keystone", description: "A calm, local-first business dashboard." };
+export const metadata: Metadata = { title: "AI-Dashboard", description: "Your whole business on one calm page, on your own computer." };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

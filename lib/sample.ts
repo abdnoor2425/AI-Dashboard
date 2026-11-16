@@ -527,7 +527,7 @@ export function makeState(now = Date.now()) {
   const clientB = makeWorkspace({ id: "sample-lumen", name: "Lumen Dental", owner: "Priya", accent: "teal", kind: "client", sites: [
     { id: "lumen-main", name: "Lumen Dental", domain: "lumendental.example", kind: "Dental clinics", color: "#17A27C", base: 1150, growth: 0.09, leadRate: 0.062, networks: ["instagram", "facebook"] },
   ] }, now);
-  return { version: 1, createdAt: now, active: "main", theme: "system", workspaces: { [main.id]: main, [clientA.id]: clientA, [clientB.id]: clientB } as Record<string, any> };
+  return { version: 1, createdAt: now, active: "main", theme: "system", onboarded: false, workspaces: { [main.id]: main, [clientA.id]: clientA, [clientB.id]: clientB } as Record<string, any> };
 }
 
 export { NETWORK_BASE };

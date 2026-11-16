@@ -78,7 +78,7 @@ export function Load({ q, skeleton, children }: { q: { data: any; error: string 
 export function Page({ title, sub, actions, children, hideHead }: { title: string; sub?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode; hideHead?: boolean }) {
   const app = useApp();
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => { app.setTitle(title); app.setTitleShown(false); if (typeof document !== "undefined") document.title = `${title} · ${app.boot?.workspace?.brand?.name || "Keystone"}`; }, [title]);
+  useEffect(() => { app.setTitle(title); app.setTitleShown(false); if (typeof document !== "undefined") document.title = `${title} · ${app.boot?.workspace?.brand?.name || "AI-Dashboard"}`; }, [title]);
   useEffect(() => {
     if (!ref.current || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(([e]) => app.setTitleShown(!e.isIntersecting), { rootMargin: "-64px 0px 0px 0px" });

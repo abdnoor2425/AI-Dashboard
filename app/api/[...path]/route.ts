@@ -70,14 +70,29 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       if (query.error) throw new Error("Google sign-in was cancelled.");
       const done = await finishGoogle(query.state, query.code, origin);
       const target = state.workspaces[done.wsId];
+      const firstRun = state.onboarded === false || (state.onboarded == null && state.firstRun);
+      if (target && done.tool === "account") {
+        // First-run sign-in: remember who this is, then move on to connecting tools.
+        state.firstRun = { ...(state.firstRun || {}), step: "connect", email: done.email, name: done.name, picture: done.picture };
+        target.setup = { ...(target.setup || {}), about: { ...(target.setup?.about || {}), name: done.name || target.setup?.about?.name, email: done.email } };
+        saveState();
+        return NextResponse.redirect(`${origin}/`);
+      }
       if (target && GOOGLE_TOOLS.includes(done.tool)) {
         if (done.tool === "calendar") target.modules.calendar = true;
         // Apps connected earlier keep working, and now use the newest sign-in.
         for (const c of target.connections) if (GOOGLE_TOOLS.includes(c.id) && c.status !== "off") c.account = done.email;
         markGoogle(target, done.tool, "connected", done.email); saveState(); syncWorkspace(target, Date.now(), done.tool).catch(() => {});
       }
-      return NextResponse.redirect(`${origin}/connections?connected=${encodeURIComponent(done.tool)}`);
-    } catch (e: any) { return NextResponse.redirect(`${origin}/connections?problem=${encodeURIComponent(e.message)}`); }
+      return NextResponse.redirect(firstRun ? `${origin}/` : `${origin}/connections?connected=${encodeURIComponent(done.tool)}`);
+    } catch (e: any) { return NextResponse.redirect(`${origin}/${state.firstRun ? "" : "connections"}?problem=${encodeURIComponent(e.message)}`); }
+  }
+
+  // First-run sign-in with Google: name, email and photo only.
+  if (a === "firstrun" && b === "google" && post) {
+    if (ws.sample) return json({ error: "Start your own workspace first." }, 400);
+    const to = googleAuthUrl(ws.id, origin, "account");
+    return json(to ? { redirect: to } : { needs: "Google sign-in is not switched on in this copy of the dashboard yet." });
   }
 
   if (a === "sync" && post) return json(await syncWorkspace(ws, now, body.only));

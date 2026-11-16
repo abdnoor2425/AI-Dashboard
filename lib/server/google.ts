@@ -9,6 +9,8 @@ import { DAY, hash } from "../rand.ts";
 export const GOOGLE_TOOLS = ["google-analytics", "calendar", "gmail", "drive"];
 /** What each app asks Google for. Read only, apart from Gmail sending, which is only asked for when you turn on email alerts. */
 const TOOL_SCOPES: Record<string, string[]> = {
+  // The first-run sign-in: only your name, email and photo.
+  account: ["profile"],
   "google-analytics": ["https://www.googleapis.com/auth/analytics.readonly"],
   calendar: ["https://www.googleapis.com/auth/calendar.readonly"],
   gmail: ["https://www.googleapis.com/auth/gmail.metadata"],
@@ -57,11 +59,11 @@ export async function finishGoogle(stateParam: string, code: string, origin: str
   const t = await tokenCall({ code, client_id: keys.clientId, client_secret: keys.clientSecret, redirect_uri: redirectUri(origin), grant_type: "authorization_code", code_verifier: s.verifier || "" });
   const granted = String(t.scope || "").split(" ");
   const tool = String(s.pending || "");
-  if (TOOL_SCOPES[tool] && !TOOL_SCOPES[tool].every((x) => granted.includes(x))) throw new Error("Google did not give access. Click Connect again and tick the box on Google's page.");
-  let email = "";
-  try { email = JSON.parse(Buffer.from(String(t.id_token).split(".")[1], "base64url").toString()).email || ""; } catch {}
+  if (TOOL_SCOPES[tool] && !TOOL_SCOPES[tool].every((x) => x === "profile" || granted.includes(x))) throw new Error("Google did not give access. Click Connect again and tick the box on Google's page.");
+  let email = "", name = "", picture = "";
+  try { const id = JSON.parse(Buffer.from(String(t.id_token).split(".")[1], "base64url").toString()); email = id.email || ""; name = id.given_name || id.name || ""; picture = id.picture || ""; } catch {}
   setSecrets(wsId, { google: { clientId: s.clientId, clientSecret: s.clientSecret, refreshToken: t.refresh_token || s.refreshToken, accessToken: t.access_token, expiry: Date.now() + (t.expires_in - 60) * 1000, email } });
-  return { wsId, email, tool };
+  return { wsId, email, tool, name, picture };
 }
 
 /** Disconnecting the last Google app also signs this laptop out of Google and tells Google to forget the access. */
