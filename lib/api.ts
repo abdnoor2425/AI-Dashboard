@@ -282,7 +282,7 @@ function simulateDebate(question: string) {
 
 /** First run: a new install opens on the welcome flow, never on sample data. Older installs with real data count as done. */
 export const isOnboarded = (state: any) => state.onboarded ?? (!state.firstRun && Object.values<any>(state.workspaces).some((w) => !w.sample));
-const FIRST_RUN_STEPS = ["intro", "signin", "connect", "profile", "welcome"];
+const FIRST_RUN_STEPS = ["intro", "signin", "connect", "ai", "profile", "welcome"];
 
 export function activeWs(state: State) { return state.workspaces[state.active] || Object.values(state.workspaces)[0]; }
 
