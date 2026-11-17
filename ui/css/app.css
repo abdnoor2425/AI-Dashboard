@@ -58,3 +58,25 @@ button.gcard{text-align:left;position:relative;cursor:pointer;display:block;widt
 .bstage.empty>*:not(#bOff){display:none}
 .bstage.empty{display:grid;place-items:center;background:none}
 #bOff{width:min(680px,calc(100% - 48px))}
+
+/* ---------- Decision Room on real sessions ---------- */
+.sphere.face{background:radial-gradient(circle at 50% 120%,var(--glow,rgba(235,197,124,.4)),transparent 62%),var(--img) 50% 6%/132% no-repeat,radial-gradient(circle at 50% 40%,#2a2b34,#08080a 78%);font-size:0!important;color:transparent;overflow:hidden}
+.dr-rs .sphere.face{width:74px;height:74px}.dr-seat .sphere.face{width:68px;height:68px}.dr-ms .sphere.face{width:62px;height:62px}.dr-bs .sphere.face{width:44px;height:44px}.dr-mq .sphere.face{width:58px;height:58px}
+.dr-sayh .sphere.face{width:32px;height:32px}.dr-vt .sphere.face{width:36px;height:36px}.dr-ub .sphere.face{width:30px;height:30px}
+.dr-rs.out{opacity:.34;filter:grayscale(1)}
+.dr-one{max-width:620px;margin:0 0 18px}.dr-one .dr-prog{max-width:360px}
+.dr-wait{margin:8px 0 0}.dr-wait .dr-ch{display:flex;align-items:center;gap:16px;margin-bottom:14px}.dr-wait .dr-ch .orbw{width:64px;height:64px;flex:none}
+.dr-prog.busy b{width:36%;animation:drbusy 1.5s ease-in-out infinite}
+@keyframes drbusy{0%{transform:translateX(-110%)}100%{transform:translateX(290%)}}
+.dr-none{padding:26px 24px;display:grid;gap:6px}.dr-none small{color:var(--text-3);font-size:13.5px}
+.dr-ais .chip.off{opacity:.5}
+.dr-steps a[aria-disabled]{cursor:default}
+.dr-repp iframe{width:100%;height:min(1500px,calc(100vh - 150px));border:0;border-radius:6px;background:#DAD7D0}
+.dr-repp{padding:0!important;display:block!important}
+.dr-pages i{overflow:hidden}
+.dr-cov{position:absolute;inset:0;padding:16px 14px;display:flex;flex-direction:column;gap:7px;color:#14151A;font-style:normal;text-align:left}
+.dr-cov u{text-decoration:none;font:500 5.4px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:#A8690F}
+.dr-cov b{font:500 12.5px/1.08 var(--sans);letter-spacing:-.04em;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.dr-cov>span{margin-top:auto;padding:11px 10px;border-radius:7px;background:#14151A;color:#F5F3EF;font:500 15px/1.05 var(--sans);letter-spacing:-.05em}
+.dr-cov em{display:block;font:500 5.2px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:#EBC57C;margin-bottom:5px;font-style:normal}
+@media(prefers-reduced-motion:reduce){.dr-prog.busy b{animation:none;width:100%;opacity:.5}}

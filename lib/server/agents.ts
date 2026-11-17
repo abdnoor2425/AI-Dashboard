@@ -127,6 +127,7 @@ const claudeAppDir = () => (win ? path.join(appData(), "Claude") : mac ? path.jo
 const claudeAppFile = () => path.join(claudeAppDir(), "claude_desktop_config.json");
 const cursorFile = () => path.join(home(), ".cursor", "mcp.json");
 const geminiFile = () => path.join(home(), ".gemini", "settings.json");
+const grokMark = () => path.join(process.env.KEYSTONE_HOME || path.join(process.cwd(), ".keystone"), "grok-linked");
 
 export const AGENTS: Agent[] = [
   {
@@ -170,7 +171,15 @@ export const AGENTS: Agent[] = [
     disconnect: async () => jsonRemove(cursorFile()),
   },
   { id: "chatgpt", name: "ChatGPT", kind: "cloud", maker: "OpenAI", answers: false, getUrl: "", installed: async () => false, connected: async () => false, connect: async () => { throw new Error("ChatGPT can't reach a dashboard on your computer yet."); }, disconnect: async () => {} },
-  { id: "grok", name: "Grok", kind: "cloud", maker: "xAI", answers: false, getUrl: "", installed: async () => false, connected: async () => false, connect: async () => { throw new Error("Grok can't reach a dashboard on your computer yet."); }, disconnect: async () => {} },
+  {
+    // Grok's command-line app answers questions and runs the Decision Room. It keeps no list of outside tools, so there is nothing to write into it:
+    // the dashboard remembers the owner's choice in a small file of its own.
+    id: "grok", name: "Grok", kind: "cli", maker: "xAI", answers: true, getUrl: "",
+    installed: async () => !!(await findBin("grok")),
+    connected: async () => exists(grokMark()),
+    connect: async () => { fs.mkdirSync(path.dirname(grokMark()), { recursive: true }); fs.writeFileSync(grokMark(), "connected\n"); },
+    disconnect: async () => { try { fs.unlinkSync(grokMark()); } catch { /* nothing to remove */ } },
+  },
 ];
 
 function sub(a: Agent, installed: boolean, connected: boolean) {
@@ -178,6 +187,7 @@ function sub(a: Agent, installed: boolean, connected: boolean) {
   if (!installed) return `${a.maker === "Anysphere" ? "" : `By ${a.maker}. `}Not installed on this computer.`;
   if (a.id === "claude-app") return connected ? "Restart the Claude app, then ask about your dashboard in any chat." : "Ask about your dashboard in any Claude chat.";
   if (a.id === "cursor") return "Ask about your dashboard in Cursor's chat.";
+  if (a.id === "grok") return "By xAI. Answers in the dashboard and runs the Decision Room.";
   return `By ${a.maker}. Answers in the dashboard and in your terminal.`;
 }
 

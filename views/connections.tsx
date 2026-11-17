@@ -155,7 +155,7 @@ function AiCard() {
           ))}
         </div>
       )}
-      <p className="t-foot faint" style={{ marginTop: 12 }}>After connecting, try asking your AI: "What needs my attention today?" ChatGPT and Grok run in the cloud, so they can't reach a dashboard on your computer yet.</p>
+      <p className="t-foot faint" style={{ marginTop: 12 }}>After connecting, try asking your AI: "What needs my attention today?" ChatGPT runs in the cloud, so it can&apos;t reach a dashboard on your computer yet. Grok works once its command-line app is on this computer.</p>
     </div>
   );
 }

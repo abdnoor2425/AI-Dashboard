@@ -14,7 +14,7 @@ function route(){const raw=(location.hash||'#overview').slice(1).split('?')[0].s
   markNav();$('#crumb').textContent=kept||NAMES[page];
   $('#ask').hidden=page!=='made';$('#tmenu').hidden=true;document.body.classList.toggle('is-brain',page==='brain');document.body.classList.toggle('is-scan',page==='scan');
   document.body.classList.remove('nav-open');scrollTo(0,0);if(page!=='overview'&&playing)stopBrief();
-  if(page==='made'&&fontsDone)buildRing();if(page==='money')drawMoney();if(page==='overview'&&fontsDone)drawRev();if(page==='brain')brainInit();if(page==='room')dRoute(raw[1]);else dStop();
+  if(page==='made'&&fontsDone)buildRing();if(page==='money')drawMoney();if(page==='overview'&&fontsDone)drawRev();if(page==='brain')brainInit();if(page==='room')dRoute(raw[1],raw[2]);else dStop();
   onScroll();if(reduce)frame(performance.now())}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act="ask"]');if(b)dispatchEvent(new CustomEvent('aid:ask'))});
 addEventListener('hashchange',route);

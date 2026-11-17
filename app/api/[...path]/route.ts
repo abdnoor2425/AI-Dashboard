@@ -6,7 +6,9 @@ import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib
 import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, realtime, sendMail, signOutGoogle } from "@/lib/server/google";
 import { keyProblem } from "@/lib/server/stripe";
 import { NEWS_EVERY, applyNotes, fallbackSum, fetchStories, keepNotes, notesPrompt } from "@/lib/server/news";
-import { openMade, readPicture, scanMade } from "@/lib/server/made";
+import { openMade, openPath, readPicture, scanMade } from "@/lib/server/made";
+import * as room from "@/lib/server/room";
+import fs from "node:fs";
 import { linearAlert, linearComment } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
@@ -171,6 +173,62 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   }
 
   // --- The AI link ---
+  // --- Decision Room: a council of AI seats argues one question with the owner's real numbers ---
+  if (a === "room") {
+    try {
+      const ui = () => handle(state, { method: "GET", path: "/api/ui", query: {}, now }).data;
+      const ctx = (): room.Ctx => ({
+        ws, u: ui(), team: (handle(state, { method: "GET", path: "/api/attention", query: { scope: "all" }, now }).data.team || []).map((i: any) => ({ owner: String(i.owner || "").split(" ")[0], due: i.due ?? null })),
+        usage: (task, provider) => { logUsage(ws, task, provider, Date.now()); saveState(); },
+      });
+      if (!b) return json(await room.roomHome(ws, ui(), now));
+      if (b === "access" && post) { const access = room.setAccess(ws, body); saveState(); return json({ ok: true, access }); }
+      if (b === "attach" && post) { const item = await room.attachFile(ws, body.name, body.data); saveState(); return json({ ok: true, item }); }
+      if (b === "detach" && post) { room.dropAttach(ws, String(body.id || "")); saveState(); return json({ ok: true }); }
+      if (b === "start" && post) { const made = await room.startSession(ctx(), body, now); saveState(); return json(made); }
+      const s = room.readSession(ws.id, b);
+      if (!s) return json({ error: "That decision is no longer here." }, 404);
+      if (!c && !post) {
+        // A council that rested because the AI plan ran out carries on by itself once the rest is over.
+        if (s.status === "resting" && s.rest?.until <= now) room.resume(s, ctx());
+        return json(room.viewSession(s, now));
+      }
+      if (c === "report" && !post) {
+        if (!s.verdict) return json({ error: "This decision has no report yet." }, 404);
+        return new NextResponse(room.reportPage(s), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:" } });
+      }
+      if (c === "pdf" && !post) {
+        if (!s.verdict) return json({ error: "This decision has no report yet." }, 404);
+        const file = await room.reportPdf(s);
+        if (!file) return json({ error: "The PDF needs Chrome or Edge on this computer. Open the report and print it to PDF instead." }, 404);
+        const name = "Decision report - " + String(s.report?.short || "decision").replace(/[^\w -]/g, "").trim() + ".pdf";
+        return new NextResponse(fs.readFileSync(file), { headers: { "content-type": "application/pdf", "content-disposition": `${query.inline ? "inline" : "attachment"}; filename="${name}"`, "cache-control": "no-store" } });
+      }
+      if (!post) return json({ error: "No such page." }, 404);
+      if (c === "edit") return json(room.viewSession(room.editSession(s, body), now));
+      if (c === "gather") { room.gather(s, ctx()); return json(room.viewSession(s, now)); }
+      if (c === "run") { room.run(s, ctx()); return json(room.viewSession(s, now)); }
+      if (c === "pause") { room.pause(s); return json(room.viewSession(s, now)); }
+      if (c === "resume") { room.resume(s, ctx()); return json(room.viewSession(s, now)); }
+      if (c === "checkin") { room.checkin(s, String(body.result || "")); return json({ ok: true }); }
+      if (c === "folder") return json(await openPath(room.sessionFolder(s) + "/report.html", "folder"));
+      if (c === "delete") { room.removeSession(ws.id, s.id); return json({ ok: true }); }
+      if (c === "tasks") {
+        if (!s.verdict) return json({ error: "There is no verdict yet." }, 400);
+        if (s.tasks) return json({ ok: true, added: 0, note: "These steps are already in Needs you." });
+        const me = String(ws.setup?.about?.name || ws.owner || "").split(" ")[0];
+        s.verdict.next.forEach((n: any, i: number) => ws.items.push({
+          id: "att-d" + (now + i).toString(36), kind: "decision", title: n.step, nextStep: "From the Decision Room: " + String(s.brief.title).slice(0, 110), scope: null,
+          owner: n.owner === me ? ws.setup?.about?.name || ws.owner : n.owner, waitingOn: n.owner === me ? "me" : "other", due: n.due,
+          sources: [{ tool: "doc", label: "Decision Room" }], evidence: "verified", evidenceNote: "A step from a council verdict. The report holds the reasons.", lastVerified: now, factors: {}, status: "open",
+        }));
+        s.tasks = true; room.saveSession(s); saveState();
+        return json({ ok: true, added: s.verdict.next.length });
+      }
+      return json({ error: "No such action." }, 404);
+    } catch (e: any) { return json({ error: String(e?.message || e).slice(0, 240) }, 400); }
+  }
+
   if (a === "ai" && b === "status") return json(await ai.status(ws.ai?.provider));
   if (a === "ai" && b === "agents") {
     if (post) {
