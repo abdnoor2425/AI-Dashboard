@@ -185,14 +185,19 @@ export function readPicture(made: any, id: string) {
 const OPENABLE = /\.(png|jpe?g|webp|gif|avif|mp4|mov|webm|m4v|pdf|md|txt|csv|docx?|pptx?|xlsx?|html?)$/i;
 const start = (cmd: string, args: string[]) => new Promise<void>((resolve) => { const c = execFile(cmd, args, { windowsHide: false }, () => resolve()); c.on("error", () => resolve()); setTimeout(resolve, 1500); });
 
+/** Hands one file to the computer: its own app for a document or picture, its folder for anything else. */
+export async function openPath(file0: string, how: string) {
+  const file = how === "file" && OPENABLE.test(file0);
+  if (win) await start("explorer.exe", file ? [file0] : ["/select," + file0]);
+  else if (mac) await start("open", file ? [file0] : ["-R", file0]);
+  else await start("xdg-open", [file ? file0 : path.dirname(file0)]);
+  return { ok: true, opened: file ? "file" : "folder", note: how === "file" && !file ? "This kind of file opens in its folder, so nothing runs by accident." : "" };
+}
+
 /** Opens a found file, or shows it in its folder. Returns what happened in words. */
 export async function openMade(made: any, id: string, how: string) {
   const it = (made?.items || []).find((x: any) => x.id === id);
   if (!it) throw new Error("That file is no longer in the list. Look again to refresh it.");
   if (!fs.existsSync(it.path)) throw new Error("That file has been moved or deleted since the last look.");
-  const file = how === "file" && OPENABLE.test(it.path);
-  if (win) await start("explorer.exe", file ? [it.path] : ["/select," + it.path]);
-  else if (mac) await start("open", file ? [it.path] : ["-R", it.path]);
-  else await start("xdg-open", [file ? it.path : path.dirname(it.path)]);
-  return { ok: true, opened: file ? "file" : "folder", note: how === "file" && !file ? "This kind of file opens in its folder, so nothing runs by accident." : "" };
+  return openPath(it.path, how);
 }

@@ -53,3 +53,8 @@ button.gcard{text-align:left;position:relative;cursor:pointer;display:block;widt
 .cb-foot .grow{flex:1}
 
 .more-row{grid-column:1/-1;display:flex;justify-content:center;padding:18px 0 6px}
+
+/* Second Brain before a folder is connected: one clear step, nothing drawn */
+.bstage.empty>*:not(#bOff){display:none}
+.bstage.empty{display:grid;place-items:center;background:none}
+#bOff{width:min(680px,calc(100% - 48px))}

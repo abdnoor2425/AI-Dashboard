@@ -341,6 +341,21 @@ export function getBrainNode(workspaceId: string, id: string, home = HOME) {
   throw new BrainError("This item is not in the selected workspace.", 404);
 }
 
+/** Where an indexed file really is on this computer. Only files inside a connected folder can be reached. */
+export function brainFilePath(workspaceId: string, id: string, home = HOME) {
+  for (const index of load(workspaceId, home)) {
+    const node = index.nodes.find(item => item.id === id);
+    if (!node) continue;
+    const root = sourceRoot(index.source.path, home);
+    const parts = node.path.split("/");
+    const file = path.resolve(root, ...parts);
+    if (parts.some(part => !part || part === ".." || EXCLUDED.test(part)) || !within(root, file)) throw new BrainError("This file is outside the indexed folder.", 404);
+    if (!localStat(file)) throw new BrainError("This file is no longer available. Rescan its folder to refresh the index.", 404);
+    return file;
+  }
+  throw new BrainError("This item is not in the selected workspace.", 404);
+}
+
 export function changeBrain(workspaceId: string, body: { action?: unknown; path?: unknown; name?: unknown; sourceId?: unknown; kind?: unknown; leftOut?: unknown }, home = HOME) {
   const indexes = load(workspaceId, home);
   if (body.action === "connect") {

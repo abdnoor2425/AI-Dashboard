@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BrainError, brainSummary, browseFolders, changeBrain, getBrain, getBrainNode } from "@/lib/server/brain";
+import { BrainError, brainFilePath, brainSummary, browseFolders, changeBrain, getBrain, getBrainNode } from "@/lib/server/brain";
+import { openPath } from "@/lib/server/made";
 import { hasWorkspace, loadState } from "@/lib/server/store";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,8 @@ async function serve(req: NextRequest) {
     if (typeof workspaceId !== "string" || !workspaceId || !hasWorkspace(workspaceId)) {
       throw new BrainError("Select an existing workspace.", 404);
     }
+    // Open one indexed file with the computer's own app, or show it in its folder.
+    if (post && body.action === "open") return json(await openPath(brainFilePath(workspaceId, String(body.id || "")), String(body.how || "folder")));
     if (post) return json(changeBrain(workspaceId, body));
     if (query.get("action") === "node") return json(getBrainNode(workspaceId, query.get("id") || ""));
     if (query.get("action") === "browse") return json(browseFolders(query.get("path")));
