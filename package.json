@@ -10,7 +10,6 @@
     "start": "next start -H 127.0.0.1 -p 3210",
     "test": "node --test tests/*.test.ts",
     "mcp": "node mcp/server.mjs",
-    "preview": "node scripts/build-preview.mjs",
     "setup": "node scripts/install.mjs",
     "open": "node scripts/launch.mjs"
   },

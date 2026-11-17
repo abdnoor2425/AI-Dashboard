@@ -1,0 +1,16 @@
+/* What the running app adds to the Obsidian look: the loading mark, the frame for the pages that keep their own view,
+   and the empty states shown before a tool is connected. */
+.aid-splash{position:fixed;inset:0;z-index:90;display:grid;place-content:center;justify-items:center;gap:22px;background:var(--bg)}
+.aid-splash img{width:56px;height:56px;border-radius:16px;box-shadow:0 0 0 1px var(--line-2),0 20px 50px -18px var(--shadow)}
+.aid-splash-bar{width:120px;height:2px;border-radius:2px;background:rgba(var(--ink),.08);overflow:hidden}
+.aid-splash-bar i{display:block;width:40%;height:100%;border-radius:2px;background:var(--spec);animation:aid-load 1.2s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes aid-load{from{transform:translateX(-110%)}to{transform:translateX(260%)}}
+@media (prefers-reduced-motion:reduce){.aid-splash-bar i{animation:none;width:100%;opacity:.5}}
+
+#legacy{padding-top:26px}
+.lg-page{min-height:60vh}
+.lg-scope{display:flex;justify-content:flex-end;margin:0 0 14px}
+.nav .cnt{margin-left:auto;min-width:20px;padding:0 6px;height:20px;border-radius:10px;display:grid;place-items:center;font:500 10.5px var(--mono);color:var(--gold);background:rgba(var(--gold-rgb),.12);box-shadow:inset 0 0 0 1px rgba(var(--gold-rgb),.28)}
+#aiChip .dot{width:6px;height:6px;border-radius:50%;background:var(--text-3);flex:none}
+#aiChip .dot.ok{background:var(--mint)}
+a.me{color:inherit}

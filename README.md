@@ -142,10 +142,10 @@ A workspace is one business with its own data, connections, colours and ranking 
 ```bash
 npm run dev      # the app with live reload
 npm test         # ranking, isolation and endpoint tests
-npm run preview  # one self-contained HTML file with sample data, in preview/keystone.html
 ```
 
-- `lib/api.ts` is one router used by the server, the MCP server and the preview, so they can never drift apart.
+- `lib/api.ts` is one router used by the server and the MCP server, so they can never drift apart.
+- `ui/` is the look: `ui/shell.html` is the frame, `ui/css` the styles and `ui/js` the screens, served as one script by `app/ui/app.js`. Pages that keep their own React view live in `views/` and are styled by `app/legacy.css`.
 - `lib/scoring.ts` is the ranking. `lib/sample.ts` is the template and the sample data.
 - `lib/server/` holds the parts that only run on the laptop: storage, sign-ins, sync and the AI link.
 - `views/` has one file per page. `components/` has the shell, charts and shared pieces.

@@ -1,0 +1,19 @@
+/* ---------- goals ---------- */
+let glevel=2;const stacks=[];
+function mountStack(stage,list,big){stage.innerHTML=`<div class="iso" style="--s:${big?1.18:1}"><div class="floor"></div>${GOALS.map((g,i)=>`<div class="plate" data-l="${i}" style="--i:${i};--p:${g.p}%"><div class="face"><div class="fill"></div><div class="lab">${String(3-i).padStart(2,'0')} · ${g.k}</div><div class="pct num">${g.p}%</div></div><div class="e1"></div><div class="e2"></div></div>`).join('')}</div>`;
+  if(list)list.innerHTML=[2,1,0].map(i=>{const g=GOALS[i];return `<button class="lvr" type="button" data-l="${i}" aria-pressed="false"><div class="eyebrow">${g.k} · ${g.sub}</div><div class="r1" style="margin-top:10px"><b>${g.head}</b><span class="num">${g.p}%</span></div><div class="meter"><i style="width:${g.p}%"></i></div><small>${g.note}</small></button>`}).join('');
+  stacks.push(stage);
+  stage.querySelectorAll('.plate').forEach(p=>p.onclick=()=>setLevel(+p.dataset.l));
+  if(list)list.querySelectorAll('.lvr').forEach(b=>{b.onclick=()=>setLevel(+b.dataset.l);b.onpointerenter=()=>setLevel(+b.dataset.l)})}
+function setLevel(l){glevel=l;$$('.plate').forEach(p=>{const on=+p.dataset.l===l;p.classList.toggle('act',on);p.classList.toggle('dim',!on);p.style.setProperty('--lift',on?'26px':'0px')});$$('.lvr').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.l===l));
+  const g=GOALS[l];$('#goalTabs').innerHTML=[2,1,0].map((i,n)=>`<button role="tab" type="button" data-l="${i}" aria-selected="${i===l}"><small>${nn(n)}</small>${GOALS[i].k}</button>`).join('');$$('#goalTabs button').forEach(b=>b.onclick=()=>setLevel(+b.dataset.l));
+  $('#gEy').innerHTML=`<b>${g.k}</b> &nbsp;·&nbsp; ${g.sub}`;$('#gTitle').textContent=g.p+'% there.';$('#gSub').textContent=l===2?'Three goals for this week. Each one moves a month goal forward.':l===1?'Three goals for November. Each one moves a quarter goal forward.':'Three goals for the quarter. Everything else stacks up to these.';
+  $('#gcards').innerHTML=g.items.map(it=>`<div class="panel gcard tilt"><div class="gtop"><div class="torus-wrap"><div class="torus" style="--p:${it[1]}"></div></div><b class="num">${it[1]}%</b></div><h3>${it[0]}</h3>${it[2]?`<div class="feeds">${ic('upa',2)}${it[2]}</div>`:''}</div>`).join('')}
+mountStack($('#isoB'),$('#lvB'),true);
+
+/* ---------- money ---------- */
+const END=new Date(2026,10,16);const dlab=i=>{const d=new Date(END);d.setDate(d.getDate()-(27-i));return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})};
+function dayRev(){const r=rng(4242);const out=[];for(let i=0;i<56;i++){const wd=(i+2)%7;let v=900*(wd>4?.55:1.1)*(1+i/56*.34)*(.9+r()*.2);if(i%11===7)v*=1.9;out.push(Math.round(v))}return out}
+$('#kpis').innerHTML=[['Revenue · November so far','$18,420','<span class="up">+12%</span> <span class="dim">vs same day in October</span>'],['Recurring · MRR','$9,860','<span class="up">+$640</span> <span class="dim">this month</span>'],['Next payout','$4,212','<span class="dim">Thursday 19 November</span>'],['To recover','$1,150','<span class="down">2 failed payments</span>']].map(k=>`<div class="tile tilt stripe"><div class="src"><i style="background:var(--gold)"></i>Stripe</div><div class="lab">${k[0]}</div><div class="v num">${k[1]}</div><div class="d">${k[2]}</div></div>`).join('');
+$('#custs').innerHTML=[['Meridian Capital',14400,28],['Platewise',9750,19],['Harbor Coffee Co.',6750,13],['Northline Movers',5200,10]].map(c=>`<tr><td>${c[0]}</td><td class="r num">$${fmt(c[1])}</td><td class="r num">${c[2]}%<span class="share"><i style="width:${c[2]*3}%"></i></span></td></tr>`).join('');
+function drawMoney(){const all=dayRev(),rv=all.slice(-28);$('#monBig').innerHTML=`$${fmt(sum(rv))}<small>${pct(sum(rv),sum(all.slice(0,28)))} on the four weeks before</small>`;lineChart($('#monChart'),rv,rv.map((_,i)=>dlab(i)),{c:css('--gold'),pre:'$',h:300})}

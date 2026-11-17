@@ -1,31 +1,19 @@
 "use client";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
+import Link, { go, usePathname, useRouter } from "@/lib/nav";
 import { App, api, requestWatch, scopeParam, store, useApi } from "@/lib/client";
 import type { Scope } from "@/lib/client";
-import { SKY_HOURS, darkAtHour, growFrom, installMotion, shrinkTo, skyAt } from "@/lib/motion";
-import type { SkyPhase } from "@/lib/motion";
-import { Icon, Mark, Menu, Segmented, Skel } from "./ui";
+import { growFrom, installMotion, shrinkTo } from "@/lib/motion";
+import { Icon, Mark, Menu, Page } from "./ui";
 import { ItemSheet } from "./attention";
 import { FirstRun } from "./first-run";
+import { VIEWS } from "@/views";
 
 export interface CardSpec { title: string; chip?: string; render: (close: () => void) => React.ReactNode; from: HTMLElement | null }
 export const pageOf = (pathname: string) => (pathname || "/").replace(/^\/+|\/+$/g, "").split("/")[0] || "overview";
 export const hrefOf = (page: string) => (page === "overview" ? "/" : "/" + page);
 const useIso = typeof window === "undefined" ? useEffect : useLayoutEffect;
-
-/** The sky behind everything. Its colours, glow and stars are set from the hour and the theme. */
-function Sky({ hour, dark }: { hour: number; dark: boolean }) {
-  useEffect(() => {
-    const k = skyAt(hour, dark), st = document.documentElement.style;
-    k.colors.forEach((c, i) => st.setProperty("--sky-" + (i + 1), c));
-    st.setProperty("--sky-glow", k.glow); st.setProperty("--sky-stars", String(k.stars));
-    st.setProperty("--sun-x", String(k.x)); st.setProperty("--sun-y", String(k.y));
-    document.documentElement.setAttribute("data-sky", k.phase);
-  }, [hour, dark]);
-  return <div className="sky" aria-hidden="true"><i className="sun" /><i className="stars" /></div>;
-}
 
 /** A detail card that grows out of whatever was tapped. Used by every card on the Overview and the tool cards. */
 function CardSheet({ card, onClose }: { card: CardSpec; onClose: () => void }) {
@@ -64,55 +52,6 @@ function CardSheet({ card, onClose }: { card: CardSpec; onClose: () => void }) {
         <div className="sheet-body"><h2 className="t-mid" style={{ marginBottom: 14 }}>{card.title}</h2>{card.render(close)}</div>
       </div>
     </>
-  );
-}
-
-function Sidebar({ boot, page, open, onNavigate, collapsed, onToggle }: { boot: any; page: string; open: boolean; onNavigate: () => void; collapsed: boolean; onToggle: () => void }) {
-  const navRef = useRef<HTMLDivElement>(null);
-  const [pill, setPill] = useState<number | null>(null);
-  const router = useRouter();
-  const mods = boot.modulesList.filter((m: any) => boot.workspace.modules[m.id] !== false);
-  const badge: Record<string, number> = { attention: boot.counts.attention, suggestions: boot.counts.suggestions, inbox: boot.counts.inbox };
-  useIso(() => { const el = navRef.current?.querySelector<HTMLElement>(".nav-item.active"); setPill(el ? el.offsetTop : null); }, [page, mods.length, collapsed]);
-  const item = (m: any) => (
-    <Link key={m.id} href={hrefOf(m.id)} className={"nav-item" + (page === m.id ? " active" : "")} aria-current={page === m.id ? "page" : undefined} onClick={onNavigate} title={collapsed ? m.label : undefined} aria-label={m.label}>
-      <Icon name={m.id} size={19} /><span className="nav-text">{m.label}</span>{badge[m.id] > 0 && <span className="nav-badge num">{badge[m.id]}</span>}
-    </Link>
-  );
-  return (
-    <aside className={"sidebar glass" + (open ? " open" : "")} aria-label="Main navigation">
-      {collapsed && <button className="ws-btn ws-mini hide-sm" onClick={onToggle} aria-label="Open the sidebar" title="Open the sidebar"><span className="ws-mark">{boot.workspace.brand.name.slice(0, 1).toUpperCase()}</span></button>}
-      <div className={collapsed ? "show-sm" : ""}><Menu align="left" label="Switch workspace" button={(p) => (
-        <button className="ws-btn" {...p}>
-          <span className="ws-mark">{boot.workspace.brand.name.slice(0, 1).toUpperCase()}</span>
-          <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 650, fontSize: 14.5, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boot.workspace.brand.name}</span><span className="t-cap" style={{ fontWeight: 500 }}>{boot.workspace.sample ? "Sample workspace" : "On this computer"}</span></span>
-          <Icon name="updown" size={16} className="chev" />
-        </button>
-      )}>
-        {(close) => <>
-          <div className="menu-label">Workspaces on this computer</div>
-          {boot.workspaces.map((w: any) => (
-            <button key={w.id} role="menuitem" className={"menu-item" + (w.id === boot.workspace.id ? " on" : "")} onClick={async () => { close(); if (w.id !== boot.workspace.id) { await api("workspaces/switch", { method: "POST", body: { id: w.id } }); router.push("/"); } }}>
-              <Mark name={w.name} color={boot.accents[w.accent]?.light} /><span style={{ flex: 1 }}>{w.name}</span>{w.id === boot.workspace.id && <Icon name="check" size={16} />}
-            </button>
-          ))}
-          <hr className="divider" style={{ margin: "6px 10px" }} />
-          <button role="menuitem" className="menu-item" onClick={() => { close(); onNavigate(); router.push("/settings"); }}><span className="glyph" style={{ width: 28, height: 28 }}><Icon name="plus" size={15} /></span>New workspace from the template</button>
-        </>}
-      </Menu></div>
-      <div className="side-scroll">
-        <nav className="nav" ref={navRef}>
-          {pill != null && <span className="nav-pill" style={{ transform: `translateY(${pill}px)` }} />}
-          <div className="nav-label" style={{ paddingTop: 10 }}>Today</div>
-          {mods.filter((m: any) => m.group === "main").slice(0, 2).map(item)}
-          <div className="nav-label">Results</div>
-          {mods.filter((m: any) => m.group === "main").slice(2).map(item)}
-          <div className="nav-label">More</div>
-          {mods.filter((m: any) => m.group === "more").map(item)}
-        </nav>
-      </div>
-      <button className="nav-item side-toggle hide-sm" onClick={onToggle} aria-pressed={collapsed} aria-label={collapsed ? "Open the sidebar" : "Collapse the sidebar"} title={collapsed ? "Open the sidebar" : "Collapse the sidebar (Ctrl B)"}><Icon name="sidebar" size={19} /><span className="nav-text">Collapse</span></button>
-    </aside>
   );
 }
 
@@ -201,37 +140,39 @@ function Palette({ boot, onClose, setScope }: { boot: any; onClose: () => void; 
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+/** Pages that keep their own React view. The value is the name shown in the top bar. */
+export const LEGACY: Record<string, string> = {
+  attention: "Needs you", website: "Website", social: "Social and reels", reels: "Reel scores", team: "Your team", connections: "Connections", settings: "Settings",
+  metrics: "Metrics", inbox: "Inbox", calendar: "Calendar", files: "Files", skills: "Skills", suggestions: "Suggestions", usage: "AI usage", setup: "Setup", more: "More",
+};
+const SCOPED = new Set(["attention", "website", "social", "reels", "metrics", "inbox", "calendar", "files"]);
+const pv = () => (typeof window !== "undefined" ? (window as any).__pv : null);
+
+function Splash() {
+  return (
+    <div className="aid-splash" role="status" aria-label="Loading">
+      <img alt="" src="/icon.svg" width={56} height={56} />
+      <div className="aid-splash-bar"><i /></div>
+    </div>
+  );
+}
+
+export function AppShell({ shell, children }: { shell: string; children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const page = pageOf(pathname);
   const bootQ = useApi("bootstrap");
   const boot = bootQ.data;
   const [scope, setScopeState] = useState<Scope>({ mode: "sites", id: "all" });
-  const [theme, setThemeState] = useState("system");
   const [sheet, setSheet] = useState<{ id: string; from: HTMLElement | null } | null>(null);
   const [palette, setPalette] = useState(false);
-  const [toastMsg, setToastMsg] = useState<{ msg: string; n: number } | null>(null);
   const [title, setTitle] = useState("");
   const [titleShown, setTitleShown] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [drawer, setDrawer] = useState(false);
-  const [syncing, setSyncing] = useState<string | null>("Checking your tools");
-  const [collapsed, setCollapsedState] = useState(false);
-  const [sky, setSkyState] = useState<SkyPhase | "live">("live");
-  const [clock, setClock] = useState(() => { const d = new Date(); return d.getHours() + d.getMinutes() / 60; });
   const [card, setCard] = useState<CardSpec | null>(null);
-  const hour = sky === "live" ? clock : SKY_HOURS[sky];
-  const dark = theme === "dark" || (theme !== "light" && darkAtHour(hour));
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const [look, setLook] = useState("night");
+  const html = useMemo(() => ({ __html: shell }), [shell]);
 
-  useEffect(() => {
-    installMotion(); const s = store("scope"); if (s?.mode) setScopeState(s);
-    if (store("collapsed")) setCollapsedState(true);
-    const k = store("sky"); if (k && (k === "live" || k in SKY_HOURS)) setSkyState(k);
-    const t = setInterval(() => { const d = new Date(); setClock(d.getHours() + d.getMinutes() / 60); }, 60000); return () => clearInterval(t);
-  }, []);
-  useEffect(() => { const on = () => setScrolled(window.scrollY > 6); on(); window.addEventListener("scroll", on, { passive: true }); return () => window.removeEventListener("scroll", on); }, []);
-  useEffect(() => { window.scrollTo(0, 0); setDrawer(false); }, [pathname]);
+  useEffect(() => { installMotion(); const s = store("scope"); if (s?.mode) setScopeState(s); }, []);
 
   // Keep the scope valid for the active workspace.
   useEffect(() => {
@@ -240,44 +181,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if ((scope.mode === "clients" && !boot.clients.length) || (scope.id !== "all" && !list.some((x: any) => x.id === scope.id))) setScopeState({ mode: boot.clients.length ? scope.mode : "sites", id: "all" });
   }, [boot?.workspace?.id, boot?.sites?.length]);
 
-  // Accent colour and theme follow the workspace settings.
-  useEffect(() => {
-    if (!boot) return;
-    const root = document.documentElement, a = boot.accents[boot.workspace.brand.accent] || boot.accents.navy;
-    root.style.setProperty("--accent-l", a.light); root.style.setProperty("--accent-d", a.dark);
-    setThemeState(boot.theme);
-  }, [boot?.workspace?.brand?.accent, boot?.theme, boot?.workspace?.id]);
-  // Automatic means light by day and dark at night, so the whole app follows the sky.
-  // First run: a new install opens on the welcome flow (the in-browser preview keeps its sample data).
-  const firstRun = !!boot?.firstRun && !(globalThis as any).__KEYSTONE_LOCAL__;
-  useEffect(() => { document.documentElement.setAttribute("data-theme", dark && !firstRun ? "dark" : "light"); }, [dark, firstRun]);
+  // First run: a new install opens on the welcome flow, never on a dashboard of examples.
+  const firstRun = !!boot?.firstRun;
+  const ready = !!boot && !firstRun;
 
-  // The sync pill: says what is being refreshed, then steps out of the way.
+  // The screens are drawn by ui/js. It starts once the frame is on the page, and is told whenever the basics change.
   useEffect(() => {
-    if (!boot) return;
-    // Only tools that are really connected are named. With none, the pill stays out of the way.
-    const tools: string[] = boot.workspace.sample ? ["Google Analytics", "Metricool"] : boot.workspace.tools || [];
-    if (!tools.length) { setSyncing(null); return; }
-    const steps = [...tools.slice(0, 4).map((t) => "Syncing " + t), "Up to date"];
-    let i = 0; setSyncing(steps[0]);
-    const t = setInterval(() => { i++; if (i < steps.length) setSyncing(steps[i]); else { setSyncing(null); clearInterval(t); } }, 1100);
-    return () => clearInterval(t);
-  }, [boot?.workspace?.id]);
+    if (!ready) return;
+    (window as any).__AID = { boot };
+    setHost(document.getElementById("legacy"));
+    if (pv()) { pv().boot?.(boot); return; }
+    if (document.getElementById("aid-ui")) return;
+    const s = document.createElement("script"); s.id = "aid-ui"; s.src = "/ui/app.js"; document.body.appendChild(s);
+  }, [ready, boot]);
+  useEffect(() => {
+    const onLook = (e: any) => setLook(e.detail?.look || document.documentElement.dataset.look || "night");
+    const onAsk = () => setPalette(true);
+    const onItem = (e: any) => e.detail?.id && setSheet({ id: e.detail.id, from: null });
+    setLook(document.documentElement.dataset.look || "night");
+    window.addEventListener("aid:look", onLook); window.addEventListener("aid:ask", onAsk); window.addEventListener("aid:item", onItem);
+    return () => { window.removeEventListener("aid:look", onLook); window.removeEventListener("aid:ask", onAsk); window.removeEventListener("aid:item", onItem); };
+  }, []);
+  // Anything that changes data (a sign-in, a sync, an approval) refreshes the drawn screens too.
+  useEffect(() => { if (ready) pv()?.refresh?.(); }, [ready, boot?.changedAt]);
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") { e.preventDefault(); setCollapsed(!store("collapsed")); }
-      if (e.key === "Escape") { setPalette(false); setDrawer(false); }
+      if (e.key === "Escape") setPalette(false);
     };
     window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key);
   }, []);
-  useEffect(() => { if (!toastMsg) return; const t = setTimeout(() => setToastMsg(null), 2600); return () => clearTimeout(t); }, [toastMsg]);
 
   const setScope = useCallback((s: Scope) => { setScopeState(s); store("scope", s); }, []);
-  const setCollapsed = useCallback((c: boolean) => { setCollapsedState(c); store("collapsed", c); }, []);
-  const setSky = useCallback((k: SkyPhase | "live") => { setSkyState(k); store("sky", k); }, []);
-  const setTheme = useCallback((t: string) => { setThemeState(t); api("settings", { method: "POST", body: { theme: t } }).catch(() => {}); }, []);
+  const dark = look === "dusk" || look === "night";
   const scopeLabel = useMemo(() => {
     if (!boot) return "";
     const list = scope.mode === "sites" ? boot.sites : boot.clients;
@@ -285,55 +222,62 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [boot, scope]);
 
   const ctx = useMemo(() => ({
-    boot, reloadBoot: bootQ.reload, scope, setScope, scopeKey: scopeParam(scope), scopeLabel, theme, setTheme,
+    boot, reloadBoot: bootQ.reload, scope, setScope, scopeKey: scopeParam(scope), scopeLabel,
+    theme: dark ? "dark" : "light", setTheme: (t: string) => pv()?.look?.(t === "light" ? "day" : t === "dark" ? "night" : null, true),
+    look, setLook: (k: string | null) => pv()?.look?.(k, true),
     openItem: (id: string, from?: HTMLElement | null) => setSheet({ id, from: from || null }),
-    openPalette: () => setPalette(true), toast: (msg: string) => setToastMsg({ msg, n: Date.now() }),
-    title, setTitle, titleShown, setTitleShown, syncing,
-    sky, setSky, skyPhase: skyAt(hour, dark).phase, dark, collapsed, setCollapsed,
+    openPalette: () => setPalette(true), toast: (msg: string) => pv()?.toast?.(msg),
+    title, setTitle, titleShown, setTitleShown, syncing: null,
+    sky: "live", setSky: () => {}, skyPhase: look, dark, collapsed: false, setCollapsed: () => {},
     openCard: (c: Omit<CardSpec, "from">, from?: HTMLElement | null) => setCard({ ...c, from: from || null }),
-    watchLive: (ids: string[]) => { setSheet(null); setCard(null); requestWatch(ids); if (page !== "team") router.push("/team"); },
-  }), [boot, scope, scopeLabel, theme, title, titleShown, syncing, sky, hour, dark, collapsed, page]);
+    watchLive: (ids: string[]) => { setSheet(null); setCard(null); requestWatch(ids); if (page !== "team") go("team"); },
+  }), [boot, scope, scopeLabel, look, dark, title, titleShown, page]);
 
-  if (!boot) {
-    return (
-      <div className="shell"><Sky hour={hour} dark={dark} />
-        <aside className="sidebar glass hide-sm" aria-hidden="true"><div style={{ padding: 8 }}><Skel h={34} r={10} /></div><div style={{ padding: "18px 8px", display: "grid", gap: 14 }}>{Array.from({ length: 9 }, (_, i) => <Skel key={i} h={16} w={`${70 - (i % 3) * 14}%`} />)}</div></aside>
-        <div className="main"><div className="content" style={{ paddingTop: 90 }} role="status" aria-label="Loading"><Skel h={38} w="46%" r={12} /><Skel h={18} w="32%" style={{ marginTop: 14 }} /><div className="card pad" style={{ marginTop: 34, height: 300 }}><Skel w="30%" /><Skel h={44} style={{ marginTop: 20 }} /><Skel h={44} style={{ marginTop: 12 }} /><Skel h={44} style={{ marginTop: 12 }} /></div></div></div>
-      </div>
-    );
-  }
-  if (firstRun) return <App.Provider value={ctx as any}><FirstRun boot={boot} reloadBoot={bootQ.reload} /></App.Provider>;
-  const nextTheme = theme === "system" ? "light" : theme === "light" ? "dark" : "system";
-  const tabs = [["overview", "Overview"], ["attention", "Attention"], ["website", "Website"], ["social", "Social"]];
+  if (!boot) return <Splash />;
+  if (firstRun) return <App.Provider value={ctx as any}><div className="lg lg-root"><FirstRun boot={boot} reloadBoot={bootQ.reload} /></div></App.Provider>;
+
+  const sub = pathname.replace(/^\/+/, "").split("/")[1] || "";
+  const legacyPage = page === "brain" && sub === "edit" ? "second-brain" : LEGACY[page] ? page : null;
+  const View = legacyPage ? (legacyPage === "more" ? MorePages : VIEWS[legacyPage]) : null;
   return (
     <App.Provider value={ctx as any}>
-      <div className={"shell" + (collapsed ? " collapsed" : "")}>
-        <Sky hour={hour} dark={dark} />
-        {drawer && <div className="scrim show-sm" style={{ zIndex: 29 }} onClick={() => setDrawer(false)} />}
-        <Sidebar boot={boot} page={page} open={drawer} onNavigate={() => setDrawer(false)} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-        <div className="main">
-          <header className={"topbar" + (scrolled ? " scrolled" : "")}>
-            <div className="topbar-in">
-              <div className={"topbar-title" + (titleShown ? " show" : "")} aria-hidden={!titleShown}>{title}</div>
-              <span style={{ flex: 1 }} />
-              <span className={"sync-pill hide-sm" + (syncing ? "" : " gone")} role="status" aria-live="polite">{syncing === "Up to date" ? <span style={{ color: "var(--good)", display: "flex" }}><Icon name="check" size={14} stroke={2.4} /></span> : <span className="spinner" />}{syncing || "Up to date"}</span>
-              <ScopePicker boot={boot} scope={scope} setScope={setScope} />
-              <button className="btn hide-sm" style={{ color: "var(--text-2)", fontWeight: 500, gap: 10 }} onClick={() => setPalette(true)} aria-label="Search or ask (Command K)"><Icon name="search" size={16} />Search<span className="kbd">⌘K</span></button>
-              <button className="icon-btn show-sm" onClick={() => setPalette(true)} aria-label="Search or ask"><Icon name="search" size={19} /></button>
-              <button className="icon-btn" onClick={() => setTheme(nextTheme)} aria-label={`Appearance: ${theme === "system" ? "automatic" : theme}. Switch to ${nextTheme === "system" ? "automatic" : nextTheme}`} title={theme === "system" ? "Automatic: light by day, dark at night" : `Appearance: ${theme}`}><Icon name={theme === "system" ? "auto" : theme === "light" ? "sun" : "moon"} size={19} /></button>
-            </div>
-          </header>
-          <main className="content" id="main" key={pathname + boot.workspace.id}>{children}</main>
-        </div>
-        <nav className="tabbar glass" aria-label="Quick navigation">
-          {tabs.map(([id, label]) => <Link key={id} href={hrefOf(id)} className={"tab" + (page === id ? " active" : "")} aria-current={page === id ? "page" : undefined}><Icon name={id} size={22} />{label}</Link>)}
-          <button className={"tab" + (drawer ? " active" : "")} onClick={() => setDrawer((d) => !d)} aria-expanded={drawer} aria-label="All pages"><Icon name="menu" size={22} />More</button>
-        </nav>
+      <div id="obs" dangerouslySetInnerHTML={html} suppressHydrationWarning />
+      {host && View && createPortal(
+        <div className="lg-page" key={legacyPage + boot.workspace.id}>
+          {SCOPED.has(legacyPage!) && (boot.sites.length > 1 || boot.clients.length > 0) && <div className="lg-scope"><ScopePicker boot={boot} scope={scope} setScope={setScope} /></div>}
+          <View />
+        </div>, host)}
+      <div className="lg lg-layer">
         {card && <CardSheet key={card.title} card={card} onClose={() => setCard(null)} />}
         {sheet && <ItemSheet key={sheet.id} id={sheet.id} from={sheet.from} onClose={() => setSheet(null)} />}
         {palette && <Palette boot={boot} onClose={() => setPalette(false)} setScope={setScope} />}
-        {toastMsg && <div className="toast" key={toastMsg.n} role="status">{toastMsg.msg}</div>}
       </div>
+      {children}
     </App.Provider>
+  );
+}
+
+/** The pages that are not in the rail, in one place. */
+function MorePages() {
+  const app = React.useContext(App);
+  const on = (id: string) => app.boot.workspace.modules[id] !== false;
+  const rows: [string, string, string][] = [
+    ["metrics", "Metrics", "The numbers you chose to watch, each with its source and how fresh it is."],
+    ["inbox", "Inbox", "Mail that is waiting on you."],
+    ["calendar", "Calendar", "Meetings and deadlines for the next days."],
+    ["files", "Files", "Recent files from your connected Drive."],
+    ["skills", "Skills", "What your AI knows how to do for you."],
+    ["suggestions", "Suggestions", "Ideas your AI noticed, for you to accept or dismiss."],
+    ["usage", "AI usage", "What your AI plans were used for."],
+    ["setup", "Setup", "The checklist for a new workspace."],
+  ];
+  return (
+    <Page title="More" sub="Everything else the dashboard keeps for you.">
+      <div className="card group">
+        {rows.filter(([id]) => on(id) || id === "setup").map(([id, name, about]) => (
+          <a key={id} className="row tap" href={"#" + id}><span className="glyph"><Icon name={id} size={17} /></span><span className="row-main"><span className="row-title">{name}</span><span className="row-sub">{about}</span></span><Icon name="chevron" size={16} /></a>
+        ))}
+      </div>
+    </Page>
   );
 }
