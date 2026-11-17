@@ -434,6 +434,7 @@ export function realConnections() {
   const c = (id: string, tool: string, name: string, auth: string, gives: string, extra: any = {}) => ({ id, tool, name, status: "off", account: "", detail: "Not connected", lastSync: null, auth, gives, ...extra });
   return [
     c("google-analytics", "analytics", "Google Analytics", "google", "Your website list, visitors, leads and top pages"),
+    c("stripe", "stripe", "Stripe", "token", "Money that came in, failed payments and your next payout"),
     c("metricool", "metricool", "Metricool", "token", "Followers, reach and posts for each website"),
     c("gmail", "gmail", "Gmail", "google", "Emails that need a reply"),
     c("calendar", "calendar", "Google Calendar", "google", "Meetings and deadlines"),

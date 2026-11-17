@@ -6,6 +6,7 @@ import { buildQueue, FACTORS } from "./scoring.ts";
 import type { Scored } from "./scoring.ts";
 import { ACCENTS, MODULES, NETWORK_BASE, makeState, makeWorkspace, starterTeam } from "./sample.ts";
 import { handoversFrom, phrasesFrom } from "./handover.ts";
+import { LEVELS, TOPICS, findClients, uiBundle } from "./ui.ts";
 
 export type State = ReturnType<typeof makeState>;
 export interface Req { method: string; path: string; query?: Record<string, string>; body?: any; now?: number }
@@ -15,6 +16,7 @@ const ok = (data: any, changed = false): Res => ({ status: 200, data, changed })
 const bad = (msg: string, status = 400): Res => ({ status, data: { error: msg } });
 
 export const ENDPOINTS = [
+  ["ui", "Everything the main screens show, in one bundle: websites, money, goals, AI news, AI made and clients"],
   ["overview", "Greeting, top 5 attention items, team list, reel summary, key numbers and the 28-day chart"],
   ["attention", "The full ranked attention queue with scores, reasons and sources"],
   ["websites", "All websites side by side"],
@@ -58,10 +60,10 @@ function sentence(delta: number | null, noun: string, period: string) {
   return `${noun} ${be} ${delta > 0 ? "up" : "down"} ${p}% on last ${period}.`;
 }
 
-function siteTraffic(site: any, days: number, now: number) {
+export function siteTraffic(site: any, days: number, now: number) {
   if (site.live?.daily) {
     // Real numbers from Google Analytics. A day with no row is a real zero for that property, not a guess.
-    const rows: any[] = site.live.daily, end = startOfDay(now) + DAY, by = new Map(rows.map((r) => [startOfDay(r.t + DAY / 2), r]));
+    const rows: any[] = site.live.daily, end = startOfDay(now) + DAY, by = new Map(rows.map((r) => [startOfDay(r.t), r]));
     const span = (from: number, n: number) => Array.from({ length: n }, (_, i) => { const t = from + i * DAY, r = by.get(t); return { t, visitors: r?.visitors || 0, leads: r?.leads || 0 }; });
     const cur = span(end - days * DAY, days), prev = span(end - 2 * days * DAY, days);
     const v = (a: any[]) => a.map((p) => ({ t: p.t, v: p.visitors })), l = (a: any[]) => a.map((p) => ({ t: p.t, v: p.leads }));
@@ -174,7 +176,7 @@ function scopeName(ws: any, scope: string): string | null {
   return null;
 }
 
-function queueFor(ws: any, scope: string, now: number) {
+export function queueFor(ws: any, scope: string, now: number) {
   return buildQueue(ws.items.filter((i: any) => inScope(i.scope, scope)), ws.rubric, now);
 }
 
@@ -353,6 +355,7 @@ export function handle(state: State, req: Req): Res {
   }
 
   if (a === "overview") return ok(overview(ws, scope, now));
+  if (a === "ui" && !post) return ok(uiBundle(ws, now, { ai: body?.ai || null }));
 
   if (a === "attention") {
     if (post && b) {
@@ -574,6 +577,76 @@ export function handle(state: State, req: Req): Res {
       return ok(d, true);
     }
     return ok({ decisions: ws.decisions, sample: ws.sample });
+  }
+
+  // Goals on three levels: the week feeds the month, the month feeds the quarter. Up to three on each level.
+  if (a === "plan" && post) {
+    const plan = (ws.plan ||= { goals: [] as any[] });
+    if (b === "save") {
+      const level = LEVELS.includes(body.level) ? body.level : null, title = String(body.title || "").trim().slice(0, 90);
+      if (!level) return bad("Pick week, month or quarter.");
+      if (title.length < 3) return bad("Give the goal a short name.");
+      const progress = Math.max(0, Math.min(100, Math.round(Number(body.progress) || 0)));
+      const up = LEVELS[LEVELS.indexOf(level) - 1], feeds = plan.goals.some((g: any) => g.id === body.feeds && g.level === up) ? body.feeds : "";
+      const cur = plan.goals.find((g: any) => g.id === body.id);
+      if (cur) Object.assign(cur, { title, progress, feeds, updatedAt: now });
+      else {
+        if (plan.goals.filter((g: any) => g.level === level).length >= 3) return bad("Three goals on one level keeps them in view. Finish or remove one first.");
+        plan.goals.push({ id: "goal-" + now.toString(36) + plan.goals.length, level, title, progress, feeds, createdAt: now, updatedAt: now });
+      }
+      return ok({ ok: true }, true);
+    }
+    if (b === "remove") {
+      plan.goals = plan.goals.filter((g: any) => g.id !== body.id);
+      plan.goals.forEach((g: any) => { if (g.feeds === body.id) g.feeds = ""; });
+      return ok({ ok: true }, true);
+    }
+    return bad("No such step.", 404);
+  }
+
+  // News topics: up to three, from the list or your own.
+  if (a === "news" && post && b === "topics") {
+    const news = (ws.news ||= {});
+    news.custom = Array.isArray(news.custom) ? news.custom : [];
+    const add = String(body.add || "").trim().replace(/\s+/g, " ").slice(0, 36);
+    let picked: string[] = (Array.isArray(body.topics) ? body.topics : news.topics || []).map(String);
+    if (add && !news.custom.some((c: any) => c[1].toLowerCase() === add.toLowerCase()) && !TOPICS.some((t) => t[1].toLowerCase() === add.toLowerCase())) {
+      const id = "~" + now.toString(36);
+      news.custom.push([id, add]); news.custom = news.custom.slice(-12);
+      if (picked.length < 3) picked.push(id);
+    }
+    const known = new Set([...TOPICS.map((t) => t[0]), ...news.custom.map((c: any) => c[0])]);
+    picked = [...new Set(picked)].filter((k) => known.has(k)).slice(0, 3);
+    if (!picked.length) return bad("Keep at least one topic.");
+    news.topics = picked;
+    return ok({ topics: picked }, true);
+  }
+
+  // Clients: connect a name your tools already know, add one by hand, leave one out, or remove one.
+  if (a === "clients" && post) {
+    const name = String(body.name || "").trim().replace(/\s+/g, " ").slice(0, 60);
+    const found = (ws.found ||= { names: [] as any[], skipped: [] as string[], no: [] as string[] });
+    if (b === "connect") {
+      if (name.length < 2) return bad("Give the client a name.");
+      if (ws.clients.some((c: any) => c.name.toLowerCase() === name.toLowerCase())) return bad("That client is already connected.");
+      const id = (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "client") + "-" + now.toString(36).slice(-4);
+      ws.clients.push({ id, name, scope: "client:" + id, color: "#8AD4FF", sub: "", connectedAt: now, src: Array.isArray(body.src) ? body.src.slice(0, 8).map((s: any) => [String(s[0]).slice(0, 40), String(s[1]).slice(0, 80)]) : [], links: {}, tasks: [], updates: [], files: [], meetings: [] });
+      ws.modules.clients = true;
+      found.no = (found.no || []).filter((n: string) => n.toLowerCase() !== name.toLowerCase());
+      return ok({ id }, true);
+    }
+    if (b === "skip") {
+      if (name && !(found.no ||= []).some((n: string) => n.toLowerCase() === name.toLowerCase())) found.no.push(name);
+      return ok({ ok: true }, true);
+    }
+    if (b === "remove") {
+      const cl = ws.clients.find((c: any) => c.id === body.id);
+      if (!cl) return bad("No such client", 404);
+      ws.clients = ws.clients.filter((c: any) => c !== cl);
+      return ok({ ok: true }, true);
+    }
+    if (b === "scan") { found.names = findClients(ws); found.when = now; return ok({ found: found.names.length }, true); }
+    return bad("No such step.", 404);
   }
 
   if (a === "clients") {

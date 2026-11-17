@@ -31,5 +31,14 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(fon
 /* ---------- pointer tilt with glare ---------- */
 if(matchMedia('(hover:hover)').matches&&!reduce){let cur=null;document.addEventListener('pointermove',e=>{const t=e.target.closest&&e.target.closest('.tilt');if(cur&&cur!==t){cur.style.removeProperty('--rx');cur.style.removeProperty('--ry')}if(t){const r=t.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;t.style.setProperty('--rx',((.5-y)*7).toFixed(2)+'deg');t.style.setProperty('--ry',((x-.5)*8).toFixed(2)+'deg');t.style.setProperty('--gx',(x*100)+'%');t.style.setProperty('--gy',(y*100)+'%')}cur=t},{passive:true})}
 
-window.__pv={look:(k,user)=>setLook(LOOKS[k]?k:look,!!user),toast,boot:b=>{BOOT=b||BOOT;drawNav()},refresh:()=>{},mode:setMode,site:x=>{site=x;drawDeck()},client:openClient,connect:connectClient,detail:openDetail,gx:setGx,scan:scanSet,run:runScan,shape:setShape,card:k=>showCard(ovCard(k)),area:setArea,fold:openFold,file:openFile,still:()=>{still=true;onScroll()},brain:B,dr:{s:DR,render:dRender,skip:dSkip,folders:dFolders,report:dReport,shared:dShared,ev:dEvCard}};
-setLook(look,false);drawNav();mountOverview();setLevel(2);route();requestAnimationFrame(frame);
+window.__pv={look:(k,user)=>setLook(LOOKS[k]?k:look,!!user),toast,boot:b=>{BOOT=b||BOOT;drawNav();refresh()},refresh:()=>refresh(),mode:setMode,site:x=>{site=x;drawDeck()},client:openClient,connect:connectClient,detail:openDetail,gx:setGx,scan:scanSet,run:runScan,shape:setShape,card:k=>showCard(ovCard(k)),area:setArea,fold:openFold,file:openFile,still:()=>{still=true;onScroll()},brain:B,dr:{s:DR,render:dRender,skip:dSkip,folders:dFolders,report:dReport,shared:dShared,ev:dEvCard}};
+/* everything that is drawn from the bundle, drawn again when the bundle changes */
+function remount(){drawNav();mountOverview();mountGoals();mountMoney();if(fontsDone)mountMade();askWho();if(typeof brainFresh==='function')brainFresh();if(!$('#p-money').hidden)drawMoney();onScroll()}
+/* the ask bar under AI made: the question goes to the AI linked on this computer, with the numbers already on screen */
+function askWho(){$('#askWho').textContent=D.ai&&D.ai.name?D.ai.name+' · your plan':'Simple rules · no AI linked'}
+function askNow(){const q=$('#askInput').value.trim();if(q.length<3)return;const b=$('#askGo');b.disabled=true;b.textContent='Asking';
+  post('ai/ask',{question:q}).then(r=>{showCard({small:1,icon:'spark',glow:'--violet',ey:'<b>You asked</b>',title:q,lede:r.answer||'',rows:[],src:[[r.provider&&r.provider!=='rules'?r.provider:'Simple rules','--gold',r.note||'','']],acts:[]})}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false;b.textContent='Ask'})}
+$('#askGo').onclick=askNow;$('#askInput').addEventListener('keydown',e=>{if(e.key==='Enter')askNow()});
+applyData();setLook(look,false);drawNav();mountOverview();mountGoals();mountMoney();askWho();
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(kick);setTimeout(kick,1800);
+route();requestAnimationFrame(frame);

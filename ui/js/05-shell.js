@@ -15,7 +15,7 @@ $('#menuBtn').onclick=()=>document.body.classList.toggle('nav-open');
 const hr=new Date().getHours();
 const FIRST=String((BOOT.workspace&&BOOT.workspace.owner)||'').trim().split(/\s+/)[0];
 const HELLO=`Good ${hr<12?'morning':hr<18?'afternoon':'evening'}${FIRST&&FIRST!=='You'?', '+esc(FIRST):''}.`;
-const LEDE='A strong Monday. Revenue is ahead, and two things need you.';
+
 function tick(){const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});$$('[data-clock]').forEach(e=>e.textContent=t)}
 setInterval(tick,20000);
 

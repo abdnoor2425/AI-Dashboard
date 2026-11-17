@@ -5,7 +5,7 @@
   <nav class="nav" id="nav"></nav>
   <div class="core">
     <canvas id="orb" aria-hidden="true"></canvas>
-    <div class="cap"><span>Today's brief<small>Ready · 0:58</small></span><button type="button" data-listen aria-label="Listen to today's brief"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M7 4v16l13-8z" fill="currentColor"/></svg></button></div>
+    <div class="cap"><span>Today's brief<small id="coreCap"></small></span><button type="button" data-listen aria-label="Listen to today's brief"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M7 4v16l13-8z" fill="currentColor"/></svg></button></div>
   </div>
   <div class="sp"></div>
   <a class="me" href="#settings"><i id="meI"></i><div><b id="meN"></b><small id="meR"></small></div></a>
@@ -31,7 +31,7 @@
   <!-- ===================== NEWS ===================== -->
   <section class="page" id="p-news" hidden>
     <div class="wrap">
-      <div class="head"><div class="grow"><div class="eyebrow">Read from X, on the topics you choose</div><h1 class="title">AI news.</h1><p class="lede">Only the stories that change how your business works, with what each one is for.</p></div><div class="tabs" role="tablist" id="newsTabs"></div></div>
+      <div class="head"><div class="grow"><div class="eyebrow" id="newsEy">On the topics you choose</div><h1 class="title">AI news.</h1><p class="lede">Only the stories that change how your business works, with what each one is for.</p></div><div class="tabs" role="tablist" id="newsTabs"></div></div>
       <div class="tbar" data-tbar style="margin-top:30px"></div>
       <div class="ngrid" id="ngrid" style="margin-top:8px"></div>
     </div>
@@ -41,43 +41,47 @@
   <section class="page" id="p-money" hidden>
     <div class="wrap">
       <div class="head"><div class="grow"><div class="eyebrow">Stripe · read-only</div><h1 class="title">Money.</h1><p class="lede">What came in, what is coming, and what needs a nudge.</p></div></div>
-      <div class="kpis" style="margin-top:38px" id="kpis"></div>
-      <div class="panel chartp"><div class="chart-top"><div class="grow"><div class="eyebrow">Revenue by day · last 28 days</div><div class="bigv num" id="monBig"></div></div><span class="chip"><i style="background:var(--gold)"></i>Stripe</span></div><div class="chart" id="monChart"></div></div>
+      <div class="panel chartp woff" id="monOff" style="margin-top:38px" hidden></div>
+      <div id="monOn"><div class="kpis" style="margin-top:38px" id="kpis"></div>
+      <div class="panel chartp"><div class="chart-top"><div class="grow"><div class="eyebrow">Revenue by day · last 28 days</div><div class="bigv num" id="monBig"></div></div><span class="chip" id="monWhen"><i style="background:var(--gold)"></i>Stripe</span></div><div class="chart" id="monChart"></div></div>
       <div class="two" style="margin-top:18px">
-        <div class="panel mini"><div class="eyebrow">Needs a nudge</div><div class="tbl" style="margin-top:18px"><table><thead><tr><th>Customer</th><th>Why</th><th class="r">Amount</th><th></th></tr></thead><tbody><tr><td>Harbor Coffee Co.</td><td class="mut">Card expired</td><td class="r num">$750</td><td class="r"><button class="btn sm line" type="button" data-toast="A reminder would be sent from Stripe">Remind</button></td></tr><tr><td>Fernway Studio</td><td class="mut">Card expired</td><td class="r num">$400</td><td class="r"><button class="btn sm line" type="button" data-toast="A reminder would be sent from Stripe">Remind</button></td></tr></tbody></table></div></div>
-        <div class="panel mini"><div class="eyebrow">Top customers · 90 days</div><div class="tbl" style="margin-top:18px"><table><thead><tr><th>Customer</th><th class="r">Paid</th><th class="r">Share</th></tr></thead><tbody id="custs"></tbody></table></div></div>
-      </div>
+        <div class="panel mini"><div class="eyebrow">Needs a nudge</div><div class="tbl" style="margin-top:18px"><table><thead><tr><th>Customer</th><th>Why</th><th class="r">Amount</th><th></th></tr></thead><tbody id="nudge"></tbody></table></div></div>
+        <div class="panel mini"><div class="eyebrow">Top customers · 12 months</div><div class="tbl" style="margin-top:18px"><table><thead><tr><th>Customer</th><th class="r">Paid</th><th class="r">Share</th></tr></thead><tbody id="custs"></tbody></table></div></div>
+      </div></div>
     </div>
   </section>
 
   <!-- ===================== GOALS ===================== -->
   <section class="page" id="p-goals" hidden>
     <div class="wrap">
-      <div class="head"><div class="grow"><div class="eyebrow">Week 47 · November · Q4 2026</div><h1 class="title">Goals.</h1><p class="lede">This week feeds the month. The month feeds the quarter.</p></div><div class="tabs" role="tablist" id="goalTabs"></div></div>
+      <div class="head"><div class="grow"><div class="eyebrow" id="gHeadEy"></div><h1 class="title">Goals.</h1><p class="lede">This week feeds the month. The month feeds the quarter.</p></div><div class="tabs" role="tablist" id="goalTabs"></div></div>
       <div class="panel goalp" style="margin-top:38px"><div class="iso-stage" id="isoB" style="height:520px"></div><div><div class="eyebrow" id="gEy"></div><h2 class="h2" id="gTitle" style="margin-bottom:8px"></h2><p class="mut" id="gSub" style="margin:0 0 22px;max-width:44ch"></p><div class="lv" id="lvB"></div></div></div>
       <div class="gcards" id="gcards"></div>
-      <div class="start" style="margin-top:18px"><div class="grow"><div class="eyebrow"><b>Monday suggestion from Claude Code</b></div><b style="display:block;margin-top:7px;font-size:16px">Three week goals drafted from your Q4 goals and Linear. Keep, edit or swap.</b></div><button class="btn" type="button" data-toast="The three drafts would open here">Review the three</button></div>
+      <div class="start" style="margin-top:18px"><div class="grow"><div class="eyebrow"><b>Keep it to three</b></div><b style="display:block;margin-top:7px;font-size:16px">Up to three goals on each level. Click a goal to update how far along it is.</b></div><button class="btn" type="button" data-gadd="">Add a goal</button></div>
     </div>
   </section>
 
   <!-- ===================== AI MADE ===================== -->
   <section class="page" id="p-made" hidden>
     <div class="wrap">
-      <div class="head"><div class="grow"><div class="eyebrow">Claude Code · Codex · Gemini CLI · your browser AI tools</div><h1 class="title">AI made.</h1><p class="lede">Everything your AIs created in the last 14 days, in one place you can search.</p></div><div class="tabs" role="tablist"><button role="tab" aria-selected="true"><small>01</small>Library</button><button role="tab" aria-selected="false"><small>02</small>Timeline</button><button role="tab" aria-selected="false"><small>03</small>Sources</button></div></div>
+      <div class="head"><div class="grow"><div class="eyebrow" id="madeEy"></div><h1 class="title">AI made.</h1><p class="lede">Everything saved in your AI project folders in the last 14 days, in one place you can search.</p></div><button class="ghost" type="button" data-mscan>Look again</button></div>
+      <div class="panel chartp woff" id="madeOff" style="margin-top:38px" hidden></div>
+      <div id="madeOn">
       <div class="ring-sec" id="ringSec" style="margin-top:38px">
         <div class="ring-pin">
-          <div class="ring-copy"><div class="eyebrow"><b>Newest first</b></div><h3>214 made since 2 November.</h3><p>Scroll to turn the ring. Tap anything to see which AI made it and from what prompt.</p></div>
-          <div class="ring-stat"><div class="num">86<small>Images</small></div><div class="num">31<small>Videos</small></div><div class="num">97<small>Docs and code</small></div></div>
+          <div class="ring-copy"><div class="eyebrow"><b>Newest first</b></div><h3 id="madeH"></h3><p>Scroll to turn the ring. Tap anything to see which AI project it came from and where it is saved.</p></div>
+          <div class="ring-stat" id="madeStat"></div>
           <div class="ring" id="ring"></div>
           <div class="ring-hint eyebrow">Scroll</div>
         </div>
       </div>
       <div class="panel lib">
-        <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="Search by words, prompt, project or AI" aria-label="Search what AI made"><span class="eyebrow" id="count" style="margin-right:14px"></span></div>
+        <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="Search by name, project, folder or AI" aria-label="Search what AI made"><span class="eyebrow" id="count" style="margin-right:14px"></span></div>
         <div class="filters" id="filters"></div>
-        <div style="margin-top:22px"><div style="display:flex;align-items:center"><div class="eyebrow">Made per day</div><div style="flex:1"></div><button class="chip" id="clearDay" type="button" hidden>Show all days</button></div><div class="days" id="days"></div><div class="axis"><span>2 Nov</span><span>9 Nov</span><span>Today</span></div></div>
+        <div style="margin-top:22px"><div style="display:flex;align-items:center"><div class="eyebrow">Made per day</div><div style="flex:1"></div><button class="chip" id="clearDay" type="button" hidden>Show all days</button></div><div class="days" id="days"></div><div class="axis" id="madeAxis"></div></div>
       </div>
       <div class="media" id="media"></div>
+      </div>
     </div>
   </section>
 
@@ -113,11 +117,11 @@
   <section class="page" id="p-x" hidden><div class="wrap lg" id="legacy"></div></section>
 </div>
 
-<div class="ask edge" id="ask"><div><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><input id="askInput" placeholder="Ask about anything your AI made" aria-label="Ask your AI"><span class="who">Claude Code · your plan</span><button class="btn sm" type="button" data-toast="Your own AI would answer here">Ask</button></div></div>
-<div class="sheet" id="sheet" hidden><div class="box" role="dialog" aria-modal="true" aria-label="Item details"><div class="pic" id="sPic"></div><div class="body"><div style="display:flex;align-items:center"><span class="tag gold" id="sKind"></span><div style="flex:1"></div><button class="round" id="sClose" type="button" aria-label="Close">✕</button></div><h3 id="sTitle"></h3><dl class="kv" id="sKv"></dl><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:24px"><button class="btn sm" type="button" data-toast="The file would open">Open file</button><button class="btn sm line" type="button" data-toast="Its folder would open">Show in folder</button></div></div></div></div>
+<div class="ask edge" id="ask"><div><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><input id="askInput" placeholder="Ask about anything your AI made" aria-label="Ask your AI"><span class="who" id="askWho"></span><button class="btn sm" type="button" id="askGo">Ask</button></div></div>
+<div class="sheet" id="sheet" hidden><div class="box" role="dialog" aria-modal="true" aria-label="Item details"><div class="pic" id="sPic"></div><div class="body"><div style="display:flex;align-items:center"><span class="tag gold" id="sKind"></span><div style="flex:1"></div><button class="round" id="sClose" type="button" aria-label="Close">✕</button></div><h3 id="sTitle"></h3><dl class="kv" id="sKv"></dl><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:24px"><button class="btn sm" type="button" data-mopen="file">Open file</button><button class="btn sm line" type="button" data-mopen="folder">Show in folder</button></div></div></div></div>
 <div class="tmenu" id="tmenu" hidden role="dialog" aria-label="Choose news topics">
   <h3>What do you want news about?</h3>
-  <p>Pick up to three. Your AI reads X for these every morning.</p>
+  <p>Pick up to three. The news is read for these each day, on this computer.</p>
   <div class="tm-list" id="tmList"></div>
   <form class="tm-add" id="tmAdd"><input id="tmInput" maxlength="36" placeholder="Not on the list? Type your own" aria-label="Add your own topic"><button class="btn sm" type="submit">Add</button></form>
   <div class="tm-foot"><span class="grow" id="tmCount"></span><button class="btn sm" type="button" id="tmDone">Done</button></div>
@@ -128,4 +132,9 @@
 <div class="sheet" id="drFold" hidden><div class="cbox" role="dialog" aria-modal="true" aria-labelledby="drFoldT"><div class="cx-head"><div class="sphere" id="drFoldI" style="--glow:rgba(255,154,107,.5);width:44px;height:44px"></div><div class="grow"><div class="eyebrow"><b>Your choice</b></div><h3 id="drFoldT">Choose what the council may read.</h3></div><button class="round" id="drFoldX" type="button" aria-label="Close">✕</button></div><p class="cb-lede">The text in these folders is read on this computer. Short excerpts go to your own AI during a council. Switch any folder off at any time.</p><p class="dr-sugg">Suggested for this question: Decisions and Projects.</p><div id="drFoldRows"></div><p class="cb-note">Never read: passwords, keys, and any file that looks like a secret. Google Drive stays names only.</p><div class="cb-foot"><button class="btn line" type="button" id="drFoldCancel">Cancel</button><button class="btn" type="button" id="drFoldSave">Save my choice</button></div></div></div>
 <div class="sheet" id="drRep" hidden><div class="dr-repbox" role="dialog" aria-modal="true" aria-label="The report"><div class="dr-reph"><div class="grow"><div class="eyebrow"><b>The report</b> &nbsp;·&nbsp; PDF</div><b>Raise Platewise Pro from $49 to $69?</b></div><button class="btn sm line" type="button" data-toast="The PDF would be saved to your Downloads folder">Download PDF</button><button class="round" id="drRepX" type="button" aria-label="Close">✕</button></div><div class="dr-repp" id="drRepP"></div></div></div>
 <!-- DR-SHEETS-END -->
+<div class="sheet" id="gsheet" hidden><form class="cbox" id="gsForm" role="dialog" aria-modal="true" aria-labelledby="gsT"><div class="cx-head"><div class="sphere" id="gsI"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/></svg></div><div class="grow"><div class="eyebrow" id="gsE"></div><h3 id="gsT"></h3></div><button class="round" id="gsX" type="button" aria-label="Close">✕</button></div>
+  <label class="fld"><span>The goal</span><input id="gsTitle" maxlength="90" placeholder="For example: Send all invoices" autocomplete="off"></label>
+  <label class="fld"><span>How far along <b class="num" id="gsPv">0%</b></span><input id="gsP" type="range" min="0" max="100" step="5" value="0"></label>
+  <label class="fld" id="gsFeedW"><span>Feeds this goal on the level above</span><select id="gsFeed"></select></label>
+  <div class="cb-foot"><button class="btn sm line" type="button" id="gsDel">Remove</button><span class="grow"></span><button class="btn sm line" type="button" id="gsCancel">Cancel</button><button class="btn sm" type="submit">Save</button></div></form></div>
 <div class="toast" id="toast" role="status"></div>

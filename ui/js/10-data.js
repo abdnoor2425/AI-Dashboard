@@ -1,15 +1,21 @@
-/* ---------- shared sample content ---------- */
-const BRIEF=[
- {k:'Money',s:'Stripe',v:'$18,420',t:'Revenue this month, 12% ahead of October.',icon:'money',glow:'rgba(235,197,124,.45)',href:'#money',act:'Open Money',viz:'<svg viewBox="0 0 160 40" preserveAspectRatio="none"><path d="M0 34 L20 30 40 31 60 22 80 25 100 15 120 17 140 8 160 5" fill="none" style="stroke:var(--gold)" stroke-width="1.8" vector-effect="non-scaling-stroke"/><path d="M0 34 L20 30 40 31 60 22 80 25 100 15 120 17 140 8 160 5 V40 H0z" style="fill:rgba(var(--gold-rgb),.14)"/></svg>'},
- {k:'Needs you',s:'Stripe',v:'2 failed',t:'Payments worth $1,150. Both cards expired.',icon:'needs',glow:'rgba(255,122,122,.45)',href:'#money',act:'See the two payments',viz:'<div class="rowz"><div><span>Harbor Coffee</span><span>$750</span></div><div><span>Fernway Studio</span><span>$400</span></div></div>'},
- {k:'Team',s:'Linear',v:'3 scripts',t:'Kenneth finished the Harbor reels. Sign off by Wednesday.',icon:'team',glow:'rgba(95,224,176,.4)',href:'#overview',act:'Review the scripts',viz:'<div class="pips">'+'<i class="d"></i>'.repeat(6)+'<i></i>'.repeat(3)+'</div>'},
- {k:'Growth',s:'Analytics',v:'+18%',t:'Platewise visits after Thursday\'s post. Leads followed.',icon:'web',glow:'rgba(138,212,255,.45)',href:'#overview',act:'See the post',viz:[.4,.45,.42,.5,.48,.62,.8].map((x,i)=>`<i class="bar${i===6?' hi':''}" style="height:${x*100}%"></i>`).join('')},
- {k:'AI news',s:'From X',v:'20 sec',t:'Video clips from one prompt. Useful for your reels team.',icon:'spark',glow:'rgba(185,162,255,.45)',href:'#news',act:'Read the story',viz:'<i class="fr"></i>'.repeat(5)}];
-const SINCE=[['+$1,240','came in through Stripe','up'],['3 scripts','finished by Kenneth',''],['14 things','made by your AIs','']];
-const NEEDS=[['Two failed payments, $1,150','Stripe · overnight · both cards expired','Money','hot'],['Sign off three Harbor reel scripts','Linear · from Kenneth · due Wednesday','Approve',''],['Leo asked about holiday dates again','Gmail · waiting 4 days','Reply','hot'],['Northline domain renews tomorrow','Gmail · confirm the card on file','Check',''],['Set this week\'s three goals','Goals · your AI drafted three','2 min','ok']];
-const REV=[['Dec',14.2],['Jan',13.6],['Feb',14.9],['Mar',15.8],['Apr',15.2],['May',16.9],['Jun',17.6],['Jul',17.1],['Aug',18.8],['Sep',20.3],['Oct',21.9],['Nov',18.42]],PACE=24,RMAX=26;
-const GOALS=[
- {k:'Quarter',sub:'Q4 2026',p:64,head:'Reach $30k monthly recurring revenue',note:'3 goals · the top goal is 64% there',items:[['Reach $30k monthly recurring revenue',64,'Top goal'],['Every client has a winter campaign live',55,''],['Sign a fourth retainer client',30,'']]},
- {k:'Month',sub:'November',p:56,head:'Close November at $24k revenue',note:'3 goals · on pace',items:[['Close November at $24k revenue',77,'Feeds: Reach $30k MRR'],['Ship the Harbor holiday campaign',40,'Feeds: Every client has a winter campaign'],['Two new client conversations',50,'Feeds: Sign a fourth retainer client']]},
- {k:'Week',sub:'16 to 22 November',p:65,head:'Send all November invoices',note:'3 goals · 2 of 3 on track',items:[['Send all November invoices',100,'Feeds: Close November at $24k'],['Approve 9 Harbor reels',44,'Feeds: Ship the Harbor holiday campaign'],['Book 2 discovery calls',50,'Feeds: Two new client conversations']]}];
+/* ---------- live data: one bundle from this computer, read again whenever something changes ---------- */
+const getJSON=async(p,opt)=>{const r=await fetch('/api/'+p,opt);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'That did not work. Try again.');return j};
+const post=(p,body)=>getJSON(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})});
+const NONE={me:{},ga:{state:'off',sites:[],when:'',end:Date.now()},money:{state:'off'},needs:{rows:[],total:0,today:0},news:{state:'off',stories:[],topics:[],all:[]},made:{state:'off',shown:[],perDay:[],ais:[],counts:{},total:0},
+  goals:{state:'empty',levels:[],week:0},clients:{on:[],found:[],skipped:[]},hero:{lede:'',since:[],first:null},brief:{squares:[],seconds:0,real:0}};
+let D=await getJSON('ui').catch(()=>null)||NONE,dataSig='';
+const sigOf=d=>JSON.stringify(Object.assign({},d,{now:0}));
+/* The names the screens read. applyData() fills them from the bundle, at start and after every refresh. */
+let BRIEF=[],SINCE=[],NEEDS=[],REV=[],PACE=0,RMAX=1,GOALS=[],ANY=false,LEDE='';
 const RC=['var(--ice)','var(--violet)','var(--gold)'];
+const short=n=>n>=1e6?(n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,'')+'M':n>=1e4?Math.round(n/1e3)+'k':n>=1e3?(n/1e3).toFixed(1).replace(/\.0$/,'')+'k':String(Math.round(n));
+function applyData(){dataSig=sigOf(D);BRIEF=D.brief.squares;SINCE=D.hero.since;NEEDS=D.needs.rows;LEDE=D.hero.lede;
+  ANY=!!(BOOT.workspace&&BOOT.workspace.tools&&BOOT.workspace.tools.length)||D.ga.state==='ok'||D.money.state==='ok';
+  const M=D.money;REV=M.state==='ok'?M.months:[];PACE=M.state==='ok'&&M.pace?M.pace:0;RMAX=Math.max(1,PACE,...REV.map(m=>m[1]))*1.08;
+  GOALS=D.goals.levels;loadSites()}
+/* Ask for fresh data. The screens are only drawn again when something really changed. */
+let refreshing=null,lastFetch=Date.now();
+function refresh(force){if(refreshing)return refreshing;lastFetch=Date.now();
+  return refreshing=getJSON('ui').then(d=>{refreshing=null;if(!force&&sigOf(d)===dataSig){D=d;return false}D=d;applyData();remount();return true}).catch(()=>{refreshing=null;return false})}
+addEventListener('focus',()=>{if(Date.now()-lastFetch>20000)refresh()});
+setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-lastFetch>120000)refresh()},30000);

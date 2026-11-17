@@ -10,6 +10,8 @@ const LABEL: Record<string, { text: string; tone: string }> = {
   connected: { text: "Connected", tone: "good" }, manual: { text: "Manual", tone: "warn" },
   error: { text: "Needs attention", tone: "bad" }, off: { text: "Not connected", tone: "" }, soon: { text: "Coming later", tone: "" },
 };
+/** Opens Stripe's own page for a new read-only key, with the name and the four read boxes already ticked. */
+const STRIPE_KEY_URL = "https://dashboard.stripe.com/apikeys/create?name=AI-Dashboard" + ["rak_charge_read", "rak_customer_read", "rak_subscription_read", "rak_payout_read"].map((p) => "&permissions%5B%5D=" + p).join("");
 const HOW: Record<string, string> = {
   google: "Click Connect and sign in with Google. Read-only access, and the sign-in stays on this computer.",
   oauth: "Sign in on the tool's own page. The dashboard asks for read-only access.",
@@ -64,15 +66,21 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
       <dl className="facts inset" style={{ padding: 18 }}>
         <div><dt>Gives you</dt><dd>{c.gives}</dd></div>
         <div><dt>Account</dt><dd>{c.account || "None yet"}</dd></div>
-        <div><dt>Access</dt><dd>{c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
-        <div><dt>How it connects</dt><dd>{HOW[c.auth] || HOW.oauth}</dd></div>
+        <div><dt>Access</dt><dd>{c.id === "stripe" ? "Read only. The key can look, and can never move money" : c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
+        <div><dt>How it connects</dt><dd>{c.id === "stripe" ? "Stripe makes you a read-only key in one click, and you paste it here. It is saved on this computer only." : HOW[c.auth] || HOW.oauth}</dd></div>
       </dl>
       {notReady && <p className="t-foot inset" style={{ padding: 18 }}>Google sign-in is not switched on in this copy of the dashboard yet. Download the latest version and it will be.</p>}
       {needsToken && (
         <div className="inset stack" style={{ gap: 12, padding: 18 }}>
           {c.id === "metricool" && <label><span className="t-cap">User ID</span><input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="1234567" inputMode="numeric" autoComplete="off" /></label>}
-          <label><span className="t-cap">Access token</span><input className="input" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Paste the token" autoComplete="off" /></label>
+          {c.id === "stripe" && <>
+            <p className="t-foot"><b>Step 1.</b> Open Stripe and press Create key. The name and the read-only boxes are already filled in.</p>
+            <div><a className="btn" href={STRIPE_KEY_URL} target="_blank" rel="noreferrer">Make the key in Stripe</a></div>
+            <p className="t-foot"><b>Step 2.</b> Copy the key Stripe shows you and paste it below.</p>
+          </>}
+          <label><span className="t-cap">{c.id === "stripe" ? "Read-only key" : "Access token"}</span><input className="input" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={c.id === "stripe" ? "rk_live_…" : "Paste the token"} autoComplete="off" /></label>
           <button className="btn primary lg" disabled={busy || (!app.boot.workspace.sample && !token)} onClick={() => act("connect")}>Connect {c.name}</button>
+          {c.id === "stripe" && <p className="t-foot faint">Only a restricted key is accepted. A full secret key is refused, so the dashboard can never be able to move money.</p>}
           {c.id === "metricool" && <p className="t-foot faint">Metricool only allows this on its Advanced or Custom plan. The token is under Account settings, API, in Metricool.</p>}
         </div>
       )}
