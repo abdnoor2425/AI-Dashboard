@@ -2,6 +2,7 @@
 import { GOOGLE_TOOLS, syncAnalytics, syncCalendar, syncDrive, syncGmail } from "./google.ts";
 import { matchBrands, metricoolBrands, syncBrand } from "./metricool.ts";
 import { syncLinear } from "./linear.ts";
+import { syncStripe } from "./stripe.ts";
 import { saveState } from "./store.ts";
 
 const running = new Set<string>();
@@ -58,6 +59,11 @@ export async function syncWorkspace(ws: any, now = Date.now(), only?: string) {
         s.live = { ...(s.live || {}), social }; s.networks = social.networks.map((n: any) => n.id); done++;
       }
       return `${done} of ${ws.sites.length} brands confirmed`;
+    });
+    await step("stripe", async () => {
+      ws.money = await syncStripe(ws.id, now);
+      const paid = ws.money.payments.filter((p: any) => p.status === "paid").length;
+      return ws.money.daily.length ? `Read only. ${paid} recent payment${paid === 1 ? "" : "s"}, twelve months of totals` : "Read only. No payments in the last twelve months";
     });
     ws.lastSync = now;
     saveState();

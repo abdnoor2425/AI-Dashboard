@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import Link from "next/link";
+import Link from "@/lib/nav";
 import { useApi, useApp } from "@/lib/client";
 import { compact, full } from "@/lib/format";
 import { AreaChart, HBars, Spark } from "@/components/charts";

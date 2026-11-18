@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useApi, useApp } from "@/lib/client";
 import { ago, withUnit } from "@/lib/format";
 import { Spark } from "@/components/charts";
-import Link from "next/link";
+import Link from "@/lib/nav";
 import { Empty, Fold, Icon, Load, Page, SampleTag, SkelCards } from "@/components/ui";
 
 const STATE: Record<string, [string, string]> = { missing: ["Not connected", "warn"], stale: ["Out of date", "warn"], conflicting: ["Sources disagree", "bad"] };

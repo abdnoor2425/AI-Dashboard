@@ -4,12 +4,26 @@ import { api, useApi, useApp } from "@/lib/client";
 import { ago } from "@/lib/format";
 import { Empty, Icon, Load, Mark, Page, SampleTag, Section, SkelCards, SkelRows } from "@/components/ui";
 import { Logo } from "@/components/logos";
-import { AiMark } from "@/components/first-run";
 
 const LABEL: Record<string, { text: string; tone: string }> = {
   connected: { text: "Connected", tone: "good" }, manual: { text: "Manual", tone: "warn" },
   error: { text: "Needs attention", tone: "bad" }, off: { text: "Not connected", tone: "" }, soon: { text: "Coming later", tone: "" },
 };
+/** Opens Stripe's own page for a new read-only key, with the name and the four read boxes already ticked. */
+// Simple marks for each AI. They name the app; they are not the companies' own logos.
+function AiMark({ id }: { id: string }) {
+  const tile = (bg: string, child: React.ReactNode, fg = "#fff") => <span className="ai-tile" style={{ background: bg, color: fg }}>{child}</span>;
+  const rays = <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><g stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">{[0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5].map((a) => <path key={a} d="M12 4.2v15.6" transform={`rotate(${a} 12 12)`} />)}</g></svg>;
+  if (id === "claude-code") return tile("#C8643F", rays);
+  if (id === "claude-app") return tile("#F4E9DC", rays, "#C8643F");
+  if (id === "codex") return tile("#111", <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 7l5 5-5 5M12.5 17H19" /></svg>);
+  if (id === "gemini") return tile("#EEF2FD", <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="ai-gem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#4C8DF6" /><stop offset="1" stopColor="#9B72E8" /></linearGradient></defs><path d="M12 2.5c.9 5.2 4.3 8.6 9.5 9.5-5.2.9-8.6 4.3-9.5 9.5-.9-5.2-4.3-8.6-9.5-9.5 5.2-.9 8.6-4.3 9.5-9.5z" fill="url(#ai-gem)" /></svg>);
+  if (id === "cursor") return tile("#1A1A1A", <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5l12.5 7.2-5.6 1.5-2.7 5.3z" fill="currentColor" /></svg>);
+  if (id === "chatgpt") return tile("#F1F1EF", <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 6.5a2 2 0 012-2h11a2 2 0 012 2v8a2 2 0 01-2 2H11l-4.5 3.5v-3.5a2 2 0 01-2-2z" /></svg>, "#111");
+  return tile("#F1F1EF", <span style={{ fontWeight: 700, fontSize: 17 }}>{(id[0] || "?").toUpperCase()}</span>, "#111");
+}
+
+const STRIPE_KEY_URL = "https://dashboard.stripe.com/apikeys/create?name=AI-Dashboard" + ["rak_charge_read", "rak_customer_read", "rak_subscription_read", "rak_payout_read"].map((p) => "&permissions%5B%5D=" + p).join("");
 const HOW: Record<string, string> = {
   google: "Click Connect and sign in with Google. Read-only access, and the sign-in stays on this computer.",
   oauth: "Sign in on the tool's own page. The dashboard asks for read-only access.",
@@ -64,15 +78,21 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
       <dl className="facts inset" style={{ padding: 18 }}>
         <div><dt>Gives you</dt><dd>{c.gives}</dd></div>
         <div><dt>Account</dt><dd>{c.account || "None yet"}</dd></div>
-        <div><dt>Access</dt><dd>{c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
-        <div><dt>How it connects</dt><dd>{HOW[c.auth] || HOW.oauth}</dd></div>
+        <div><dt>Access</dt><dd>{c.id === "stripe" ? "Read only. The key can look, and can never move money" : c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
+        <div><dt>How it connects</dt><dd>{c.id === "stripe" ? "Stripe makes you a read-only key in one click, and you paste it here. It is saved on this computer only." : HOW[c.auth] || HOW.oauth}</dd></div>
       </dl>
       {notReady && <p className="t-foot inset" style={{ padding: 18 }}>Google sign-in is not switched on in this copy of the dashboard yet. Download the latest version and it will be.</p>}
       {needsToken && (
         <div className="inset stack" style={{ gap: 12, padding: 18 }}>
           {c.id === "metricool" && <label><span className="t-cap">User ID</span><input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="1234567" inputMode="numeric" autoComplete="off" /></label>}
-          <label><span className="t-cap">Access token</span><input className="input" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Paste the token" autoComplete="off" /></label>
+          {c.id === "stripe" && <>
+            <p className="t-foot"><b>Step 1.</b> Open Stripe and press Create key. The name and the read-only boxes are already filled in.</p>
+            <div><a className="btn" href={STRIPE_KEY_URL} target="_blank" rel="noreferrer">Make the key in Stripe</a></div>
+            <p className="t-foot"><b>Step 2.</b> Copy the key Stripe shows you and paste it below.</p>
+          </>}
+          <label><span className="t-cap">{c.id === "stripe" ? "Read-only key" : "Access token"}</span><input className="input" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={c.id === "stripe" ? "rk_live_…" : "Paste the token"} autoComplete="off" /></label>
           <button className="btn primary lg" disabled={busy || (!app.boot.workspace.sample && !token)} onClick={() => act("connect")}>Connect {c.name}</button>
+          {c.id === "stripe" && <p className="t-foot faint">Only a restricted key is accepted. A full secret key is refused, so the dashboard can never be able to move money.</p>}
           {c.id === "metricool" && <p className="t-foot faint">Metricool only allows this on its Advanced or Custom plan. The token is under Account settings, API, in Metricool.</p>}
         </div>
       )}
@@ -121,7 +141,7 @@ function AiCard() {
       <div className="flex items-start gap-3">
         <span className="tint" style={{ width: 48, height: 48, borderRadius: 15 }}><Icon name="sparkle" size={22} /></span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="flex items-center gap-2 flex-wrap"><h3 className="t-head">Your AI</h3>{q.data && !q.data.preview && <span className={"chip " + (linked ? "good" : "")}>{linked ? `${linked} connected` : "None connected"}</span>}</div>
+          <div className="flex items-center gap-2 flex-wrap"><h3 className="t-head">Your AI</h3>{q.data && !q.data.preview && <span className={"chip " + (linked ? "good" : "")}>{linked ? `${linked} connected` : "None connected"}</span>}<a className="btn sm" href="#scan" style={{ marginLeft: "auto" }}>Scan for AI</a></div>
           <p className="muted" style={{ marginTop: 4, maxWidth: "62ch" }}>Ask about your business in plain words, using the AI plan you already pay for. No API keys. Your AI can only read the dashboard.</p>
         </div>
       </div>
@@ -139,7 +159,7 @@ function AiCard() {
               <span className="flex gap-2 items-center flex-wrap justify-end">
                 {a.connected && a.answers && (answerWith === a.id ? <span className="chip accent">Answers here</span> : <button className="btn sm plain" onClick={() => pick(a)}>Answer here</button>)}
                 {a.kind === "cloud" ? <span className="chip">Not yet</span>
-                  : !a.installed ? <a className="btn sm" href={a.getUrl} target="_blank" rel="noreferrer">Get it</a>
+                  : !a.installed ? (a.getUrl ? <a className="btn sm" href={a.getUrl} target="_blank" rel="noreferrer">Get it</a> : <span className="chip">Not on this computer</span>)
                   : a.connected ? <button className="btn sm" disabled={busy === a.id} onClick={() => act(a, "disconnect")}>Disconnect</button>
                   : <button className="btn sm primary" disabled={busy === a.id} onClick={() => act(a, "connect")}>{busy === a.id ? "Connecting…" : "Connect"}</button>}
               </span>
@@ -147,7 +167,7 @@ function AiCard() {
           ))}
         </div>
       )}
-      <p className="t-foot faint" style={{ marginTop: 12 }}>After connecting, try asking your AI: "What needs my attention today?" ChatGPT and Grok run in the cloud, so they can't reach a dashboard on your computer yet.</p>
+      <p className="t-foot faint" style={{ marginTop: 12 }}>After connecting, try asking your AI: "What needs my attention today?" ChatGPT runs in the cloud, so it can&apos;t reach a dashboard on your computer yet. Grok works once its command-line app is on this computer.</p>
     </div>
   );
 }

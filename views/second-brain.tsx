@@ -2,8 +2,8 @@
 // Second Brain: your WorkOS, drawn. A WorkOS is folders of projects; inside each project are its files and their connections.
 // "/second-brain" is the globe. "/second-brain/edit" is where a WorkOS or extra project folders are added and removed.
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "@/lib/nav";
+import { usePathname } from "@/lib/nav";
 import { api, useApi, useApp } from "@/lib/client";
 import { Empty, Icon, Load, Page, SampleTag, Section, Segmented, Skel, SkelRows } from "@/components/ui";
 import { Globe, type GlobeHandle } from "@/components/brain-globe";

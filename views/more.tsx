@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import Link from "next/link";
+import Link from "@/lib/nav";
 import { api, useApi, useApp } from "@/lib/client";
 import { ago, clock, compact, dateShort, dayName } from "@/lib/format";
 import { DAY, startOfDay } from "@/lib/rand";

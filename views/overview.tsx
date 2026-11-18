@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/lib/nav";
+import { useRouter } from "@/lib/nav";
 import { useApi, useApp } from "@/lib/client";
 import { compact, dateLong, full, pctText } from "@/lib/format";
 import { AttentionRow } from "@/components/attention";

@@ -37,7 +37,9 @@ Every page has its own address and its own endpoint, and the important parts als
 | Reel scores | `/reels` | `/api/reels` |
 | Goals | `/goals` | `/api/goals` |
 | Metrics | `/metrics` | `/api/metrics` |
-| Decision Room | `/decisions` | `/api/decisions` |
+| Decision Room (a council on your own AI, with sources and a PDF report) | `/#room` | `/api/room` |
+| Money (Stripe), AI news, AI made | `/#money`, `/#news`, `/#made` | `/api/ui`, `/api/news`, `/api/made` |
+| Scan for AI | `/#scan` | `/api/ai/agents` |
 | Clients | `/clients` | `/api/clients` |
 | Inbox, Calendar, Files | `/inbox`, `/calendar`, `/files` | same names |
 | Outputs, Skills, Suggestions, AI usage | `/outputs`, `/skills`, `/suggestions`, `/usage` | same names |
@@ -89,6 +91,9 @@ Being straight about this matters more than looking finished:
 
 - Tested here: the whole app on sample data, the ranking rules, saving to disk, workspaces, the Claude Code link and the MCP server.
 - **Not yet tested against live accounts:** the Google, Metricool and Linear connectors. They are written from each service's public documentation. The Metricool analytics calls are the least certain. If a call fails, the tool shows "Needs attention" with the reason, and nothing is made up to fill the gap.
+- The Decision Room ran whole councils on Claude Code. Codex, Gemini CLI and Grok use the same steps but have not been run on a real install. The PDF needs Chrome or Edge on the computer.
+- Stripe takes one read-only key (it starts with `rk_`) and has not been tried on a live account. AI news reads public feeds, not X.
+- The first run (welcome, sign-in, tools, Scan for AI, profile) was walked through on a new install. A real Google sign-in was not completed.
 - Not built yet: Slack, and importing a reel scorecard sheet. Both show as "Coming later". In a real workspace the Reel scores page stays empty until then.
 - The reel scorecard checks in the sample data are placeholders. Swap in your own scorecard's names.
 
@@ -142,10 +147,10 @@ A workspace is one business with its own data, connections, colours and ranking 
 ```bash
 npm run dev      # the app with live reload
 npm test         # ranking, isolation and endpoint tests
-npm run preview  # one self-contained HTML file with sample data, in preview/keystone.html
 ```
 
-- `lib/api.ts` is one router used by the server, the MCP server and the preview, so they can never drift apart.
+- `lib/api.ts` is one router used by the server and the MCP server, so they can never drift apart.
+- `ui/` is the look: `ui/shell.html` is the frame, `ui/css` the styles and `ui/js` the screens, served as one script by `app/ui/app.js`. Pages that keep their own React view live in `views/` and are styled by `app/legacy.css`.
 - `lib/scoring.ts` is the ranking. `lib/sample.ts` is the template and the sample data.
 - `lib/server/` holds the parts that only run on the laptop: storage, sign-ins, sync and the AI link.
 - `views/` has one file per page. `components/` has the shell, charts and shared pieces.
@@ -156,6 +161,9 @@ Stack: Next.js, React, Tailwind CSS. No database: one JSON file.
 ## License
 
 MIT
+
+The Decision Room follows the council idea and scoring of [roast-room](https://github.com/nateherkai/roast-room) (MIT, AI Automation Society), and uses its portraits. See `public/portraits/NOTICE.md`. The seats are AI simulations, not the people.
+
 ## Second Brain
 
 The Second Brain draws your WorkOS as a globe. A WorkOS is a folder of projects: every folder inside it becomes a project, with its files and the connections between them.

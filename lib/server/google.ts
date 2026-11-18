@@ -111,19 +111,23 @@ export async function syncAnalytics(wsId: string, existing: any[]) {
     const old = existing.find((s) => s.id === id) || {};
     const run = (b: any) => g(wsId, `https://analyticsdata.googleapis.com/v1beta/${p.property}:runReport`, b);
     try {
-      const [daily, src, pages, streams] = await Promise.all([
-        run({ dateRanges: [{ startDate: "180daysAgo", endDate: "today" }], dimensions: [{ name: "date" }], metrics: [{ name: "activeUsers" }, { name: "keyEvents" }], limit: 400 }),
+      const [daily, src, pages, streams, eng] = await Promise.all([
+        run({ dateRanges: [{ startDate: "180daysAgo", endDate: "today" }], dimensions: [{ name: "date" }], metrics: [{ name: "activeUsers" }, { name: "keyEvents" }, { name: "sessions" }], limit: 400 }),
         run({ dateRanges: [{ startDate: "28daysAgo", endDate: "today" }], dimensions: [{ name: "sessionDefaultChannelGroup" }], metrics: [{ name: "activeUsers" }], limit: 12 }),
         run({ dateRanges: [{ startDate: "28daysAgo", endDate: "today" }], dimensions: [{ name: "pagePath" }], metrics: [{ name: "activeUsers" }], orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: 5 }),
         g(wsId, `https://analyticsadmin.googleapis.com/v1beta/${p.property}/dataStreams`).catch(() => ({})),
+        // Engagement and time on site: the last 28 days next to the 28 before. An extra, so a failure here never drops the website.
+        run({ dateRanges: [{ startDate: "28daysAgo", endDate: "today" }, { startDate: "56daysAgo", endDate: "29daysAgo" }], metrics: [{ name: "engagementRate" }, { name: "averageSessionDuration" }, { name: "sessions" }] }).catch(() => null),
       ]);
+      const span = engagement(eng);
       const uri = (streams.dataStreams || []).map((s: any) => s.webStreamData?.defaultUri).find(Boolean) || "";
       sites.push({
         id, name: p.displayName, domain: uri.replace(/^https?:\/\//, "").replace(/\/$/, "") || p.displayName, kind: "Website", color: old.color || PALETTE[(i + (hash(id) % 3)) % PALETTE.length],
         gaProperty: p.property, networks: old.networks || [], metricoolBrand: old.metricoolBrand || { id: "", name: "", matched: false, confirmed: false },
         live: {
           ...(old.live || {}),
-          daily: rows(daily).map((r: any) => ({ t: Date.UTC(+r.d[0].slice(0, 4), +r.d[0].slice(4, 6) - 1, +r.d[0].slice(6, 8)) + DAY / 2, visitors: r.m[0], leads: r.m[1] })),
+          daily: rows(daily).map((r: any) => ({ t: Date.UTC(+r.d[0].slice(0, 4), +r.d[0].slice(4, 6) - 1, +r.d[0].slice(6, 8)) + DAY / 2, visitors: r.m[0], leads: r.m[1], sessions: r.m[2] ?? null })),
+          ...(span ? { engagement: span.engagement, time: span.time } : {}),
           sources: rows(src).map((r: any) => ({ name: r.d[0], visitors: r.m[0] })),
           pages: rows(pages).map((r: any) => ({ path: r.d[0], visitors: r.m[0] })),
         },
@@ -131,6 +135,37 @@ export async function syncAnalytics(wsId: string, existing: any[]) {
     } catch (e) { if (old.id) sites.push(old); /* keep the last good numbers rather than drop the website */ }
   }
   return sites;
+}
+
+/** Reads the two-period engagement report: rows are tagged date_range_0 (now) and date_range_1 (before). */
+export function engagement(rep: any) {
+  if (!rep?.rows?.length) return null;
+  const at = (n: number) => rep.rows.find((r: any) => (r.dimensionValues || []).some((d: any) => d.value === "date_range_" + n)) || (n === 0 && rep.rows.length === 1 ? rep.rows[0] : null);
+  const num = (r: any, i: number) => (r && Number(r.metricValues?.[2]?.value) > 0 ? Number(r.metricValues?.[i]?.value) || 0 : null);
+  const a = at(0), b = at(1);
+  if (num(a, 0) == null) return null;
+  return { engagement: { rate: num(a, 0) as number, prev: num(b, 0) }, time: { sec: num(a, 1) as number, prev: num(b, 1) } };
+}
+
+/** Who is on the websites right now: Google's count for the last 30 minutes, minute by minute, and the busiest page. */
+export async function realtime(wsId: string, properties: string[]) {
+  const minutes = Array.from({ length: 30 }, () => 0), pages = new Map<string, number>();
+  let n = 0, ok = 0;
+  await Promise.all(properties.slice(0, 12).map(async (p) => {
+    try {
+      const url = `https://analyticsdata.googleapis.com/v1beta/${p}:runRealtimeReport`;
+      const [byMin, byPage] = await Promise.all([
+        g(wsId, url, { dimensions: [{ name: "minutesAgo" }], metrics: [{ name: "activeUsers" }], limit: 40 }),
+        g(wsId, url, { dimensions: [{ name: "unifiedScreenName" }], metrics: [{ name: "activeUsers" }], orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: 3 }),
+      ]);
+      for (const r of rows(byMin)) { const i = 29 - Number(r.d[0]); if (i >= 0 && i < 30) minutes[i] += r.m[0]; }
+      // The total is Google's own count of different people, not the sum of the minutes.
+      n += Number(byMin.totals?.[0]?.metricValues?.[0]?.value) || Number((await g(wsId, url, { metrics: [{ name: "activeUsers" }] })).rows?.[0]?.metricValues?.[0]?.value) || 0;
+      for (const r of rows(byPage)) pages.set(r.d[0], (pages.get(r.d[0]) || 0) + r.m[0]);
+      ok++;
+    } catch { /* one website not answering leaves the others standing */ }
+  }));
+  return { ok: ok > 0, n, minutes, pages: [...pages].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([path, v]) => ({ path, n: v })), note: ok ? "" : "Google Analytics gave no live reading just now." };
 }
 
 export async function syncCalendar(wsId: string, now: number) {

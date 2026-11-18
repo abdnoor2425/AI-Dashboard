@@ -4,7 +4,7 @@
 // Nothing here is sent anywhere. Delete the folder to start again.
 import fs from "node:fs";
 import path from "node:path";
-import { makeState } from "../sample.ts";
+import { makeState, realConnections } from "../sample.ts";
 import { DAY, startOfDay } from "../rand.ts";
 
 export const HOME = process.env.KEYSTONE_HOME || path.join(process.cwd(), ".keystone");
@@ -39,11 +39,26 @@ function rollSamples(state: any, now: number) {
   return true;
 }
 
+/** A workspace made by an older version gets the tools that were added since, switched off, in their usual place. */
+export function addNewTools(state: any) {
+  let changed = false;
+  for (const ws of Object.values<any>(state.workspaces || {})) {
+    if (ws.sample || !Array.isArray(ws.connections)) continue;
+    const all = realConnections();
+    for (const [i, c] of all.entries()) {
+      if (ws.connections.some((x: any) => x.id === c.id)) continue;
+      const before = all.slice(0, i).reverse().map((p) => ws.connections.findIndex((x: any) => x.id === p.id)).find((n) => n >= 0);
+      ws.connections.splice(before == null ? 0 : before + 1, 0, c); changed = true;
+    }
+  }
+  return changed;
+}
+
 export function loadState(now = Date.now()) {
   if (!cache) {
     const saved = readJson(STATE);
     cache = saved && saved.version === 1 && saved.workspaces ? saved : makeState(now);
-    if (!saved) writeJson(STATE, cache);
+    if (!saved || addNewTools(cache)) writeJson(STATE, cache);
   }
   if (rollSamples(cache, now)) writeJson(STATE, cache);
   return cache;

@@ -3,7 +3,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handle, activeWs } from "@/lib/api";
 import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib/server/store";
-import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, sendMail, signOutGoogle } from "@/lib/server/google";
+import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, realtime, sendMail, signOutGoogle } from "@/lib/server/google";
+import { keyProblem } from "@/lib/server/stripe";
+import { NEWS_EVERY, applyNotes, fallbackSum, fetchStories, keepNotes, notesPrompt } from "@/lib/server/news";
+import { openMade, openPath, readPicture, scanMade } from "@/lib/server/made";
+import * as room from "@/lib/server/room";
+import fs from "node:fs";
 import { linearAlert, linearComment } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
@@ -14,6 +19,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const json = (data: any, status = 200) => NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
+const reading = new Set<string>();
 const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
 /** This server is for the person at this computer only. Refuse anything that arrives under another name or from another site. */
@@ -43,6 +49,18 @@ function snapshot(state: any, scope: string, now: number) {
     today_events: o.today,
     // The Second Brain as an outline: project names, sizes and which projects connect. Never file contents.
     secondBrain: brainSummary(state.active),
+    ...extras(state, now),
+  };
+}
+
+/** Money, the three levels of goals and what the AIs made, in a few lines the AI can read. Only what is really connected. */
+function extras(state: any, now: number) {
+  const u: any = handle(state, { method: "GET", path: "/api/ui", query: {}, now }).data;
+  return {
+    money: u.money.state === "ok" ? { currency: u.money.sym.trim(), thisMonth: Math.round(u.money.total), month: u.money.monthName, changeOnLastMonthPercent: u.money.delta, monthlyRecurring: u.money.mrr, subscriptions: u.money.subs, failedPayments: u.money.failed.map((p: any) => ({ who: p.who, amount: p.amount, why: p.why, on: p.on })), nextPayout: u.money.payout, source: "Stripe, updated " + u.money.when } : "Stripe is not connected.",
+    plan: u.goals.levels.map((l: any) => ({ level: l.k, period: l.sub, goals: l.items.map((i: any) => ({ title: i[0], progressPercent: i[1], note: i[2] })) })),
+    aiMade: u.made.state === "off" ? "Not looked at yet." : { last14Days: u.made.total, pictures: u.made.counts.image, videos: u.made.counts.video, docsAndCode: u.made.counts.other, byAi: u.made.ais, projects: u.made.roots.map((r: any) => r.name).slice(0, 12) },
+    aiNews: u.news.stories.slice(0, 8).map((s: any) => ({ headline: s.head, source: s.name, topic: s.topic })),
   };
 }
 
@@ -85,8 +103,8 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
         for (const c of target.connections) if (GOOGLE_TOOLS.includes(c.id) && c.status !== "off") c.account = done.email;
         markGoogle(target, done.tool, "connected", done.email); saveState(); syncWorkspace(target, Date.now(), done.tool).catch(() => {});
       }
-      return NextResponse.redirect(firstRun ? `${origin}/` : `${origin}/connections?connected=${encodeURIComponent(done.tool)}`);
-    } catch (e: any) { return NextResponse.redirect(`${origin}/${state.firstRun ? "" : "connections"}?problem=${encodeURIComponent(e.message)}`); }
+      return NextResponse.redirect(firstRun ? `${origin}/` : `${origin}/?connected=${encodeURIComponent(done.tool)}#connections`);
+    } catch (e: any) { return NextResponse.redirect(`${origin}/?problem=${encodeURIComponent(e.message)}${state.firstRun ? "" : "#connections"}`); }
   }
 
   // First-run sign-in with Google: name, email and photo only.
@@ -98,7 +116,119 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
 
   if (a === "sync" && post) return json(await syncWorkspace(ws, now, body.only));
 
+  // --- AI news: public feeds, read from this computer; the linked AI then writes the notes in one go ---
+  if (a === "news" && b === "read" && post) {
+    const n = (ws.news ||= {});
+    const topics: string[] = n.topics?.length ? n.topics : ["agents", "marketing", "models"];
+    if (!body.force && n.when && now - n.when < NEWS_EVERY && (n.stories || []).length) return json({ ok: true, fresh: false });
+    if (reading.has(ws.id)) return json({ ok: true, busy: true });
+    reading.add(ws.id);
+    let handed = false;
+    try {
+      const r = await fetchStories(topics, n.custom || [], now);
+      if (r.error) { n.error = r.error; saveState(); return json({ error: r.error }, 502); }
+      n.stories = keepNotes(r.stories, n.stories); n.when = now; n.error = "";
+      const todo = n.stories.filter((s: any) => !s.use?.length);
+      for (const s of todo) s.sum = fallbackSum(s);
+      const st = await ai.status(ws.ai?.provider).catch(() => null);
+      if (st?.provider && todo.length) {
+        const provider = st.provider;
+        n.busy = now; handed = true;
+        const about = { name: ws.name, does: [ws.setup?.about?.role, ...(ws.setup?.goals || [])].filter(Boolean).join(". ").slice(0, 300), sites: (ws.sites || []).map((s: any) => s.name).slice(0, 8) };
+        ai.run(provider, notesPrompt(todo, about, n.custom || []))
+          .then((answer) => { if (applyNotes(n.stories, answer)) { n.ai = provider; logUsage(ws, "AI news: notes on " + todo.length + " stories", provider, Date.now()); } })
+          .catch(() => { /* the stories stay, without the AI's notes */ })
+          .finally(() => { delete n.busy; reading.delete(ws.id); saveState(); });
+      }
+      saveState();
+      return json({ ok: true, stories: n.stories.length, writing: handed });
+    } catch (e: any) { return json({ error: String(e?.message || e).slice(0, 200) }, 500); }
+    finally { if (!handed) reading.delete(ws.id); }
+  }
+
+  // --- AI made: files saved in the folders your AI apps worked in. Looked up on this computer only. ---
+  if (a === "made" && b === "scan" && post) {
+    try { ws.made = scanMade(now); saveState(); return json({ ok: true, found: ws.made.items.length, folders: ws.made.roots.length }); }
+    catch (e: any) { return json({ error: "The folders could not be read: " + String(e?.message || e).slice(0, 160) }, 500); }
+  }
+  if (a === "made" && b === "open" && post) {
+    try { return json(await openMade(ws.made, String(body.id || ""), String(body.how || "folder"))); }
+    catch (e: any) { return json({ error: String(e?.message || e).slice(0, 200) }, 400); }
+  }
+  if (a === "made" && b === "file" && !post) {
+    const pic = readPicture(ws.made, String(query.id || ""));
+    if (!pic) return json({ error: "No such picture" }, 404);
+    return new NextResponse(new Uint8Array(pic.data), { headers: { "content-type": pic.type, "cache-control": "private, max-age=900", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" } });
+  }
+
+  // --- People on the websites right now, from Google Analytics ---
+  if (a === "realtime" && !post) {
+    const off = (note: string) => json({ ok: false, n: 0, minutes: [], pages: [], note });
+    const gaConn = ws.connections.find((x: any) => x.id === "google-analytics");
+    if (ws.sample || gaConn?.status !== "connected") return off("Connect Google Analytics to see who is on your websites right now.");
+    const ids = String(query.sites || "").split(",").filter(Boolean);
+    const props = (ws.sites || []).filter((s: any) => s.gaProperty && (!ids.length || ids.includes(s.id))).map((s: any) => s.gaProperty);
+    if (!props.length) return off("No website to read yet.");
+    return json(await realtime(ws.id, props).catch(() => ({ ok: false, n: 0, minutes: [], pages: [], note: "Google Analytics gave no live reading just now." })));
+  }
+
   // --- The AI link ---
+  // --- Decision Room: a council of AI seats argues one question with the owner's real numbers ---
+  if (a === "room") {
+    try {
+      const ui = () => handle(state, { method: "GET", path: "/api/ui", query: {}, now }).data;
+      const ctx = (): room.Ctx => ({
+        ws, u: ui(), team: (handle(state, { method: "GET", path: "/api/attention", query: { scope: "all" }, now }).data.team || []).map((i: any) => ({ owner: String(i.owner || "").split(" ")[0], due: i.due ?? null })),
+        usage: (task, provider) => { logUsage(ws, task, provider, Date.now()); saveState(); },
+      });
+      if (!b) return json(await room.roomHome(ws, ui(), now));
+      if (b === "access" && post) { const access = room.setAccess(ws, body); saveState(); return json({ ok: true, access }); }
+      if (b === "attach" && post) { const item = await room.attachFile(ws, body.name, body.data); saveState(); return json({ ok: true, item }); }
+      if (b === "detach" && post) { room.dropAttach(ws, String(body.id || "")); saveState(); return json({ ok: true }); }
+      if (b === "start" && post) { const made = await room.startSession(ctx(), body, now); saveState(); return json(made); }
+      const s = room.readSession(ws.id, b);
+      if (!s) return json({ error: "That decision is no longer here." }, 404);
+      if (!c && !post) {
+        // A council that rested because the AI plan ran out carries on by itself once the rest is over.
+        if (s.status === "resting" && s.rest?.until <= now) room.resume(s, ctx());
+        return json(room.viewSession(s, now));
+      }
+      if (c === "report" && !post) {
+        if (!s.verdict) return json({ error: "This decision has no report yet." }, 404);
+        return new NextResponse(room.reportPage(s), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:" } });
+      }
+      if (c === "pdf" && !post) {
+        if (!s.verdict) return json({ error: "This decision has no report yet." }, 404);
+        const file = await room.reportPdf(s);
+        if (!file) return json({ error: "The PDF needs Chrome or Edge on this computer. Open the report and print it to PDF instead." }, 404);
+        const name = "Decision report - " + String(s.report?.short || "decision").replace(/[^\w -]/g, "").trim() + ".pdf";
+        return new NextResponse(fs.readFileSync(file), { headers: { "content-type": "application/pdf", "content-disposition": `${query.inline ? "inline" : "attachment"}; filename="${name}"`, "cache-control": "no-store" } });
+      }
+      if (!post) return json({ error: "No such page." }, 404);
+      if (c === "edit") return json(room.viewSession(room.editSession(s, body), now));
+      if (c === "gather") { room.gather(s, ctx()); return json(room.viewSession(s, now)); }
+      if (c === "run") { room.run(s, ctx()); return json(room.viewSession(s, now)); }
+      if (c === "pause") { room.pause(s); return json(room.viewSession(s, now)); }
+      if (c === "resume") { room.resume(s, ctx()); return json(room.viewSession(s, now)); }
+      if (c === "checkin") { room.checkin(s, String(body.result || "")); return json({ ok: true }); }
+      if (c === "folder") return json(await openPath(room.sessionFolder(s) + "/report.html", "folder"));
+      if (c === "delete") { room.removeSession(ws.id, s.id); return json({ ok: true }); }
+      if (c === "tasks") {
+        if (!s.verdict) return json({ error: "There is no verdict yet." }, 400);
+        if (s.tasks) return json({ ok: true, added: 0, note: "These steps are already in Needs you." });
+        const me = String(ws.setup?.about?.name || ws.owner || "").split(" ")[0];
+        s.verdict.next.forEach((n: any, i: number) => ws.items.push({
+          id: "att-d" + (now + i).toString(36), kind: "decision", title: n.step, nextStep: "From the Decision Room: " + String(s.brief.title).slice(0, 110), scope: null,
+          owner: n.owner === me ? ws.setup?.about?.name || ws.owner : n.owner, waitingOn: n.owner === me ? "me" : "other", due: n.due,
+          sources: [{ tool: "doc", label: "Decision Room" }], evidence: "verified", evidenceNote: "A step from a council verdict. The report holds the reasons.", lastVerified: now, factors: {}, status: "open",
+        }));
+        s.tasks = true; room.saveSession(s); saveState();
+        return json({ ok: true, added: s.verdict.next.length });
+      }
+      return json({ error: "No such action." }, 404);
+    } catch (e: any) { return json({ error: String(e?.message || e).slice(0, 240) }, 400); }
+  }
+
   if (a === "ai" && b === "status") return json(await ai.status(ws.ai?.provider));
   if (a === "ai" && b === "agents") {
     if (post) {
@@ -107,6 +237,9 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       catch (e: any) { return json({ error: String(e?.message || e).slice(0, 240) }, 400); }
     }
     const [agents, st] = await Promise.all([listAgents(), ai.status(ws.ai?.provider)]);
+    // Remembered so the top bar can say the same thing as this list without asking every AI app again.
+    const linkedIds = agents.filter((x) => x.connected).map((x) => x.id);
+    if (JSON.stringify(ws.ai?.linked || null) !== JSON.stringify(linkedIds)) { ws.ai = { ...(ws.ai || {}), linked: linkedIds }; saveState(); }
     const answerWith = Object.entries(ai.PROVIDER_IDS).find(([, p]) => p === st.provider)?.[0] || null;
     return json({ agents, answerWith });
   }
@@ -157,7 +290,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
           if (b === "calendar") ws.modules.calendar = false;
           if (!ws.connections.some((x: any) => GOOGLE_TOOLS.includes(x.id) && x.status !== "off")) await signOutGoogle(ws.id);
         }
-        else { setSecrets(ws.id, { [b]: null }); cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; if (b === "linear") ws.items = ws.items.filter((i: any) => !String(i.id).startsWith("lin-")); if (b === "metricool") ws.sites.forEach((s: any) => { if (s.live) delete s.live.social; s.metricoolBrand = { id: "", name: "", matched: false, confirmed: false }; }); }
+        else { setSecrets(ws.id, { [b]: null }); cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; if (b === "linear") ws.items = ws.items.filter((i: any) => !String(i.id).startsWith("lin-")); if (b === "stripe") delete ws.money; if (b === "metricool") ws.sites.forEach((s: any) => { if (s.live) delete s.live.social; s.metricoolBrand = { id: "", name: "", matched: false, confirmed: false }; }); }
         saveState();
         return json({ ok: true });
       }
@@ -166,7 +299,8 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
         const to = googleAuthUrl(ws.id, origin, b, ws.modules?.mailSend === true);
         return json(to ? { redirect: to } : { needs: "Google sign-in is not switched on in this copy of the dashboard yet." });
       }
-      if (!body.token) return json({ needs: `Paste your ${cn.name} token first.` });
+      if (!body.token) return json({ needs: b === "stripe" ? "Paste your Stripe read-only key first." : `Paste your ${cn.name} token first.` });
+      if (b === "stripe") { const bad = keyProblem(String(body.token)); if (bad) return json({ needs: bad }); }
       if (b === "metricool" && !body.userId) return json({ needs: "Metricool also needs your user ID." });
       setSecrets(ws.id, { [b]: { token: String(body.token).trim(), userId: body.userId ? String(body.userId).trim() : undefined } });
       cn.status = "connected"; cn.account = "Token saved on this computer"; cn.detail = "Fetching for the first time";
@@ -248,6 +382,17 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
     if (body.scope === "workspace" || !ws.sample) dropSecrets(ws.id); else dropSecrets();
   }
   if (a === "bootstrap" && !ws.sample && ws.connections.some((x: any) => x.status === "connected") && now - (ws.lastSync || 0) > 15 * 60000) syncWorkspace(ws, now).catch(() => {});
+
+  // The main screens: one bundle, plus which AI answers on this computer.
+  if ((a === "ui" || a === "bootstrap") && !post) {
+    const st = await ai.status(ws.ai?.provider).catch(() => null);
+    const aiId = st?.provider ? Object.entries(ai.PROVIDER_IDS).find(([, p]) => p === st.provider)?.[0] || "" : "";
+    // "linked" is whether that AI is also connected on Connections. Not known until the list was read once.
+    const linked = st?.provider ? { id: aiId, name: st.provider, linked: Array.isArray(ws.ai?.linked) ? ws.ai.linked.includes(aiId) : null } : null;
+    if (a === "ui") return json(handle(state, { method: "GET", path: "/api/ui", query, body: { ai: linked }, now }).data);
+    const boot = pass();
+    return json({ ...boot.data, ai: linked }, boot.status);
+  }
 
   const res = pass();
   return json(res.data, res.status);

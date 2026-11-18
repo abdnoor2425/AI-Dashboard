@@ -1,10 +1,11 @@
 // The AI link. The dashboard has no API key of its own. It hands the question, plus the numbers already on screen,
-// to the Claude Code or Codex command-line app installed on this computer, which answers using the plan its owner pays for.
+// to the Claude Code, Codex, Gemini or Grok command-line app installed on this computer, which answers using the plan its owner pays for.
 import { findBin, mcpPath, runBin } from "./agents.ts";
 
-export type Provider = "Claude Code" | "Codex" | "Gemini CLI";
-const BINS: [Provider, string][] = [["Claude Code", "claude"], ["Codex", "codex"], ["Gemini CLI", "gemini"]];
-export const PROVIDER_IDS: Record<string, Provider> = { "claude-code": "Claude Code", codex: "Codex", gemini: "Gemini CLI" };
+export type Provider = "Claude Code" | "Codex" | "Gemini CLI" | "Grok";
+const BINS: [Provider, string][] = [["Claude Code", "claude"], ["Codex", "codex"], ["Gemini CLI", "gemini"], ["Grok", "grok"]];
+export const PROVIDER_IDS: Record<string, Provider> = { "claude-code": "Claude Code", codex: "Codex", gemini: "Gemini CLI", grok: "Grok" };
+export const ALL_PROVIDERS: Provider[] = BINS.map(([p]) => p);
 let found: { at: number; providers: Provider[] } | null = null;
 
 export async function detect(): Promise<Provider[]> {
@@ -28,10 +29,26 @@ export async function status(prefer = "auto") {
 export async function run(provider: Provider, prompt: string): Promise<string> {
   const r = provider === "Claude Code" ? await runBin("claude", ["-p", prompt, "--max-turns", "1"], 120000)
     : provider === "Codex" ? await runBin("codex", ["exec", "--skip-git-repo-check", prompt], 120000)
+    : provider === "Grok" ? await runBin("grok", ["-p", prompt], 120000)
     : await runBin("gemini", ["-p", prompt], 120000);
   if (r.code !== 0) throw new Error((r.err || r.out).trim().split("\n")[0] || `${provider} did not answer.`);
   return r.out.trim();
 }
+
+/** A long prompt, such as a council seat with its evidence. It goes in through standard input where the app allows it,
+ *  so it is never cut short by the length limit of a command line. */
+export async function runLong(provider: Provider, prompt: string, timeout = 240000): Promise<string> {
+  const r = provider === "Claude Code" ? await runBin("claude", ["-p", "--max-turns", "1"], timeout, prompt)
+    : provider === "Codex" ? await runBin("codex", ["exec", "--skip-git-repo-check", "-"], timeout, prompt)
+    : provider === "Grok" ? await runBin("grok", ["-p", prompt], timeout)
+    : await runBin("gemini", ["-p", "Do exactly what the text above asks, and reply in the form it asks for."], timeout, prompt);
+  const out = r.out.trim();
+  if (r.code !== 0 || !out) throw new Error((r.err || r.out).trim().split("\n").filter(Boolean).slice(-1)[0]?.slice(0, 300) || `${provider} did not answer.`);
+  return out;
+}
+
+/** True when the AI app refused because the owner's plan has run out for now, so the work should rest, not fail. */
+export const isLimit = (message: string) => /rate.?limit|usage limit|limit reached|quota|too many requests|\b429\b|overloaded|resets? (at|in)|try again (later|in)/i.test(message);
 
 const RULES = `You are the assistant inside a private business dashboard that runs on the owner's computer.
 Answer in plain, calm, short sentences that a busy non-technical owner can act on. No jargon, no markdown headings.
