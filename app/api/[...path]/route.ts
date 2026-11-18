@@ -237,6 +237,9 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       catch (e: any) { return json({ error: String(e?.message || e).slice(0, 240) }, 400); }
     }
     const [agents, st] = await Promise.all([listAgents(), ai.status(ws.ai?.provider)]);
+    // Remembered so the top bar can say the same thing as this list without asking every AI app again.
+    const linkedIds = agents.filter((x) => x.connected).map((x) => x.id);
+    if (JSON.stringify(ws.ai?.linked || null) !== JSON.stringify(linkedIds)) { ws.ai = { ...(ws.ai || {}), linked: linkedIds }; saveState(); }
     const answerWith = Object.entries(ai.PROVIDER_IDS).find(([, p]) => p === st.provider)?.[0] || null;
     return json({ agents, answerWith });
   }
@@ -383,7 +386,9 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   // The main screens: one bundle, plus which AI answers on this computer.
   if ((a === "ui" || a === "bootstrap") && !post) {
     const st = await ai.status(ws.ai?.provider).catch(() => null);
-    const linked = st?.provider ? { id: Object.entries(ai.PROVIDER_IDS).find(([, p]) => p === st.provider)?.[0] || "", name: st.provider } : null;
+    const aiId = st?.provider ? Object.entries(ai.PROVIDER_IDS).find(([, p]) => p === st.provider)?.[0] || "" : "";
+    // "linked" is whether that AI is also connected on Connections. Not known until the list was read once.
+    const linked = st?.provider ? { id: aiId, name: st.provider, linked: Array.isArray(ws.ai?.linked) ? ws.ai.linked.includes(aiId) : null } : null;
     if (a === "ui") return json(handle(state, { method: "GET", path: "/api/ui", query, body: { ai: linked }, now }).data);
     const boot = pass();
     return json({ ...boot.data, ai: linked }, boot.status);

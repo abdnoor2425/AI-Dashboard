@@ -7,7 +7,6 @@ import type { Scope } from "@/lib/client";
 import { growFrom, installMotion, shrinkTo } from "@/lib/motion";
 import { Icon, Mark, Menu, Page } from "./ui";
 import { ItemSheet } from "./attention";
-import { FirstRun } from "./first-run";
 import { VIEWS } from "@/views";
 
 export interface CardSpec { title: string; chip?: string; render: (close: () => void) => React.ReactNode; from: HTMLElement | null }
@@ -183,7 +182,7 @@ export function AppShell({ shell, children }: { shell: string; children: React.R
 
   // First run: a new install opens on the welcome flow, never on a dashboard of examples.
   const firstRun = !!boot?.firstRun;
-  const ready = !!boot && !firstRun;
+  const ready = !!boot;
 
   // The screens are drawn by ui/js. It starts once the frame is on the page, and is told whenever the basics change.
   useEffect(() => {
@@ -234,7 +233,8 @@ export function AppShell({ shell, children }: { shell: string; children: React.R
   }), [boot, scope, scopeLabel, look, dark, title, titleShown, page]);
 
   if (!boot) return <Splash />;
-  if (firstRun) return <App.Provider value={ctx as any}><div className="lg lg-root"><FirstRun boot={boot} reloadBoot={bootQ.reload} /></div></App.Provider>;
+  // The welcome flow is drawn by ui/js in the same frame as the dashboard, so it has the same look. No page of the dashboard is mounted yet.
+  if (firstRun) return <App.Provider value={ctx as any}><div id="obs" dangerouslySetInnerHTML={html} suppressHydrationWarning /></App.Provider>;
 
   const sub = pathname.replace(/^\/+/, "").split("/")[1] || "";
   const legacyPage = page === "brain" && sub === "edit" ? "second-brain" : LEGACY[page] ? page : null;

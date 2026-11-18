@@ -6,13 +6,14 @@ const KEPT={attention:'Needs you',website:'Website',social:'Social and reels',re
 const UNDER={reels:'social',metrics:'more',inbox:'more',calendar:'more',files:'more',skills:'more',suggestions:'more',usage:'more',setup:'more'};
 let here='overview';
 function markNav(){$$('#nav a').forEach(a=>a.dataset.p===(UNDER[here]||here)?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'))}
-function route(){const raw=(location.hash||'#overview').slice(1).split('?')[0].split('/');
+function route(){if(SETUP){$$('.page').forEach(s=>s.hidden=s.id!=='p-setup');document.body.classList.add('is-setup');$('#ask').hidden=true;return}
+  const raw=(location.hash||'#overview').slice(1).split('?')[0].split('/');
   const kept=KEPT[raw[0]]||(raw[0]==='brain'&&raw[1]==='edit'?'Second Brain':'');
   const page=kept?'x':NAMES[raw[0]]?raw[0]:'overview';here=kept?raw[0]:page;
   if(page==='overview'&&(raw[1]==='sites'||raw[1]==='clients')&&raw[1]!==mode)setMode(raw[1]);
   $$('.page').forEach(s=>s.hidden=s.id!=='p-'+page);
   markNav();$('#crumb').textContent=kept||NAMES[page];
-  $('#ask').hidden=page!=='made';$('#tmenu').hidden=true;document.body.classList.toggle('is-brain',page==='brain');document.body.classList.toggle('is-scan',page==='scan');
+  $('#ask').hidden=page!=='made';$('#tmenu').hidden=true;document.body.classList.toggle('is-brain',page==='brain');
   document.body.classList.remove('nav-open');scrollTo(0,0);if(page!=='overview'&&playing)stopBrief();
   if(page==='made'&&fontsDone)buildRing();if(page==='money')drawMoney();if(page==='overview'&&fontsDone)drawRev();if(page==='brain')brainInit();if(page==='room')dRoute(raw[1],raw[2]);else dStop();
   onScroll();if(reduce)frame(performance.now())}
@@ -31,7 +32,7 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(fon
 /* ---------- pointer tilt with glare ---------- */
 if(matchMedia('(hover:hover)').matches&&!reduce){let cur=null;document.addEventListener('pointermove',e=>{const t=e.target.closest&&e.target.closest('.tilt');if(cur&&cur!==t){cur.style.removeProperty('--rx');cur.style.removeProperty('--ry')}if(t){const r=t.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;t.style.setProperty('--rx',((.5-y)*7).toFixed(2)+'deg');t.style.setProperty('--ry',((x-.5)*8).toFixed(2)+'deg');t.style.setProperty('--gx',(x*100)+'%');t.style.setProperty('--gy',(y*100)+'%')}cur=t},{passive:true})}
 
-window.__pv={look:(k,user)=>setLook(LOOKS[k]?k:look,!!user),toast,boot:b=>{BOOT=b||BOOT;drawNav();refresh()},refresh:()=>refresh(),mode:setMode,site:x=>{site=x;drawDeck()},client:openClient,connect:connectClient,detail:openDetail,gx:setGx,scan:scanSet,run:runScan,shape:setShape,card:k=>showCard(ovCard(k)),area:setArea,fold:openFold,file:openFile,still:()=>{still=true;onScroll()},brain:B,dr:{s:DR,render:dRender,skip:dSkip,folders:dFolders,report:dReport,shared:dShared,ev:dEvCard}};
+window.__pv={look:(k,user)=>setLook(LOOKS[k]?k:look,!!user),toast,boot:b=>{if(SETUP)return;BOOT=b||BOOT;drawNav();refresh()},refresh:()=>refresh(),mode:setMode,site:x=>{site=x;drawDeck()},client:openClient,connect:connectClient,detail:openDetail,gx:setGx,scan:scanSet,run:runScan,shape:setShape,card:k=>showCard(ovCard(k)),area:setArea,fold:openFold,file:openFile,still:()=>{still=true;onScroll()},brain:B,dr:{s:DR,get ds(){return DS},render:dRender,skip:dSkip,folders:dFolders,report:dReport,shared:dShared,ev:dEvCard}};
 /* everything that is drawn from the bundle, drawn again when the bundle changes */
 function remount(){drawNav();mountOverview();mountGoals();mountMoney();if(fontsDone)mountMade();askWho();if(typeof brainFresh==='function')brainFresh();if(!$('#p-money').hidden)drawMoney();onScroll()}
 /* the ask bar under AI made: the question goes to the AI linked on this computer, with the numbers already on screen */
@@ -39,6 +40,8 @@ function askWho(){$('#askWho').textContent=D.ai&&D.ai.name?D.ai.name+' · your p
 function askNow(){const q=$('#askInput').value.trim();if(q.length<3)return;const b=$('#askGo');b.disabled=true;b.textContent='Asking';
   post('ai/ask',{question:q}).then(r=>{showCard({small:1,icon:'spark',glow:'--violet',ey:'<b>You asked</b>',title:q,lede:r.answer||'',rows:[],src:[[r.provider&&r.provider!=='rules'?r.provider:'Simple rules','--gold',r.note||'','']],acts:[]})}).catch(e=>toast(e.message)).finally(()=>{b.disabled=false;b.textContent='Ask'})}
 $('#askGo').onclick=askNow;$('#askInput').addEventListener('keydown',e=>{if(e.key==='Enter')askNow()});
-applyData();setLook(look,false);drawNav();mountOverview();mountGoals();mountMoney();askWho();
+/* During the first run no page of the dashboard is drawn: only the welcome steps, over the same moving background. */
+if(SETUP){setLook(look,false);route();requestAnimationFrame(frame)}
+else{applyData();setLook(look,false);drawNav();mountOverview();mountGoals();mountMoney();askWho();
 (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(kick);setTimeout(kick,1800);
-route();requestAnimationFrame(frame);
+route();requestAnimationFrame(frame)}

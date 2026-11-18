@@ -3,7 +3,8 @@ const getJSON=async(p,opt)=>{const r=await fetch('/api/'+p,opt);const j=await r.
 const post=(p,body)=>getJSON(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})});
 const NONE={me:{},ga:{state:'off',sites:[],when:'',end:Date.now()},money:{state:'off'},needs:{rows:[],total:0,today:0},news:{state:'off',stories:[],topics:[],all:[]},made:{state:'off',shown:[],perDay:[],ais:[],counts:{},total:0},
   goals:{state:'empty',levels:[],week:0},clients:{on:[],found:[],skipped:[]},hero:{lede:'',since:[],first:null},brief:{squares:[],seconds:0,real:0}};
-let D=await getJSON('ui').catch(()=>null)||NONE,dataSig='';
+/* During the first run there is nothing of the owner's to show yet, so nothing is fetched. */
+let D=(BOOT.firstRun?null:await getJSON('ui').catch(()=>null))||NONE,dataSig='';
 const sigOf=d=>JSON.stringify(Object.assign({},d,{now:0}));
 /* The names the screens read. applyData() fills them from the bundle, at start and after every refresh. */
 let BRIEF=[],SINCE=[],NEEDS=[],REV=[],PACE=0,RMAX=1,GOALS=[],ANY=false,LEDE='';
@@ -15,7 +16,7 @@ function applyData(){dataSig=sigOf(D);BRIEF=D.brief.squares;SINCE=D.hero.since;N
   GOALS=D.goals.levels;loadSites()}
 /* Ask for fresh data. The screens are only drawn again when something really changed. */
 let refreshing=null,lastFetch=Date.now();
-function refresh(force){if(refreshing)return refreshing;lastFetch=Date.now();
+function refresh(force){if(BOOT.firstRun)return Promise.resolve(false);if(refreshing)return refreshing;lastFetch=Date.now();
   return refreshing=getJSON('ui').then(d=>{refreshing=null;if(!force&&sigOf(d)===dataSig){D=d;return false}D=d;applyData();remount();return true}).catch(()=>{refreshing=null;return false})}
 addEventListener('focus',()=>{if(Date.now()-lastFetch>20000)refresh()});
 setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-lastFetch>120000)refresh()},30000);

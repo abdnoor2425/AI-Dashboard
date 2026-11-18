@@ -80,3 +80,40 @@ button.gcard{text-align:left;position:relative;cursor:pointer;display:block;widt
 .dr-cov>span{margin-top:auto;padding:11px 10px;border-radius:7px;background:#14151A;color:#F5F3EF;font:500 15px/1.05 var(--sans);letter-spacing:-.05em}
 .dr-cov em{display:block;font:500 5.2px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:#EBC57C;margin-bottom:5px;font-style:normal}
 @media(prefers-reduced-motion:reduce){.dr-prog.busy b{animation:none;width:100%;opacity:.5}}
+
+/* ---------- first run: the same glass, orb and radar as the dashboard, with the rail put away ---------- */
+body.is-setup .side,body.is-setup .menu-btn,body.is-setup .crumb,body.is-setup .top [data-act="ask"],body.is-setup #aiChip{display:none!important}
+body.is-setup .main{margin-left:0;padding-bottom:70px}
+.su-brand{display:none;align-items:center;gap:11px;font-weight:600;font-size:16px;letter-spacing:-.03em}
+.su-brand img{width:32px;height:32px;border-radius:10px;box-shadow:0 0 0 1px var(--line-2),0 8px 20px -6px var(--shadow)}
+body.is-setup .su-brand{display:flex}
+#p-setup .wrap{padding-top:34px}
+.su .scan-l{min-width:0}
+.su[data-step="connect"],.su[data-step="profile"],.su[data-step="welcome"]{align-items:start}
+.su[data-step="connect"] .scan-r,.su[data-step="profile"] .scan-r,.su[data-step="welcome"] .scan-r{position:sticky;top:96px}
+.su[data-step="connect"] .title,.su[data-step="profile"] .title{font-size:clamp(34px,3.7vw,52px)}
+.su .btn.lg svg:last-child{margin-left:2px}
+.su-row .sphere{width:38px;height:38px}.su-row .sphere svg{width:16px;height:16px}
+.airow small.bad,.su-ff small.bad{color:var(--bad);white-space:normal}
+.su-tools{margin-top:26px}
+.su-ok{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;color:var(--mint);white-space:nowrap}.su-ok svg{width:15px;height:15px}
+.su-form{margin:2px 0 14px 51px;padding:16px 18px 18px;border-radius:18px;background:rgba(var(--ink),.035);box-shadow:inset 0 0 0 1px var(--line);animation:fadeup .35s both}
+.su-form > .fld:first-child{margin-top:0}.su-form p{font-size:13px;color:var(--text-2);margin:0 0 12px}.su-form p + .btn{margin-bottom:4px}
+.su-ff{display:flex;align-items:center;gap:14px;margin-top:14px}.su-ff small{flex:1;font-size:12px;color:var(--text-3);line-height:1.45}
+.su-path{display:flex;align-items:center;gap:10px}.su-path b{flex:1;min-width:0;font:400 12px var(--mono);color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.su-path .round{width:30px;height:30px;flex:none}.su-path .round svg{width:14px;height:14px}
+.su-dirs{display:grid;gap:2px;max-height:186px;overflow:auto;margin-top:10px;overscroll-behavior:contain}
+.su-dirs button{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-size:13.5px;text-align:left;color:var(--text-2)}
+.su-dirs button:hover{background:rgba(var(--ink),.06);color:var(--text)}.su-dirs svg{width:15px;height:15px;color:var(--gold);flex:none}.su-dirs small{font-size:12.5px;color:var(--text-3);padding:8px 10px}
+.su-fine{font-size:12.5px;color:var(--text-3);margin:22px 0 0;max-width:50ch;line-height:1.5}
+.su-err{font-size:13px;color:var(--bad);margin:16px 0 0;max-width:56ch}
+.su-g svg{width:19px;height:19px}
+.su-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:26px}.su-two .fld{margin-top:0}
+.su-sites{margin-top:24px}.su-sites .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.su-sites small{display:block;font-size:13px;color:var(--text-3);margin-top:10px}
+.su-spin{width:17px;height:17px;border-radius:50%;border:2px solid rgba(var(--ink),.16);border-top-color:var(--gold);animation:spin .8s linear infinite;flex:none}
+.su-bang{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:rgba(255,122,122,.16);color:var(--bad);font-weight:700;font-size:12px;flex:none}
+.scan[data-state="idle"] .rnode.on{opacity:1;transform:translate(-50%,-50%)}.scan[data-state="idle"] .rnode.on span{display:block}
+.radar.big .orbw{width:58%;height:58%}
+@media (max-width:1100px){.su[data-step="connect"] .scan-r,.su[data-step="profile"] .scan-r,.su[data-step="welcome"] .scan-r{position:static}}
+@media (max-width:620px){.su-two{grid-template-columns:1fr}.su-form{margin-left:0}.su-ff{flex-direction:column;align-items:stretch}.su-ff .btn{justify-content:center}}
+@media (prefers-reduced-motion:reduce){.su-form,.su-spin{animation:none}}

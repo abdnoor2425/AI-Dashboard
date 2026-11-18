@@ -14,6 +14,7 @@
 <div class="main">
   <header class="top">
     <button class="ghost menu-btn" id="menuBtn" type="button">Menu</button>
+    <div class="su-brand"><img alt="" src="/icon.svg"><b>AI-Dashboard</b></div>
     <div class="crumb"><span class="hide-sm">AI-Dashboard / </span><b id="crumb">Overview</b><i></i></div>
     <div class="grow"></div>
     <button class="ghost" type="button" data-act="ask" aria-label="Ask your AI"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span class="hide-sm">Ask your AI</span></button>
@@ -108,9 +109,14 @@
   <!-- ===================== SCAN FOR AI (welcome step) ===================== -->
   <section class="page" id="p-scan" hidden>
     <div class="wrap scanw">
-      <div class="pv"><span class="sample">Preview only</span><span class="grow">The welcome step that replaces "Connect your AI". A new user sees it once, during setup.</span><button class="btn sm line" type="button" id="scanReset">Play again</button><a class="btn sm line" href="#overview">Back to the dashboard</a></div>
-      <div class="steps5" aria-label="Setup steps"><span class="done"><i>✓</i><b>Sign in</b></span><hr><span class="done"><i>✓</i><b>Your tools</b></span><hr><span class="cur"><i>3</i><b>Your AI</b></span><hr><span><i>4</i><b>Profile</b></span><hr><span><i>5</i><b>Welcome</b></span></div>
       <div class="panel edge scan" id="scanP" data-state="idle"><div class="scan-l" id="scanL"></div><div class="scan-r"><div class="radar" id="radar"></div></div></div>
+    </div>
+  </section>
+  <!-- ===================== FIRST RUN: shown instead of the dashboard until the owner has set it up ===================== -->
+  <section class="page" id="p-setup" hidden>
+    <div class="wrap scanw">
+      <div class="steps5" id="suSteps" aria-label="Setup steps" hidden></div>
+      <div class="panel edge scan su" id="suP" data-state="idle"><div class="scan-l" id="suL"></div><div class="scan-r"><div class="radar" id="suR"></div></div></div>
     </div>
   </section>
   <!-- ===================== PAGES THAT KEEP THEIR OWN VIEW ===================== -->

@@ -7,7 +7,8 @@ function drawNav(){const mods=(BOOT.workspace&&BOOT.workspace.modules)||{},n=(BO
   $('#nav').innerHTML=rows.map(x=>x.length===1?`<div class="grp">${x[0]}</div>`:`<a href="#${x[0]}" data-p="${x[0]}">${ic(x[2])}${x[1]}${x[0]==='attention'&&n?`<span class="cnt num">${n}</span>`:''}</a>`).join('');
   const w=BOOT.workspace||{},me=String(w.owner||'You').trim()||'You';
   $('#wsName').textContent=w.name||'';$('#meN').textContent=me;$('#meI').textContent=me.charAt(0).toUpperCase();$('#meR').textContent=w.kind==='client'?'Client workspace':'Owner';
-  const ai=BOOT.ai;$('#aiChip').innerHTML=ai&&ai.name?`<span class="dot ok"></span>${esc(ai.name)} connected`:'<span class="dot"></span>Connect your AI';
+  /* The chip says the same thing as Connections: an AI counts once it is connected there. Until then it offers the scan. */
+  const ai=BOOT.ai,chip=$('#aiChip'),on=!!(ai&&ai.name&&ai.linked!==false);chip.href=on?'#connections':'#scan';chip.innerHTML=on?`<span class="dot ok"></span>${esc(ai.name)} connected`:'<span class="dot"></span>Scan for AI';
   if(typeof route==='function'&&navDrawn)markNav();navDrawn=true}
 let navDrawn=false;
 drawNav();

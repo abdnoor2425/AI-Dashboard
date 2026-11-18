@@ -1,18 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The AI-Dashboard mark: the dashboard's orb on black glass, with one gold orbit and the spectrum hairline. -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B3358"/><stop offset="1" stop-color="#0C1A30"/></linearGradient>
-    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3D493"/><stop offset=".55" stop-color="#E0B663"/><stop offset="1" stop-color="#B98A3A"/></linearGradient>
-    <radialGradient id="glow" cx=".5" cy=".58" r=".5"><stop offset="0" stop-color="#E0B663" stop-opacity=".28"/><stop offset="1" stop-color="#E0B663" stop-opacity="0"/></radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1A1B22"/><stop offset="1" stop-color="#050608"/></linearGradient>
+    <linearGradient id="spec" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EBC57C"/><stop offset=".34" stop-color="#FF9A6B"/><stop offset=".66" stop-color="#B9A2FF"/><stop offset="1" stop-color="#8AD4FF"/></linearGradient>
+    <radialGradient id="orb" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#C9D6FF"/><stop offset=".1" stop-color="#6F8BEA"/><stop offset=".34" stop-color="#2B3FA6"/><stop offset=".68" stop-color="#0E1650"/><stop offset="1" stop-color="#04061A"/></radialGradient>
+    <radialGradient id="halo" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="#EBC57C" stop-opacity=".34"/><stop offset="1" stop-color="#EBC57C" stop-opacity="0"/></radialGradient>
+    <radialGradient id="shine" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F6DCA4"/><stop offset="1" stop-color="#C99A4A"/></linearGradient>
+    <clipPath id="front"><rect x="0" y="262" width="512" height="250"/></clipPath>
+    <clipPath id="back"><rect x="0" y="0" width="512" height="262"/></clipPath>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="4"/>
-  <circle cx="256" cy="296" r="200" fill="url(#glow)"/>
-  <g transform="translate(0,-14)">
-  <!-- gauge arc -->
-  <path d="M 106 336 A 150 150 0 0 1 406 336" fill="none" stroke="#F1E6CF" stroke-opacity=".16" stroke-width="30" stroke-linecap="round"/>
-  <path d="M 106 336 A 150 150 0 0 1 344.2 214.6" fill="none" stroke="url(#brass)" stroke-width="30" stroke-linecap="round"/>
-  <!-- AI spark -->
-  <path transform="translate(256 286) scale(.84) translate(-256 -286)" d="M256 196 C 264 262 278 276 336 286 C 278 296 264 310 256 376 C 248 310 234 296 176 286 C 234 276 248 262 256 196 Z" fill="url(#brass)"/>
-  <circle cx="344.2" cy="214.6" r="10" fill="#FFF6E0"/>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <rect x="7" y="7" width="498" height="498" rx="109" fill="none" stroke="url(#spec)" stroke-width="6" stroke-opacity=".85"/>
+  <circle cx="256" cy="256" r="218" fill="url(#halo)"/>
+  <g transform="rotate(-20 256 256)">
+    <ellipse cx="256" cy="262" rx="196" ry="62" fill="none" stroke="url(#gold)" stroke-width="12" stroke-opacity=".55" clip-path="url(#back)"/>
+    <circle cx="256" cy="256" r="132" fill="url(#orb)"/>
+    <circle cx="256" cy="256" r="132" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="3"/>
+    <ellipse cx="256" cy="262" rx="196" ry="62" fill="none" stroke="url(#gold)" stroke-width="14" stroke-linecap="round" clip-path="url(#front)"/>
+    <circle cx="430" cy="290" r="22" fill="#FFF3D6"/>
+    <circle cx="430" cy="290" r="22" fill="none" stroke="#EBC57C" stroke-width="5"/>
   </g>
+  <circle cx="212" cy="196" r="40" fill="url(#shine)" opacity=".85"/>
 </svg>
