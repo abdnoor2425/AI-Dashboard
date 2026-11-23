@@ -130,7 +130,10 @@ export async function refreshSocial(ws: any, home = HOME): Promise<boolean> {
   if ((ws.socialFile && ws.socialFile.at >= f.at) || (ws.socialFileProblem && ws.socialFileProblem.at >= f.at) || (ws.socialFileOff || 0) >= f.at) return false;
   busy.add(ws.id);
   try {
-    ws.socialFile = await readSocial(f.name, fs.readFileSync(f.path), f.at);
+    const read = await readSocial(f.name, fs.readFileSync(f.path), f.at);
+    // The file was removed on the page while it was being read: leave it removed.
+    if ((ws.socialFileOff || 0) >= f.at) return false;
+    ws.socialFile = read;
     delete ws.socialFileProblem;
     const cn = ws.connections?.find((x: any) => x.id === "metricool");
     if (cn && !(cn.status === "connected" && cn.account !== "From a file" && cn.account)) { cn.status = "connected"; cn.account = "From a file"; }
