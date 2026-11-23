@@ -4,6 +4,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { WINDOWS } from "../lib/workos/private.mjs";
+
+// Lets everyone on this computer read a file or folder, and takes that back: file modes on Mac and Linux, the access list on Windows.
+const EVERYONE = "*S-1-1-0";
+const icacls = (...args: string[]) => execFileSync("icacls", args, { stdio: "ignore", windowsHide: true });
+const share = (target: string, mode: number) => (WINDOWS ? icacls(target, "/grant", EVERYONE + ":R") : fs.chmodSync(target, mode));
+const unshare = (target: string, mode: number) => (WINDOWS ? icacls(target, "/remove", EVERYONE) : fs.chmodSync(target, mode));
 
 const root = path.resolve(import.meta.dirname, "..");
 const doctor = (...args: string[]) =>
@@ -31,12 +38,13 @@ test("doctor checks a config, a fresh installation and refuses unsafe directorie
     assert.match(installed.stdout, /PASS {2}Schema +SQLite schema 3/);
     assert.ok(!installed.stdout.includes(secret));
     assert.match(doctor(config, target).stdout, /FAIL {2}Target .* already exists/);
-    fs.chmodSync(target, 0o755);
+    share(target, 0o755);
     const open = doctor(target);
     assert.equal(open.status, 1);
     assert.match(open.stdout, /FAIL {2}Directory/);
-    fs.chmodSync(target, 0o700);
-    fs.chmodSync(path.join(target, "access"), 0o644);
+    unshare(target, 0o700);
+    assert.match(doctor(target).stdout, /PASS {2}Directory/);
+    share(path.join(target, "access"), 0o644);
     assert.match(doctor(target).stdout, /FAIL {2}access/);
     assert.match(doctor(path.join(base, "missing")).stdout, /FAIL {2}Installation/);
   } finally {

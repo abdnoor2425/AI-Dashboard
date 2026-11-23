@@ -1,0 +1,6 @@
+# Text files keep the same line endings on Windows, Mac and Linux, so checksums and scripts match everywhere.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.woff2 binary
+*.sqlite binary
