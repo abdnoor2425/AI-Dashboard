@@ -199,6 +199,27 @@ export async function syncGmail(wsId: string) {
   return out;
 }
 
+/** Emails you sent to one address, looked for in your last 60 sent emails. Only who, subject and time: the sign-in cannot read the body. */
+export async function sentTo(wsId: string, email: string) {
+  const want = email.trim().toLowerCase();
+  const me = getSecrets(wsId).google?.email || "";
+  const list = await g(wsId, "https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=60");
+  const ids: any[] = list.messages || [], out: any[] = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    const got = await Promise.all(ids.slice(i, i + 10).map((m) => g(wsId, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject`).catch(() => null)));
+    for (const d of got) { const row = d && sentRow(d, want, me); if (row) out.push(row); }
+  }
+  return out.sort((x, y) => y.at - x.at);
+}
+
+/** One sent email as the Your team page shows it, or null when it did not go to this address. */
+export function sentRow(d: any, want: string, me = "") {
+  const h = (n: string) => (d.payload?.headers || []).filter((x: any) => String(x.name).toLowerCase() === n).map((x: any) => String(x.value)).join(", ");
+  const to: string[] = (h("to") + ", " + h("cc")).toLowerCase().match(/[^\s<>,;"']+@[^\s<>,;"']+/g) || [];
+  if (!want || !to.includes(want)) return null;
+  return { id: "gm-" + d.id, subject: h("subject") || "(no subject)", at: Number(d.internalDate) || 0, url: `https://mail.google.com/mail/${me ? "?authuser=" + encodeURIComponent(me) : "u/0/"}#all/${d.threadId || d.id}` };
+}
+
 export async function syncDrive(wsId: string) {
   const p = new URLSearchParams({ orderBy: "modifiedTime desc", pageSize: "20", fields: "files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))", q: "trashed = false" });
   const j = await g(wsId, "https://www.googleapis.com/drive/v3/files?" + p);

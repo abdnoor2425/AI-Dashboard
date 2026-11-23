@@ -3,14 +3,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handle, activeWs } from "@/lib/api";
 import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib/server/store";
-import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, realtime, sendMail, signOutGoogle } from "@/lib/server/google";
+import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, realtime, sendMail, sentTo, signOutGoogle } from "@/lib/server/google";
 import { keyProblem } from "@/lib/server/stripe";
 import { NEWS_EVERY, applyNotes, fallbackSum, fetchStories, keepNotes, notesPrompt } from "@/lib/server/news";
 import { openMade, openPath, readPicture, scanMade } from "@/lib/server/made";
 import * as room from "@/lib/server/room";
 import fs from "node:fs";
 import path from "node:path";
-import { linearAlert, linearComment } from "@/lib/server/linear";
+import { linearAlert, linearComment, linearTasksFor } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
 import { connectAgent, disconnectAgent, listAgents } from "@/lib/server/agents";
@@ -125,6 +125,31 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   }
 
   if (a === "sync" && post) return json(await syncWorkspace(ws, now, body.only));
+
+  // Your team: what one person has on their plate. Linear tasks assigned to them and emails you sent them. Read only.
+  if (a === "team" && b && c === "details" && !post) {
+    const team: any[] = Array.isArray(ws.team) ? ws.team : [];
+    const person = team.find((p) => p.id === b);
+    if (!person) return json({ error: "No such person" }, 404);
+    const isOwner = team[0] === person;
+    const on = (id: string) => ws.connections.some((x: any) => x.id === id && x.status === "connected");
+    const email = String(person.email || (isOwner ? ws.setup?.about?.email || "" : "")).trim();
+    const out: any = { person: { id: person.id, name: person.name, role: person.role, email }, isOwner, sample: !!ws.sample, linear: { on: on("linear"), found: true, list: [], error: "" }, email: { on: on("gmail"), hasEmail: !!email, list: [], error: "" }, slack: { on: false } };
+    if (ws.sample) {
+      // The example workspace only has what is already in it: tasks that name this person, and alerts sent to them.
+      const hand: any[] = (handle(state, { method: "GET", path: "/api/team", query: {}, now }).data.handovers || []).filter((h: any) => h.to === person.id);
+      const item = (h: any) => ws.items.find((x: any) => x.id === h.itemId) || {};
+      const theirs = isOwner ? ws.items.filter((x: any) => x.sources?.[0]?.tool === "linear" && x.waitingOn === "me") : hand.filter((h) => h.via === "linear").map(item).filter((x) => x.id);
+      out.linear = { on: true, found: true, error: "", list: theirs.map((i: any) => ({ id: i.id, key: i.sources?.[0]?.ref || "", title: i.title, url: i.sources?.[0]?.url || "", project: i.scopeLabel || "", due: i.due ?? null, doneAt: null, state: i.status === "done" ? "Done" : i.due != null && i.due < now ? "Overdue" : "Open", tone: i.status === "done" ? "good" : i.due != null && i.due < now ? "bad" : "" })) };
+      out.email = { on: true, hasEmail: true, error: "", list: hand.filter((h) => h.via === "alert").map((h: any) => ({ id: h.id, subject: "Please look at: " + h.title, at: h.at, url: "" })) };
+      return json(out);
+    }
+    await Promise.all([
+      out.linear.on && linearTasksFor(ws.id, { name: person.name, email }, isOwner).then((r) => { out.linear.found = r.found; out.linear.list = r.list; }).catch((e: any) => { out.linear.error = String(e?.message || e); }),
+      out.email.on && email && !isOwner && sentTo(ws.id, email).then((l) => { out.email.list = l; }).catch((e: any) => { out.email.error = String(e?.message || e); }),
+    ]);
+    return json(out);
+  }
 
   // --- AI news: public feeds, read from this computer; the linked AI then writes the notes in one go ---
   if (a === "news" && b === "read" && post) {

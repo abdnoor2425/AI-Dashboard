@@ -98,3 +98,25 @@ test("the AI's two sending tools follow the owner's switch, and are off when no 
     assert.ok(!list(home).includes("keystone_comment_on_linear"));
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
+
+test("team details: a Linear task and a sent email are read into plain rows, and only for the right person", async () => {
+  const { taskRow, findUser } = await import("../lib/server/linear.ts");
+  const { sentRow } = await import("../lib/server/google.ts");
+  const now = Date.parse("2026-11-23T10:00:00Z");
+  const late = taskRow({ id: "1", identifier: "Q-1", title: "Fix menu", url: "https://linear.app/x/issue/Q-1", dueDate: "2026-11-20", state: { name: "In Progress", type: "started" } }, now);
+  assert.equal(late.state, "Overdue"); assert.equal(late.tone, "bad"); assert.equal(late.key, "Q-1");
+  const done = taskRow({ id: "2", identifier: "Q-2", title: "Icons", dueDate: "2026-11-01", completedAt: "2026-11-02T10:00:00Z", state: { name: "Done", type: "completed" } }, now);
+  assert.equal(done.state, "Done"); assert.equal(done.tone, "good");
+  assert.equal(taskRow({ id: "3", title: "Later", state: { name: "Todo", type: "unstarted" } }, now).state, "Todo");
+  const users = [{ id: "a", name: "Maya Stone", displayName: "maya", email: "maya@example.com" }, { id: "b", name: "Omar Reed", displayName: "omar", email: "omar@example.com" }];
+  assert.equal(findUser(users, { name: "Someone Else", email: "OMAR@example.com" })?.id, "b");
+  assert.equal(findUser(users, { name: "Maya" })?.id, "a");
+  assert.equal(findUser(users, { name: "Lena" }), undefined);
+  const mail = { id: "m1", threadId: "t1", internalDate: "1700000000000", payload: { headers: [{ name: "To", value: "Maya Stone <Maya@Example.com>, other@example.com" }, { name: "Subject", value: "Launch plan" }] } };
+  const row = sentRow(mail, "maya@example.com", "owner@example.com");
+  assert.equal(row?.subject, "Launch plan");
+  assert.equal(row?.url, "https://mail.google.com/mail/?authuser=owner%40example.com#all/t1");
+  assert.equal(sentRow(mail, "omar@example.com"), null);
+  assert.equal(sentRow(mail, ""), null);
+  assert.equal(sentRow(mail, "aya@example.com"), null);
+});
