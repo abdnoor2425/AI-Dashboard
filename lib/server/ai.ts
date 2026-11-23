@@ -2,9 +2,9 @@
 // to the Claude Code, Codex, Gemini or Grok command-line app installed on this computer, which answers using the plan its owner pays for.
 import { findBin, mcpPath, runBin } from "./agents.ts";
 
-export type Provider = "Claude Code" | "Codex" | "Gemini CLI" | "Grok";
-const BINS: [Provider, string][] = [["Claude Code", "claude"], ["Codex", "codex"], ["Gemini CLI", "gemini"], ["Grok", "grok"]];
-export const PROVIDER_IDS: Record<string, Provider> = { "claude-code": "Claude Code", codex: "Codex", gemini: "Gemini CLI", grok: "Grok" };
+export type Provider = "Claude Code" | "Codex" | "Gemini CLI" | "Grok" | "Hermes";
+const BINS: [Provider, string][] = [["Claude Code", "claude"], ["Codex", "codex"], ["Gemini CLI", "gemini"], ["Grok", "grok"], ["Hermes", "hermes"]];
+export const PROVIDER_IDS: Record<string, Provider> = { "claude-code": "Claude Code", codex: "Codex", gemini: "Gemini CLI", grok: "Grok", hermes: "Hermes" };
 export const ALL_PROVIDERS: Provider[] = BINS.map(([p]) => p);
 let found: { at: number; providers: Provider[] } | null = null;
 
@@ -30,6 +30,7 @@ export async function run(provider: Provider, prompt: string): Promise<string> {
   const r = provider === "Claude Code" ? await runBin("claude", ["-p", prompt, "--max-turns", "1"], 120000)
     : provider === "Codex" ? await runBin("codex", ["exec", "--skip-git-repo-check", prompt], 120000)
     : provider === "Grok" ? await runBin("grok", ["-p", prompt], 120000)
+    : provider === "Hermes" ? await runBin("hermes", ["-z", prompt], 120000)
     : await runBin("gemini", ["-p", prompt], 120000);
   if (r.code !== 0) throw new Error((r.err || r.out).trim().split("\n")[0] || `${provider} did not answer.`);
   return r.out.trim();
@@ -41,6 +42,7 @@ export async function runLong(provider: Provider, prompt: string, timeout = 2400
   const r = provider === "Claude Code" ? await runBin("claude", ["-p", "--max-turns", "1"], timeout, prompt)
     : provider === "Codex" ? await runBin("codex", ["exec", "--skip-git-repo-check", "-"], timeout, prompt)
     : provider === "Grok" ? await runBin("grok", ["-p", prompt], timeout)
+    : provider === "Hermes" ? await runBin("hermes", ["-z", prompt], timeout)
     : await runBin("gemini", ["-p", "Do exactly what the text above asks, and reply in the form it asks for."], timeout, prompt);
   const out = r.out.trim();
   if (r.code !== 0 || !out) throw new Error((r.err || r.out).trim().split("\n").filter(Boolean).slice(-1)[0]?.slice(0, 300) || `${provider} did not answer.`);

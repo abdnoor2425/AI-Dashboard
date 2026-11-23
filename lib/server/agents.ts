@@ -20,11 +20,58 @@ export const serverCommand = () => ({ command: process.execPath, args: [mcpPath(
 /* ---------- Running a command-line app, on Windows too ---------- */
 
 type Bin = { cmd: string; pre: string[] };
+
+/* Where command-line apps live. An app opened from the Dock, the Start menu or at login gets a very short PATH, with none of the
+   folders that Homebrew, npm, nvm, bun and the AI apps' own installers use. So the dashboard looks in all the usual places itself,
+   and asks the person's own shell once for the PATH their terminal has. The same list is given to every AI app it starts,
+   because most of them are Node scripts that need to find `node`. */
+const kids = (dir: string, tail: string[]) => { try { return fs.readdirSync(dir).sort().reverse().map((v) => path.join(dir, v, ...tail)); } catch { return []; } };
+let shellDirs: string[] = [], shellAsked: Promise<void> | null = null;
+export function usualDirs(h = home(), platform = process.platform): string[] {
+  const j = (...p: string[]) => path.join(h, ...p);
+  if (platform === "win32") return [j(".local", "bin"), path.join(appData(), "npm"), j(".bun", "bin"), j(".cargo", "bin"), j("scoop", "shims"), j(".volta", "bin"), path.join(localAppData(), "pnpm"), path.join(localAppData(), "Programs", "hermes"), j(".hermes", "bin"), j(".grok", "bin"), j(".muse", "bin")];
+  return [
+    j(".local", "bin"), j("bin"), "/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin", "/home/linuxbrew/.linuxbrew/bin",
+    j(".npm-global", "bin"), j(".npm-packages", "bin"), j(".npm", "bin"), j(".bun", "bin"), j(".cargo", "bin"), j(".volta", "bin"), j(".deno", "bin"), j(".yarn", "bin"),
+    j("Library", "pnpm"), j(".local", "share", "pnpm"), j(".asdf", "shims"), j(".local", "share", "mise", "shims"), j(".nodenv", "shims"), j(".pyenv", "shims"),
+    j(".claude", "local"), j(".claude", "bin"), j(".codex", "bin"), j(".gemini", "bin"), j(".grok", "bin"), j(".hermes", "bin"), j(".hermes", "hermes-agent", "venv", "bin"), j(".muse", "bin"), j(".meta", "bin"),
+    ...kids(j(".nvm", "versions", "node"), ["bin"]), ...kids(j(".local", "share", "fnm", "node-versions"), ["installation", "bin"]), ...kids(j("Library", "Application Support", "fnm", "node-versions"), ["installation", "bin"]), ...kids(j(".local", "share", "nvm"), ["bin"]),
+    ...kids(j("Library", "Application Support", "Claude", "claude-code"), []), "/Applications/Codex.app/Contents/Resources", "/Applications/Codex.app/Contents/MacOS",
+    "/usr/bin", "/bin", "/usr/sbin", "/sbin",
+  ];
+}
+/** Every folder a command may be in: this process's PATH, the terminal's PATH, Node's own folder and the usual install places. */
+export function searchPath(): string[] {
+  const own = (process.env.PATH || process.env.Path || "").split(path.delimiter);
+  return [...new Set([...own, ...shellDirs, path.dirname(process.execPath), ...usualDirs()].filter(Boolean))];
+}
+/** Asks the person's login shell for its PATH, once. Slow or odd shells are simply skipped. */
+function askShell() {
+  if (win) return Promise.resolve();
+  return (shellAsked ||= new Promise<void>((done) => {
+    let sh = process.env.SHELL || "";
+    try { sh ||= os.userInfo().shell || ""; } catch { /* no shell on record */ }
+    if (!sh || !exists(sh)) sh = mac ? "/bin/zsh" : "/bin/bash";
+    execFile(sh, ["-ilc", 'printf "__AID__%s__AID__" "$PATH"'], { timeout: 6000, cwd: home(), windowsHide: true }, (_e, out) => {
+      const m = String(out || "").match(/__AID__([\s\S]*?)__AID__/);
+      if (m) shellDirs = m[1].split(":").filter((d) => d && path.isAbsolute(d));
+      done();
+    }).stdin?.end();
+  }));
+}
+const runnable = (p: string) => { try { if (!fs.statSync(p).isFile()) return false; if (!win) fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; } };
+/** The first place a command is found, looking through `dirs` in order. */
+export function lookFor(name: string, dirs: string[], windows = win): string[] {
+  const names = windows ? [name + ".exe", name + ".cmd"] : [name];
+  const out: string[] = [];
+  for (const d of dirs) for (const n of names) { const p = path.join(d, n); if (runnable(p)) out.push(p); }
+  return out;
+}
 const cache = new Map<string, { at: number; bin: Bin | null }>();
 
 function run(cmd: string, args: string[], timeout: number, input?: string) {
   return new Promise<{ code: number; out: string; err: string }>((resolve) => {
-    const child = execFile(cmd, args, { timeout, cwd: os.tmpdir(), maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (e: any, stdout, stderr) => {
+    const child = execFile(cmd, args, { timeout, cwd: os.tmpdir(), maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: { ...process.env, PATH: searchPath().join(path.delimiter) } }, (e: any, stdout, stderr) => {
       resolve({ code: e ? (typeof e.code === "number" ? e.code : 1) : 0, out: String(stdout || ""), err: String(stderr || e?.message || "") });
     });
     if (input != null) { child.stdin?.end(input); }
@@ -43,11 +90,8 @@ export async function findBin(name: string): Promise<Bin | null> {
   const hit = cache.get(name);
   // A found app is remembered for a minute; a missing one is looked for again soon, in case it was just installed.
   if (hit && Date.now() - hit.at < (hit.bin ? 60000 : 3000)) return hit.bin;
-  const r = await run(win ? "where" : "which", [name], 5000);
-  const extra = win
-    ? [path.join(home(), ".local", "bin", name + ".exe"), path.join(appData(), "npm", name + ".cmd")]
-    : [path.join(home(), ".local", "bin", name), "/opt/homebrew/bin/" + name, "/usr/local/bin/" + name, path.join(home(), ".npm-global", "bin", name)];
-  const found = [...r.out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean), ...extra.filter(exists)];
+  await askShell();
+  const found = lookFor(name, searchPath());
   let bin: Bin | null = null;
   if (!win) bin = found[0] ? { cmd: found[0], pre: [] } : null;
   else {
@@ -127,24 +171,36 @@ const claudeAppDir = () => (win ? path.join(appData(), "Claude") : mac ? path.jo
 const claudeAppFile = () => path.join(claudeAppDir(), "claude_desktop_config.json");
 const cursorFile = () => path.join(home(), ".cursor", "mcp.json");
 const geminiFile = () => path.join(home(), ".gemini", "settings.json");
+const claudeCodeFile = () => path.join(home(), ".claude.json");
+/** A small file of the dashboard's own that remembers the owner's choice, for AI apps that keep no list of outside tools we can safely write to. */
+const mark = (id: string) => path.join(process.env.KEYSTONE_HOME || path.join(process.cwd(), ".keystone"), id + "-linked");
+const marked = (id: string) => ({
+  connected: async () => exists(mark(id)),
+  connect: async () => { fs.mkdirSync(path.dirname(mark(id)), { recursive: true }); fs.writeFileSync(mark(id), "connected\n"); },
+  disconnect: async () => { try { fs.unlinkSync(mark(id)); } catch { /* nothing to remove */ } },
+});
+/** True when any of these exists. An AI app that was set up leaves its own folder behind, even when its command is somewhere unusual. */
+const any = (...p: string[]) => p.some(exists);
 const grokMark = () => path.join(process.env.KEYSTONE_HOME || path.join(process.cwd(), ".keystone"), "grok-linked");
 
 export const AGENTS: Agent[] = [
   {
     id: "claude-code", name: "Claude Code", kind: "cli", maker: "Anthropic", answers: true, getUrl: "https://docs.claude.com/en/docs/claude-code/setup",
-    installed: async () => !!(await findBin("claude")),
-    connected: async () => (await runBin("claude", ["mcp", "get", SERVER_NAME], 15000).catch(() => ({ code: 1 }))).code === 0,
+    installed: async () => !!(await findBin("claude")) || any(claudeCodeFile(), path.join(home(), ".claude")),
+    connected: async () => jsonHas(claudeCodeFile()) || (!!(await findBin("claude")) && (await runBin("claude", ["mcp", "get", SERVER_NAME], 15000).catch(() => ({ code: 1 }))).code === 0),
     connect: async () => {
       const { command, args } = serverCommand();
+      // Its command could not be found, but its settings are here: the link is written straight into them.
+      if (!(await findBin("claude"))) return jsonAdd(claudeCodeFile(), "Claude Code");
       await runBin("claude", ["mcp", "remove", "--scope", "user", SERVER_NAME], 15000).catch(() => null);
       const r = await runBin("claude", ["mcp", "add", "--scope", "user", SERVER_NAME, "--", command, ...args], 30000);
       if (r.code !== 0) throw new Error("Claude Code did not accept the connection: " + (r.err || r.out).trim().split("\n")[0].slice(0, 160));
     },
-    disconnect: async () => { await runBin("claude", ["mcp", "remove", "--scope", "user", SERVER_NAME], 15000).catch(() => null); },
+    disconnect: async () => { await runBin("claude", ["mcp", "remove", "--scope", "user", SERVER_NAME], 15000).catch(() => null); jsonRemove(claudeCodeFile()); },
   },
   {
     id: "codex", name: "Codex", kind: "cli", maker: "OpenAI", answers: true, getUrl: "https://github.com/openai/codex",
-    installed: async () => !!(await findBin("codex")),
+    installed: async () => !!(await findBin("codex")) || any(path.dirname(codexConfig()), "/Applications/Codex.app"),
     connected: async () => codexHas(),
     connect: async () => codexAdd(),
     disconnect: async () => { try { const f = codexConfig(); fs.writeFileSync(f, tomlStrip(fs.readFileSync(f, "utf8"))); } catch { /* nothing to remove */ } },
@@ -158,7 +214,7 @@ export const AGENTS: Agent[] = [
   },
   {
     id: "gemini", name: "Gemini CLI", kind: "cli", maker: "Google", answers: true, getUrl: "https://github.com/google-gemini/gemini-cli",
-    installed: async () => !!(await findBin("gemini")),
+    installed: async () => !!(await findBin("gemini")) || any(path.join(home(), ".gemini")),
     connected: async () => jsonHas(geminiFile()),
     connect: async () => jsonAdd(geminiFile(), "Gemini CLI"),
     disconnect: async () => jsonRemove(geminiFile()),
@@ -175,11 +231,15 @@ export const AGENTS: Agent[] = [
     // Grok's command-line app answers questions and runs the Decision Room. It keeps no list of outside tools, so there is nothing to write into it:
     // the dashboard remembers the owner's choice in a small file of its own.
     id: "grok", name: "Grok", kind: "cli", maker: "xAI", answers: true, getUrl: "",
-    installed: async () => !!(await findBin("grok")),
+    installed: async () => !!(await findBin("grok")) || any(path.join(home(), ".grok"), "/Applications/Grok.app"),
     connected: async () => exists(grokMark()),
     connect: async () => { fs.mkdirSync(path.dirname(grokMark()), { recursive: true }); fs.writeFileSync(grokMark(), "connected\n"); },
     disconnect: async () => { try { fs.unlinkSync(grokMark()); } catch { /* nothing to remove */ } },
   },
+  // Hermes (Nous Research) answers one question at a time from the command line, so it can answer in the dashboard too.
+  { id: "hermes", name: "Hermes", kind: "cli", maker: "Nous Research", answers: true, getUrl: "https://hermes-agent.nousresearch.com/docs", installed: async () => !!(await findBin("hermes")) || any(path.join(home(), ".hermes"), "/Applications/Hermes.app"), ...marked("hermes") },
+  // Muse Code (Meta) is found and remembered. It does not answer inside the dashboard yet.
+  { id: "muse", name: "Muse Code", kind: "cli", maker: "Meta", answers: false, getUrl: "", installed: async () => !!(await findBin("muse")) || any(path.join(home(), ".muse")), ...marked("muse") },
 ];
 
 function sub(a: Agent, installed: boolean, connected: boolean) {
@@ -188,6 +248,8 @@ function sub(a: Agent, installed: boolean, connected: boolean) {
   if (a.id === "claude-app") return connected ? "Restart the Claude app, then ask about your dashboard in any chat." : "Ask about your dashboard in any Claude chat.";
   if (a.id === "cursor") return "Ask about your dashboard in Cursor's chat.";
   if (a.id === "grok") return "By xAI. Answers in the dashboard and runs the Decision Room.";
+  if (a.id === "hermes") return "By Nous Research. Answers in the dashboard and runs the Decision Room.";
+  if (a.id === "muse") return "By Meta. Found on this computer.";
   return `By ${a.maker}. Answers in the dashboard and in your terminal.`;
 }
 

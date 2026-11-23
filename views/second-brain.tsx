@@ -248,15 +248,53 @@ function Home() {
   );
 }
 
-type Listing = { path: string; name: string; parent: string | null; home: string; folders: { name: string; path: string }[] };
+type Listing = { path: string; name: string; parent: string | null; home: string; files?: number; total?: number; folders: { name: string; path: string; folders?: number | null; files?: number | null }[] };
+type Found = { query: string; partial: boolean; sure?: boolean; results: { name: string; path: string; where: string; folders: number; files: number }[] };
+const many = (n: number, one: string, more: string) => `${n} ${n === 1 ? one : more}`;
 
-/** Step through the folders on this computer and pick one, instead of typing a path. */
+/** Find a folder on this computer: drop it in, search for it by name, or step through the folders. No path to type. */
 function FolderBrowser({ workspaceId, onPick, onClose }: { workspaceId: string; onPick: (path: string) => void; onClose: () => void }) {
   const [at, setAt] = useState("");
+  const [text, setText] = useState("");
+  const [found, setFound] = useState<Found | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [over, setOver] = useState(false);
+  const run = useRef(0);
   const q = useApi<Listing>("brain", { workspaceId, action: "browse", path: at }, { keep: true });
   const d = q.data;
+  const open = (p: string) => { setAt(p); setFound(null); setText(""); setNote(""); };
+  useEffect(() => {
+    const term = text.trim(), my = ++run.current;
+    if (term.length < 2) { setFound(null); setBusy(false); return; }
+    setBusy(true);
+    const t = setTimeout(() => api("brain", { query: { workspaceId, action: "find", q: term } }).then((r) => { if (my === run.current) { setFound(r); setBusy(false); } }, (e) => { if (my === run.current) { setNote(e.message); setBusy(false); } }), 260);
+    return () => clearTimeout(t);
+  }, [text, workspaceId]);
+  // A browser never says where a dropped folder lives, so it is found again by its name and by what is inside it.
+  const drop = async (e: React.DragEvent) => {
+    e.preventDefault(); setOver(false);
+    const item = Array.from(e.dataTransfer.items || []).find((x) => x.kind === "file") as any, entry = item?.webkitGetAsEntry?.();
+    if (!entry?.isDirectory) { setNote("Drop a folder here, not a file."); return; }
+    const inside: string[] = await new Promise((res) => { try { entry.createReader().readEntries((l: any[]) => res(l.map((x) => x.name).filter((n: string) => n[0] !== "." && !n.includes("|")).slice(0, 40)), () => res([])); } catch { res([]); } });
+    const my = ++run.current; setBusy(true); setNote("");
+    try {
+      const r: Found = await api("brain", { query: { workspaceId, action: "find", q: entry.name, has: inside.join("|") } });
+      if (my !== run.current) return;
+      if (r.sure) open(r.results[0].path); else { setFound(r); setNote(r.results.length ? "More than one folder has this name. Pick yours." : ""); }
+    } catch (x: any) { setNote(x.message); }
+    setBusy(false);
+  };
   return (
-    <div className="brain-browse inset">
+    <div className={"brain-browse inset" + (over ? " over" : "")} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={drop}>
+      <div className="brain-drop"><Icon name="files" size={22} /><span><b>Drop a folder here</b><small>or find it by name, or open it from the list</small></span></div>
+      <label className="brain-find"><Icon name="search" size={16} /><input type="search" value={text} onChange={(e) => { setText(e.target.value); setNote(""); }} placeholder="Search your folders, for example WorkOS" aria-label="Search your folders" autoComplete="off" spellCheck={false} /></label>
+      <div aria-live="polite">
+        {busy ? <p className="brain-note"><span className="spinner" />Looking through your folders</p> : note ? <p className="brain-note">{note}</p> : found && !found.results.length ? <p className="brain-note">No folder called “{found.query}” was found. Try a shorter name, or open it from the list below.</p> : null}
+        {!busy && found && found.results.length > 0 && <div className="brain-found">{found.results.map((f) => (
+          <button key={f.path} className="brain-browse-row" onClick={() => open(f.path)}><Icon name="files" size={15} /><span><b>{f.name}</b><small>{f.where}</small></span><em>{many(f.folders, "folder", "folders")} · {many(f.files, "file", "files")}</em></button>
+        ))}</div>}
+      </div>
       <div className="brain-browse-h">
         <button className="btn sm" disabled={!d?.parent} onClick={() => d?.parent && setAt(d.parent)}><span style={{ display: "flex", transform: "rotate(180deg)" }}><Icon name="chevron" size={13} /></span>Up</button>
         <span className="brain-path" style={{ flex: 1, minWidth: 0 }}>{d?.path || "Opening…"}</span>
@@ -264,8 +302,9 @@ function FolderBrowser({ workspaceId, onPick, onClose }: { workspaceId: string; 
         <button className="btn sm primary" disabled={!d} onClick={() => d && onPick(d.path)}>Use this folder</button>
       </div>
       {q.error && !d ? <p className="t-foot" style={{ padding: 14 }}>{q.error}</p> : !d ? <SkelRows n={3} /> : d.folders.length ? (
-        <div className="brain-browse-list">{d.folders.map((f) => <button key={f.path} className="brain-browse-row" onClick={() => setAt(f.path)}><Icon name="files" size={15} /><span>{f.name}</span><Icon name="chevron" size={13} className="chev" /></button>)}</div>
+        <div className="brain-browse-list">{d.folders.map((f) => <button key={f.path} className="brain-browse-row" onClick={() => setAt(f.path)}><Icon name="files" size={15} /><span>{f.name}</span>{f.folders != null && <em>{f.folders ? many(f.folders, "folder", "folders") : f.files ? many(f.files, "file", "files") : "Empty"}</em>}<Icon name="chevron" size={13} className="chev" /></button>)}</div>
       ) : <p className="t-foot" style={{ padding: 14 }}>There are no folders inside this one.</p>}
+      {d && <p className="brain-note" style={{ padding: "0 14px 12px" }}>{d.folders.length ? `${d.name}: ${many(d.total || d.folders.length, "folder", "folders")} inside (${d.folders.slice(0, 5).map((f) => f.name).join(", ")}${d.folders.length > 5 ? " and more" : ""})${d.files ? `, ${many(d.files, "file", "files")}` : ""}.` : `${d.name} has no folders inside.`}</p>}
     </div>
   );
 }

@@ -83,3 +83,26 @@ test("on Windows, an npm command is run through its own script, never a shell", 
   assert.equal(agents.shimScript(shim, "C:\\Users\\Sam\\AppData\\Roaming\\npm\\claude.cmd"), "C:\\Users\\Sam\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\cli.js");
   assert.equal(agents.shimScript("@echo off\r\nnode.exe %*", "C:\\x\\y.cmd"), null);
 });
+
+test("a command is found in the usual install folders even when PATH is nearly empty, as it is for an app opened from the Dock", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "aid-path-"));
+  const nvm = path.join(home, ".nvm", "versions", "node", "v22.1.0", "bin");
+  fs.mkdirSync(nvm, { recursive: true });
+  fs.mkdirSync(path.join(home, ".hermes", "bin"), { recursive: true });
+  fs.writeFileSync(path.join(nvm, "codex"), "#!/bin/sh\n", { mode: 0o755 });
+  fs.writeFileSync(path.join(home, ".hermes", "bin", "hermes"), "#!/bin/sh\n", { mode: 0o755 });
+  fs.writeFileSync(path.join(nvm, "notes.txt"), "not a program", { mode: 0o644 });
+  const dirs = agents.usualDirs(home, "darwin");
+  assert.ok(dirs.includes("/opt/homebrew/bin") && dirs.includes(nvm));
+  if (process.platform !== "win32") {
+    assert.deepEqual(agents.lookFor("codex", dirs, false), [path.join(nvm, "codex")]);
+    assert.deepEqual(agents.lookFor("hermes", dirs, false), [path.join(home, ".hermes", "bin", "hermes")]);
+    assert.deepEqual(agents.lookFor("notes.txt", dirs, false), []);
+  }
+  assert.ok(agents.searchPath().includes(path.dirname(process.execPath)));
+});
+
+test("Hermes and Muse Code are on the list of AI apps", () => {
+  const ids = agents.AGENTS.map((a: any) => a.id);
+  for (const id of ["claude-code", "codex", "gemini", "grok", "hermes", "muse"]) assert.ok(ids.includes(id), id);
+});

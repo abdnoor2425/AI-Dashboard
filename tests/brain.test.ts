@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { brainSummary, browseFolders, changeBrain, dropBrain, getBrain, getBrainNode } from "../lib/server/brain.ts";
+import { brainSummary, browseFolders, findFolders, changeBrain, dropBrain, getBrain, getBrainNode } from "../lib/server/brain.ts";
 
 test("indexes approved folders per workspace and follows explicit references", t => {
   const temp = fs.mkdtempSync(path.join(fs.realpathSync(process.cwd()), "keystone-brain-test-"));
@@ -117,4 +117,25 @@ test("a WorkOS turns each folder into a project, ties projects together, and can
   const listing = browseFolders(root);
   assert.deepEqual(listing.folders.map(f => f.name), ["01 Launch", "Archive", "Brand voice"]);
   assert.equal(listing.parent, temp);
+});
+
+test("a folder is found by name, and a dropped folder by its name and what is inside it", t => {
+  const temp = fs.mkdtempSync(path.join(fs.realpathSync(process.cwd()), "keystone-find-test-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  for (const p of ["Documents/WorkOS/Clients", "Documents/WorkOS/Playbooks", "Old/WorkOS/Drafts", "Documents/Workshop notes", "node_modules/WorkOS", ".hidden/WorkOS"]) fs.mkdirSync(path.join(temp, p), { recursive: true });
+  fs.writeFileSync(path.join(temp, "Documents", "WorkOS", "README.md"), "hello");
+
+  const byName = findFolders("workos", "", temp);
+  assert.deepEqual(byName.results.map(r => r.path).sort(), [path.join(temp, "Documents", "WorkOS"), path.join(temp, "Old", "WorkOS")].sort());
+  const mine = byName.results.find(r => r.path === path.join(temp, "Documents", "WorkOS"))!;
+  assert.deepEqual([mine.folders, mine.files, mine.where], [2, 1, "Documents"]);
+  assert.deepEqual(findFolders("work", "", temp).results.map(r => r.name).sort(), ["WorkOS", "WorkOS", "Workshop notes"]);
+  assert.deepEqual(findFolders("w", "", temp).results, []);
+
+  const dropped = findFolders("WorkOS", "Clients|Playbooks|README.md", temp);
+  assert.equal(dropped.sure, true);
+  assert.equal(dropped.results[0].path, path.join(temp, "Documents", "WorkOS"));
+
+  const listing = browseFolders(path.join(temp, "Documents"));
+  assert.deepEqual(listing.folders.map(f => [f.name, f.folders, f.files]), [["WorkOS", 2, 1], ["Workshop notes", 0, 0]]);
 });
