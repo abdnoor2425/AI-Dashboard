@@ -315,6 +315,8 @@ export function handle(state: State, req: Req): Res {
     }
     if (b === "step") {
       if (!FIRST_RUN_STEPS.includes(body.step)) return bad("No such step.");
+      // Any step can be opened again, in any order. Welcome waits until the profile has a name and a business.
+      if (body.step === "welcome" && (!ws.owner || ws.owner === "You" || !ws.name || ws.name === "My business")) return bad("Fill in your profile first.");
       fr.step = body.step;
       return ok({ step: fr.step }, true);
     }

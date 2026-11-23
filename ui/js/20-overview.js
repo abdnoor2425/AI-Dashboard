@@ -81,7 +81,8 @@ const ccard=(c,i)=>`<article class="ccard tilt" data-connect="${i}"><div class="
 function sugGrid(L,ey,h){return `<div class="sec" id="cgrid">${head(ey,h,`<span class="tag">${L.length} found${SKIPPED.length?` &nbsp;·&nbsp; ${SKIPPED.length} left out`:''}</span>`)}<div class="cgrid rv">${L.map(x=>ccard(x[0],x[1])).join('')}<form class="ccard cadd" id="cAdd"><div class="eyebrow">Not on the list?</div><b>Add a client by name</b><p>Your tools are then searched for their website, tasks, payments and mail.</p><div class="tm-add"><input id="cAddIn" maxlength="40" placeholder="Client name" aria-label="Client name"><button class="btn sm" type="submit">Add</button></div></form></div>
 ${SKIPPED.length?`<p class="note">Left out because you said they are not clients, or they do not look like one: ${SKIPPED.map(esc).join(', ')}.</p>`:''}</div>`}
 
-function orbs(){orbCopies=$$('[data-orb]').map(c=>[c,c.getContext('2d')])}
+/* With motion turned down the picture is drawn once, so a newly made orb asks for one more drawing or it would stay black. */
+function orbs(){orbCopies=$$('[data-orb]').map(c=>[c,c.getContext('2d')]);if(reduce)requestAnimationFrame(frame)}
 function drawDeck(){const host=$('#deck2');if(!host)return;const W=$('#ovWrap');
   const on=CLIENTS.map((c,i)=>i),L=FOUND.map((c,i)=>[c,i]);
   W.dataset.mode=mode;$('#modeSw').dataset.m=mode;$$('#modeSw button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===mode));$('#cCount').textContent=on.length||'';
