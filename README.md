@@ -75,7 +75,7 @@ While the dashboard's Google app is waiting for Google's review, Google shows a 
 
 <details><summary>For maintainers: the built-in Google app</summary>
 
-The dashboard signs in with one Google app, set in `lib/server/google-app.ts`. It is a Google "Desktop app" client, which Google treats as safe to ship inside apps people run themselves. Anyone who prefers their own Google app can set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`. It needs the Google Analytics Admin, Google Analytics Data, Gmail, Drive and Calendar APIs switched on.
+The dashboard signs in with one Google app, set in `lib/server/google-app.ts`. The app's secret is not in this repo. It is held by a small relay (see `relay/README.md`) that adds it when a sign-in is finished and keeps nothing; tokens stay on each person's computer. Anyone who prefers their own Google app can set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`. It needs the Google Analytics Admin, Google Analytics Data, Gmail, Drive and Calendar APIs switched on.
 
 </details>
 

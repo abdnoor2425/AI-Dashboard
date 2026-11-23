@@ -51,6 +51,7 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
   const app = useApp();
   const q = useApi("connections");
   const [busy, setBusy] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   const [token, setToken] = useState(""); const [userId, setUserId] = useState("");
   const c = q.data?.connections.find((x: any) => x.id === id);
   if (!c) return <SkelRows n={3} />;
@@ -62,7 +63,7 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
   const act = async (action: "connect" | "disconnect") => {
     setBusy(true);
     try {
-      const r = await api("connections/" + c.id, { method: "POST", body: { action, token: token || undefined, userId: userId || undefined } });
+      const r = await api("connections/" + c.id, { method: "POST", body: { action, stripeScopesReviewed: reviewed, token: token || undefined, userId: userId || undefined } });
       if (r?.redirect) { window.location.href = r.redirect; return; }
       if (r?.needs) { app.toast(r.needs); return; }
       app.toast(action === "connect" ? `${c.name} connected` : `${c.name} disconnected`); setToken("");
@@ -78,21 +79,22 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
       <dl className="facts inset" style={{ padding: 18 }}>
         <div><dt>Gives you</dt><dd>{c.gives}</dd></div>
         <div><dt>Account</dt><dd>{c.account || "None yet"}</dd></div>
-        <div><dt>Access</dt><dd>{c.id === "stripe" ? "Read only. The key can look, and can never move money" : c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
-        <div><dt>How it connects</dt><dd>{c.id === "stripe" ? "Stripe makes you a read-only key in one click, and you paste it here. It is saved on this computer only." : HOW[c.auth] || HOW.oauth}</dd></div>
+        <div><dt>Access</dt><dd>{c.id === "stripe" ? "Read only. The dashboard only ever reads from Stripe" : c.id === "linear" ? "Reads tickets. Posts only your own comments and alerts" : c.id === "gmail" ? "Read only. Sends alerts only if you allow it" : "Read only"}</dd></div>
+        <div><dt>How it connects</dt><dd>{c.id === "stripe" ? "Stripe makes you a read-only key, you check it and paste it here. It is saved on this computer only." : HOW[c.auth] || HOW.oauth}</dd></div>
       </dl>
       {notReady && <p className="t-foot inset" style={{ padding: 18 }}>Google sign-in is not switched on in this copy of the dashboard yet. Download the latest version and it will be.</p>}
       {needsToken && (
         <div className="inset stack" style={{ gap: 12, padding: 18 }}>
           {c.id === "metricool" && <label><span className="t-cap">User ID</span><input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="1234567" inputMode="numeric" autoComplete="off" /></label>}
           {c.id === "stripe" && <>
-            <p className="t-foot"><b>Step 1.</b> Open Stripe and press Create key. The name and the read-only boxes are already filled in.</p>
+            <p className="t-foot"><b>Step 1.</b> Open Stripe. Check that Charges, Customers, Subscriptions and Payouts say Read and everything else says None, then press Create key.</p>
             <div><a className="btn" href={STRIPE_KEY_URL} target="_blank" rel="noreferrer">Make the key in Stripe</a></div>
             <p className="t-foot"><b>Step 2.</b> Copy the key Stripe shows you and paste it below.</p>
           </>}
           <label><span className="t-cap">{c.id === "stripe" ? "Read-only key" : "Access token"}</span><input className="input" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={c.id === "stripe" ? "rk_live_…" : "Paste the token"} autoComplete="off" /></label>
-          <button className="btn primary lg" disabled={busy || (!app.boot.workspace.sample && !token)} onClick={() => act("connect")}>Connect {c.name}</button>
-          {c.id === "stripe" && <p className="t-foot faint">Only a restricted key is accepted. A full secret key is refused, so the dashboard can never be able to move money.</p>}
+          {c.id === "stripe" && <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} style={{ marginTop: 3 }} /><span>I checked in Stripe that this key is set to <b>Read</b> only.</span></label>}
+          <button className="btn primary lg" disabled={busy || (!app.boot.workspace.sample && (!token || (c.id === "stripe" && !reviewed)))} onClick={() => act("connect")}>Connect {c.name}</button>
+          {c.id === "stripe" && <p className="t-foot faint">Only a restricted key is accepted, and a full secret key is refused. What the key may do is set in Stripe, so check it there.</p>}
           {c.id === "metricool" && <p className="t-foot faint">Metricool only allows this on its Advanced or Custom plan. The token is under Account settings, API, in Metricool.</p>}
         </div>
       )}

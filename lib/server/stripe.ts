@@ -1,5 +1,5 @@
 // Stripe: money that came in, failed payments, subscriptions and the next payout. Read only.
-// The dashboard only accepts a restricted key (it starts with "rk_"), which can read and can never move money.
+// The rk_ prefix identifies the key type. Only Stripe shows the permissions assigned to a key.
 // NOTE: written against Stripe's public API docs and not yet run against a live account.
 import { getSecrets } from "./store.ts";
 import { DAY, startOfDay } from "../rand.ts";
@@ -15,7 +15,7 @@ export const STRIPE_KEY_URL = "https://dashboard.stripe.com/apikeys/create?name=
 /** Says why a pasted key is not acceptable, or null when it looks right. */
 export function keyProblem(token: string) {
   const t = String(token || "").trim();
-  if (/^sk_/.test(t)) return "That is a full secret key, which can move money. For safety the dashboard only takes a restricted read-only key. It starts with rk_.";
+  if (/^sk_/.test(t)) return "That is a full secret key, which can move money. For safety the dashboard requires a restricted key with operator-reviewed read permissions. It starts with rk_.";
   if (/^pk_/.test(t)) return "That is a publishable key, which cannot read payments. Use the restricted read-only key. It starts with rk_.";
   if (!/^rk_(live|test)_[A-Za-z0-9]{10,}$/.test(t)) return "That does not look like a Stripe restricted key. It starts with rk_live_.";
   return null;
@@ -23,12 +23,14 @@ export function keyProblem(token: string) {
 
 type Fetcher = (path: string) => Promise<any>;
 function fetcher(wsId: string): Fetcher {
-  const token = getSecrets(wsId).stripe?.token;
+  const key = getSecrets(wsId).stripe;
+  const token = key?.token;
   if (!token) throw new Error("Stripe is not connected.");
+  if (key.scopesReviewed !== true) throw new Error("Review the existing key permissions in Stripe, then reconnect. The saved key has been retained.");
   const bad = keyProblem(token);
   if (bad) throw new Error(bad);
   return async (path: string) => {
-    const r = await fetch(BASE + path, { headers: { authorization: "Bearer " + token } });
+    const r = await fetch(BASE + path, { method: "GET", redirect: "error", headers: { authorization: "Bearer " + token } });
     const j: any = await r.json().catch(() => ({}));
     if (r.status === 401) throw new Error("Stripe did not accept the key. Make a new restricted key and paste it again.");
     if (r.status === 403) throw new Error("The key is missing a read box. In Stripe, give it Read for Charges, Customers, Subscriptions and Payouts.");
@@ -99,7 +101,7 @@ export async function syncStripe(wsId: string, now: number) {
   const get = fetcher(wsId);
   const from = Math.floor((startOfDay(now) - 366 * DAY) / 1000);
   const charges = await list(get, `/charges?created%5Bgte%5D=${from}&expand%5B%5D=data.customer`, 40);
-  // Subscriptions and payouts are extras: a key without those boxes still shows the money that came in.
-  const [subs, payouts] = await Promise.all([list(get, "/subscriptions?status=all", 5).catch(() => []), list(get, "/payouts", 1).catch(() => [])]);
+  // A denied or failed required read must not become a fabricated empty dataset.
+  const [subs, payouts] = await Promise.all([list(get, "/subscriptions?status=all", 5), list(get, "/payouts", 1)]);
   return shapeMoney(charges, subs, payouts, now, /^rk_test_/.test(getSecrets(wsId).stripe?.token || ""));
 }

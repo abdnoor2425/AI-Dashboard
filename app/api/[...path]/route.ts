@@ -301,8 +301,9 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       }
       if (!body.token) return json({ needs: b === "stripe" ? "Paste your Stripe read-only key first." : `Paste your ${cn.name} token first.` });
       if (b === "stripe") { const bad = keyProblem(String(body.token)); if (bad) return json({ needs: bad }); }
+      if (b === "stripe" && body.stripeScopesReviewed !== true) return json({ needs: "Tick the box to confirm you checked the key is set to Read only in Stripe." });
       if (b === "metricool" && !body.userId) return json({ needs: "Metricool also needs your user ID." });
-      setSecrets(ws.id, { [b]: { token: String(body.token).trim(), userId: body.userId ? String(body.userId).trim() : undefined } });
+      setSecrets(ws.id, { [b]: { token: String(body.token).trim(), userId: body.userId ? String(body.userId).trim() : undefined, ...(b === "stripe" ? { scopesReviewed: true } : {}) } });
       cn.status = "connected"; cn.account = "Token saved on this computer"; cn.detail = "Fetching for the first time";
       // Wait for a sync that is already running, so this key is really checked now.
       for (let i = 0; i < 60 && isSyncing(ws.id); i++) await new Promise((r) => setTimeout(r, 500));
