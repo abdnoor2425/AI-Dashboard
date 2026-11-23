@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BrainError, brainFilePath, brainSummary, browseFolders, changeBrain, getBrain, getBrainNode } from "@/lib/server/brain";
+import { BrainError, brainFilePath, brainSummary, browseFolders, findFolders, changeBrain, getBrain, getBrainNode } from "@/lib/server/brain";
 import { openPath } from "@/lib/server/made";
 import { hasWorkspace, loadState } from "@/lib/server/store";
 
@@ -59,6 +59,7 @@ async function serve(req: NextRequest) {
     if (post) return json(changeBrain(workspaceId, body));
     if (query.get("action") === "node") return json(getBrainNode(workspaceId, query.get("id") || ""));
     if (query.get("action") === "browse") return json(browseFolders(query.get("path")));
+    if (query.get("action") === "find") return json(findFolders(query.get("q"), query.get("has") || ""));
     return json(getBrain(workspaceId));
   } catch (err) {
     if (err instanceof BrainError) return json({ error: err.message }, err.status);

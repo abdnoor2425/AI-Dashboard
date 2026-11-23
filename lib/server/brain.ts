@@ -297,15 +297,55 @@ export function brainSummary(workspaceId: string, home = HOME) {
   };
 }
 
-/** Folders the owner can pick from on the Edit page. Names only, never file contents. */
+/** Folders the owner can pick from. Names and counts only, never file contents. */
+const pickable = (entry: fs.Dirent) => entry.isDirectory() && !EXCLUDED.test(entry.name) && !entry.name.startsWith("$");
+const list = (dir: string) => { try { return fs.readdirSync(dir, { withFileTypes: true }); } catch { return null; } };
 export function browseFolders(value: unknown) {
   const start = typeof value === "string" && value.trim() && path.isAbsolute(value.trim()) && !value.split(/[\\/]/).includes("..") ? path.resolve(value.trim()) : os.homedir();
-  let entries: fs.Dirent[];
-  try { entries = fs.readdirSync(start, { withFileTypes: true }); } catch { throw new BrainError("That folder could not be opened.", 404); }
-  const folders = entries.filter(entry => entry.isDirectory() && !EXCLUDED.test(entry.name) && !entry.name.startsWith("$"))
-    .map(entry => ({ name: entry.name, path: path.join(start, entry.name) })).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 400);
+  const entries = list(start);
+  if (!entries) throw new BrainError("That folder could not be opened.", 404);
+  const all = entries.filter(pickable).sort((a, b) => a.name.localeCompare(b.name));
+  // What is inside each folder, so the right one is easy to recognise before it is chosen.
+  const folders = all.slice(0, 400).map((entry, i) => {
+    const full = path.join(start, entry.name), inside = i < 120 ? list(full) : null;
+    return { name: entry.name, path: full, folders: inside ? inside.filter(pickable).length : null, files: inside ? inside.filter(e => e.isFile() && !e.name.startsWith(".")).length : null };
+  });
   const parent = path.dirname(start);
-  return { path: start, name: path.basename(start) || start, parent: parent === start ? null : parent, home: os.homedir(), folders };
+  return { path: start, name: path.basename(start) || start, parent: parent === start ? null : parent, home: os.homedir(), folders, files: entries.filter(e => e.isFile() && !e.name.startsWith(".")).length, total: all.length };
+}
+
+const SKIP_FIND = /^(?:Library|Applications|AppData|Application Data|Music|Movies|Pictures|Photos|Public|Videos|go|miniconda3|anaconda3|venv|env|target|Pods|DerivedData|snap)$/i;
+/** Finds folders by name anywhere under the home folder. `has` lists names seen inside a folder that was dropped onto the page:
+ *  a browser never says where a dropped folder lives, so it is recognised by its name and what is in it. */
+export function findFolders(query: unknown, has: unknown = "", root = os.homedir(), budgetMs = 1800) {
+  const q = typeof query === "string" ? query.trim().toLowerCase().slice(0, 120) : "";
+  const want = (typeof has === "string" ? has.split("|") : []).map(x => x.trim()).filter(Boolean).slice(0, 40);
+  if (q.length < 2) return { query: q, results: [], partial: false };
+  const until = Date.now() + budgetMs, hits: { name: string; path: string; where: string; score: number; folders: number; files: number }[] = [];
+  let queue: [string, number][] = [[root, 0]], seen = 0, partial = false;
+  while (queue.length) {
+    const next: [string, number][] = [];
+    for (const [dir, depth] of queue) {
+      if (Date.now() > until || seen > 40000) { partial = true; break; }
+      const entries = list(dir); if (!entries) continue;
+      for (const entry of entries) {
+        if (!pickable(entry) || (depth === 0 && SKIP_FIND.test(entry.name)) || entry.isSymbolicLink()) continue;
+        seen++;
+        const full = path.join(dir, entry.name), name = entry.name.toLowerCase();
+        const exact = name === q, rank = exact ? 100 : name.startsWith(q) ? 60 : name.includes(q) ? 30 : 0;
+        if (rank && (!want.length || exact)) {
+          const inside = list(full) || [], names = new Set(inside.map(e => e.name));
+          const match = want.length ? want.filter(w => names.has(w)).length / want.length : 0;
+          if (!want.length || match >= 0.5 || !inside.length) hits.push({ name: entry.name, path: full, where: path.relative(root, dir) || "Home", score: rank + match * 200 - depth * 4, folders: inside.filter(pickable).length, files: inside.filter(e => e.isFile() && !e.name.startsWith(".")).length });
+        }
+        if (depth < 5) next.push([full, depth + 1]);
+      }
+    }
+    if (partial) break;
+    queue = next;
+  }
+  hits.sort((a, b) => b.score - a.score || a.path.length - b.path.length);
+  return { query: q, results: hits.slice(0, 12).map(({ score, ...rest }) => rest), partial, sure: want.length > 0 && hits.length > 0 && (hits.length === 1 || hits[0].score - hits[1].score > 20) };
 }
 
 export function dropBrain(workspaceId: string, home = HOME) {

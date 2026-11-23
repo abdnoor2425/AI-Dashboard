@@ -6,14 +6,14 @@ import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib
 import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, realtime, sendMail, sentTo, signOutGoogle } from "@/lib/server/google";
 import { keyProblem } from "@/lib/server/stripe";
 import { NEWS_EVERY, applyNotes, fallbackSum, fetchStories, keepNotes, notesPrompt } from "@/lib/server/news";
-import { openMade, openPath, readPicture, scanMade } from "@/lib/server/made";
+import { findRoots, openMade, openPath, readPicture, scanMade } from "@/lib/server/made";
 import * as room from "@/lib/server/room";
 import fs from "node:fs";
 import path from "node:path";
 import { linearAlert, linearComment, linearTasksFor } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
-import { connectAgent, disconnectAgent, listAgents } from "@/lib/server/agents";
+import { connectAgent, disconnectAgent, listAgents, scanReport } from "@/lib/server/agents";
 import { brainSummary, dropBrain } from "@/lib/server/brain";
 
 import { requireWorkOSLauncher } from "@/lib/workos/launcher-only";
@@ -267,6 +267,12 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   }
 
   if (a === "ai" && b === "status") return json(await ai.status(ws.ai?.provider));
+  // What the scan can see on this computer: where each AI app was found and which project folders it used. For fixing a scan that misses something.
+  if (a === "ai" && b === "report" && !post) {
+    const roots = findRoots(now - 14 * 86400000), per: Record<string, number> = {};
+    for (const r of roots) per[r.ai] = (per[r.ai] || 0) + 1;
+    return json({ ...(await scanReport()), projectFolders: per });
+  }
   if (a === "ai" && b === "agents") {
     if (post) {
       if (typeof c !== "string" || !c) return json({ error: "Pick an AI app." }, 400);

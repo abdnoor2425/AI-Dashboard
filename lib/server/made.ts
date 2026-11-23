@@ -14,7 +14,9 @@ const safe = <T,>(fn: () => T, or: T): T => { try { return fn(); } catch { retur
 const ls = (dir: string) => safe(() => fs.readdirSync(dir, { withFileTypes: true }), [] as fs.Dirent[]);
 const mtime = (p: string) => safe(() => fs.statSync(p).mtimeMs, 0);
 
-export const cwdIn = (text: string) => { const m = /"cwd"\s*:\s*"((?:[^"\\]|\\.)+)"/.exec(text); return m ? safe(() => JSON.parse('"' + m[1] + '"') as string, "") : ""; };
+// The field that says which folder an AI app was opened in. Each app has its own name for it.
+const CWD = /"(?:cwd|workdir|working_dir|working_directory|workingDirectory|workingDir|project_path|projectPath|project_dir|projectDir|project_root|projectRoot|workspace_path|workspacePath|workspace_root|workspaceRoot|workspace_dir|workspaceDir)"\s*:\s*"((?:[^"\\]|\\.)+)"/;
+export const cwdIn = (text: string) => { const m = CWD.exec(text); return m ? safe(() => JSON.parse('"' + m[1] + '"') as string, "") : ""; };
 /** Looks through a session record for the one field that says which folder the app was opened in, and stops there.
  *  Nothing else in the record is kept or shown. */
 function head(file: string, max = 6 * 1024 * 1024) {
@@ -89,6 +91,33 @@ function geminiRoots(since: number, known: Root[]): Root[] {
   return out;
 }
 
+/** Hermes, Grok, Muse Code and any other command-line AI: each keeps session records in its own folder in the home folder.
+ *  The newest records are looked through for the one field that names the project folder. Nothing else in them is kept.
+ *  Folders where the app saves what it makes (pictures, videos, documents) are taken as they are. */
+const OTHER_AIS: [string, string][] = [["Hermes", ".hermes"], ["Grok", ".grok"], ["Muse Code", ".muse"], ["Gemini CLI", ".gemini"], ["Codex", ".codex"]];
+const MADE_HERE = ["outputs", "output", "artifacts", "generated", "generated_images", "images", "media", "videos", "exports", "workspace", "scratch", path.join("cache", "scratch"), path.join("cache", "images"), path.join("cache", "media")];
+export function otherRoots(since: number, h = home()): Root[] {
+  const out: Root[] = [];
+  for (const [ai, folder] of OTHER_AIS) {
+    const base = ai === "Codex" && process.env.CODEX_HOME ? process.env.CODEX_HOME : path.join(h, folder);
+    if (!safe(() => fs.statSync(base).isDirectory(), false)) continue;
+    const records: [string, number][] = []; let seen = 0;
+    const walk = (dir: string, depth: number) => {
+      for (const d of ls(dir)) {
+        if (seen > 6000) return;
+        const p = path.join(dir, d.name);
+        if (d.isDirectory()) { if (depth < 5 && !/^(node_modules|venv|\.venv|site-packages|bin|lib|skills|plugins|extensions|backups|logs?)$/i.test(d.name)) walk(p, depth + 1); continue; }
+        if (!d.isFile() || !/\.(jsonl|json|ndjson)$/i.test(d.name)) continue;
+        seen++; const at = mtime(p); if (at >= since) records.push([p, at]);
+      }
+    };
+    walk(base, 0);
+    for (const [file, at] of records.sort((a, b) => b[1] - a[1]).slice(0, 200)) { const dir = cwdIn(head(file, 1024 * 1024)); if (dir && path.isAbsolute(dir)) out.push({ dir, ai, at }); }
+    for (const sub of MADE_HERE) { const dir = path.join(base, sub), at = mtime(dir); if (at && safe(() => fs.statSync(dir).isDirectory(), false)) out.push({ dir, ai, at: Math.max(at, since) }); }
+  }
+  return out;
+}
+
 /** Folders that are too broad to be one project, or that are not the owner's work. */
 function tooWide(dir: string) {
   const d = path.resolve(dir), h = path.resolve(home());
@@ -100,7 +129,7 @@ function tooWide(dir: string) {
 
 /** Every project folder an AI app was used in since `since`, newest first, one row per folder and AI. */
 export function findRoots(since: number): Root[] {
-  const found = [...claudeRoots(since), ...codexRoots(since), ...cursorRoots(since)];
+  const found = [...claudeRoots(since), ...codexRoots(since), ...cursorRoots(since), ...otherRoots(since)];
   const all = [...found, ...geminiRoots(since, found)].filter((r) => !tooWide(r.dir) && safe(() => fs.statSync(r.dir).isDirectory(), false));
   const best = new Map<string, Root>();
   for (const r of all) { const k = r.ai + "|" + path.resolve(r.dir); const o = best.get(k); if (!o || o.at < r.at) best.set(k, { ...r, dir: path.resolve(r.dir) }); }

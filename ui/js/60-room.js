@@ -22,7 +22,7 @@ const DSRC={stripe:['Stripe','--gold','money','num'],ga:['Google Analytics','--i
 const DPASS=['First look. No AI used.','The council asked for more.','One last pass.'];
 const DSTEPS=[['ask','Ask'],['brief','Brief'],['board','Board'],['evidence','Evidence'],['live','The Room'],['verdict','Verdict']];
 const DMODE={auto:['Let the Chair choose','The Chair reads your question first, then picks Quick or Full.'],quick:['Quick','4 seats, 2 rounds. About 12 AI calls, 2 to 4 minutes.'],full:['Full','7 seats, 3 rounds. About 23 AI calls, 4 to 10 minutes.']};
-const DAIC={'Claude Code':'--gold',Codex:'--mint','Gemini CLI':'--ice',Grok:'--violet'};
+const DAIC={'Claude Code':'--gold',Codex:'--mint','Gemini CLI':'--ice',Grok:'--violet',Hermes:'--ember'};
 const DBAND={go:['Go,','as planned.','ok','7.5 and above means go.'],cond:['Go,','with conditions.','gold','6.0 to 7.4 means go, with conditions.'],reshape:['Reshape it','first.','','4.5 to 5.9 means reshape the idea first.'],no:['Don\'t','do it.','hot','Below 4.5 means don\'t do it.'],wait:['Wait,','for now.','','The council scored changing nothing highest.']};
 const DNUM=['No','One','Two','Three','Four','Five','Six','Seven','Eight'];
 
