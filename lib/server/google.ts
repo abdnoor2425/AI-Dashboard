@@ -1,4 +1,4 @@
-// Google: each app (Analytics, Gmail, Drive, Calendar) connects on its own with one click and a Google sign-in.
+// Google: the first Google sign-in connects Analytics, Gmail, Drive and Calendar together. After that each app can also connect on its own.
 // The dashboard ships with one Google app (see google-app.ts), so nobody has to set anything up in Google Cloud.
 // The app's secret is not in the repo: token calls go through the relay (relay/worker.js), which adds it.
 // NOTE: written against Google's public REST docs and not yet run against a live account.
@@ -35,15 +35,18 @@ export function tokenTarget(keys: { clientId: string; clientSecret: string; rela
 }
 export const googleReady = (wsId: string) => !!appKeys(wsId);
 
-/** The Google sign-in page for one app. Apps you connected before stay connected (Google adds the new access to the same sign-in). */
-export function googleAuthUrl(wsId: string, origin: string, tool: string, withSend = false) {
+/** The Google sign-in page for one app, plus any other Google apps to connect in the same click ("also").
+ *  Apps you connected before stay connected (Google adds the new access to the same sign-in). */
+export function googleAuthUrl(wsId: string, origin: string, tool: string, withSend = false, also: string[] = []) {
   const keys = appKeys(wsId);
   if (!keys || !TOOL_SCOPES[tool]) return null;
   const s = getSecrets(wsId).google || {};
   const state = crypto.randomBytes(16).toString("hex");
   const verifier = crypto.randomBytes(32).toString("base64url");
-  setSecrets(wsId, { google: { ...s, state, verifier, pending: tool } });
-  const scope = ["openid", "email", ...TOOL_SCOPES[tool], ...(tool === "gmail" && withSend ? [SEND_SCOPE] : [])].join(" ");
+  const extra = also.filter((t) => GOOGLE_TOOLS.includes(t) && t !== tool);
+  setSecrets(wsId, { google: { ...s, state, verifier, pending: tool, also: extra } });
+  const want = [tool, ...extra];
+  const scope = Array.from(new Set(["openid", "email", ...want.flatMap((t) => TOOL_SCOPES[t]), ...(want.includes("gmail") && withSend ? [SEND_SCOPE] : [])])).join(" ");
   const p = new URLSearchParams({
     client_id: keys.clientId, redirect_uri: redirectUri(origin), response_type: "code", scope, access_type: "offline", prompt: "consent",
     include_granted_scopes: "true", code_challenge: crypto.createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256", state: `${wsId}.${state}`,
@@ -60,7 +63,7 @@ async function tokenCall(keys: { clientId: string; clientSecret: string; relay: 
   return j;
 }
 
-/** Google sends you back here after sign-in. Returns which app was connected and which Google account it was. */
+/** Google sends you back here after sign-in. Returns the app that was asked for, every Google app the person allowed ("tools"), and which Google account it was. */
 export async function finishGoogle(stateParam: string, code: string, origin: string) {
   const [wsId, state] = String(stateParam).split(".");
   const s = getSecrets(wsId).google || {};
@@ -70,10 +73,12 @@ export async function finishGoogle(stateParam: string, code: string, origin: str
   const granted = String(t.scope || "").split(" ");
   const tool = String(s.pending || "");
   if (TOOL_SCOPES[tool] && !TOOL_SCOPES[tool].every((x) => x === "profile" || granted.includes(x))) throw new Error("Google did not give access. Click Connect again and tick the box on Google's page.");
+  // Google lets people untick apps on its page. Only the ones they allowed are connected.
+  const tools = [tool, ...(Array.isArray(s.also) ? s.also : [])].filter((x) => GOOGLE_TOOLS.includes(x) && TOOL_SCOPES[x].every((y) => granted.includes(y)));
   let email = "", name = "", picture = "";
   try { const id = JSON.parse(Buffer.from(String(t.id_token).split(".")[1], "base64url").toString()); email = id.email || ""; name = id.given_name || id.name || ""; picture = id.picture || ""; } catch {}
   setSecrets(wsId, { google: { clientId: s.clientId, clientSecret: s.clientSecret, refreshToken: t.refresh_token || s.refreshToken, accessToken: t.access_token, expiry: Date.now() + (t.expires_in - 60) * 1000, email } });
-  return { wsId, email, tool, name, picture };
+  return { wsId, email, tool, tools, name, picture };
 }
 
 /** Disconnecting the last Google app also signs this computer out of Google and tells Google to forget the access. */

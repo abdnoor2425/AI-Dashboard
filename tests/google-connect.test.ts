@@ -28,3 +28,24 @@ test("each Google app asks only for its own access, with the built-in Google app
   assert.equal(getSecrets("ws1").google.pending, "gmail");
   assert.equal(googleAuthUrl("ws1", "http://localhost:3210", "linear"), null);
 });
+
+test("the first Google sign-in asks for every Google app at once, and connects only the ones the person allowed", async () => {
+  const { finishGoogle, GOOGLE_TOOLS } = await import("../lib/server/google.ts");
+  const u = new URL(googleAuthUrl("ws2", "http://localhost:3210", "account", false, GOOGLE_TOOLS)!);
+  const asked = u.searchParams.get("scope")!.split(" ");
+  for (const s of ["analytics.readonly", "calendar.readonly", "gmail.metadata", "drive.metadata.readonly"]) assert.ok(asked.includes("https://www.googleapis.com/auth/" + s), s);
+  assert.ok(!asked.includes("https://www.googleapis.com/auth/gmail.send"));
+  assert.equal(new Set(asked).size, asked.length);
+  const state = String(u.searchParams.get("state"));
+  const real = globalThis.fetch;
+  // The person unticked Drive on Google's page.
+  globalThis.fetch = (async () => new Response(JSON.stringify({ access_token: "a", refresh_token: "r", expires_in: 3600, scope: "openid email https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.metadata" }), { status: 200 })) as any;
+  try {
+    const done = await finishGoogle(state, "code", "http://localhost:3210");
+    assert.equal(done.tool, "account");
+    assert.deepEqual([...done.tools].sort(), ["calendar", "gmail", "google-analytics"]);
+  } finally { globalThis.fetch = real; }
+  // A later Connect for one app asks for that app alone.
+  const one = new URL(googleAuthUrl("ws2", "http://localhost:3210", "drive")!).searchParams.get("scope")!.split(" ").filter((s) => s.startsWith("https"));
+  assert.deepEqual(one, ["https://www.googleapis.com/auth/drive.metadata.readonly"]);
+});
