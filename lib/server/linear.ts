@@ -65,3 +65,31 @@ export async function linearAlert(wsId: string, issueId: string, people: { name:
   }
   return { reached: found.map((f) => f.person), missing };
 }
+
+/** Everything Linear has assigned to one person on Your team, newest first. Read only. The person is found by email, then by name. */
+export async function linearTasksFor(wsId: string, person: { name: string; email?: string }, isOwner = false) {
+  const d = await gql(wsId, `{ viewer { id } users(first: 200) { nodes { id name displayName email active } } }`);
+  const users: any[] = (d.users?.nodes || []).filter((u: any) => u.active !== false);
+  const user = isOwner ? { id: d.viewer.id } : findUser(users, person);
+  if (!user) return { found: false, list: [] as any[] };
+  const r = await gql(wsId, `query($id: ID!) { issues(first: 50, orderBy: updatedAt, filter: { assignee: { id: { eq: $id } }, state: { type: { neq: "canceled" } } }) { nodes { id identifier title url dueDate completedAt state { name type } project { name } } } }`, { id: user.id });
+  return { found: true, list: (r.issues?.nodes || []).map(taskRow) };
+}
+
+/** Picks a Linear user for a team member: email first, then full name, then first name when only one person has it. */
+export function findUser(users: any[], p: { name: string; email?: string }) {
+  const same = (a: string, b: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+  return users.find((u) => same(u.email, p.email || "")) || users.find((u) => same(u.name, p.name) || same(u.displayName, p.name))
+    || ((l) => (l.length === 1 ? l[0] : undefined))(users.filter((u) => same(String(u.name).split(" ")[0], p.name.split(" ")[0])));
+}
+
+/** One Linear task as the Your team page shows it. */
+export function taskRow(n: any, now = Date.now()) {
+  const type = n.state?.type || "";
+  const due = n.dueDate ? Date.parse(n.dueDate + "T17:00:00") : null;
+  const done = type === "completed";
+  return {
+    id: "lin-" + n.id, key: n.identifier || "", title: n.title || "", url: n.url || "", project: n.project?.name || "", due, doneAt: n.completedAt ? Date.parse(n.completedAt) : null,
+    state: done ? "Done" : due != null && due < now ? "Overdue" : n.state?.name || "Open", tone: done ? "good" : due != null && due < now ? "bad" : type === "started" ? "warn" : "",
+  };
+}

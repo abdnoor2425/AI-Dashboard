@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { requireWorkOSLauncher } from "@/lib/workos/launcher-only";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -9,6 +10,7 @@ const DIR = path.join(process.cwd(), "ui", "js");
 let built = "", stamp = "";
 
 export async function GET() {
+  if (process.env.WORKOS_LOCAL_CLIENT === "1") return requireWorkOSLauncher();
   // Built again only when a part changes, so an update shows up without a restart.
   const files = fs.readdirSync(DIR).filter((f) => f.endsWith(".js")).sort();
   const now = files.map((f) => f + fs.statSync(path.join(DIR, f)).mtimeMs).join("|");

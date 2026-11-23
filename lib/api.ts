@@ -411,7 +411,7 @@ export function handle(state: State, req: Req): Res {
         if (!to.length) return bad("Pick at least one person to alert.");
         const linear = target.sources.some((x: any) => x.tool === "linear");
         const how = body.how && typeof body.how === "object" ? { linear: [].concat(body.how.linear || []).map(String), email: [].concat(body.how.email || []).map(String) } : linear ? { linear: to.map((p) => p.name), email: [] } : { linear: [], email: to.map((p) => p.name) };
-        target.alerts = [...(target.alerts || []), { to: to.map((p) => p.name), note: String(body.note || "").trim().slice(0, 300), by, at: now, how }];
+        target.alerts = [...(target.alerts || []), { to: to.map((p) => p.name), note: String(body.note || "").trim().slice(0, 300), by, at: now, how, via: body.via ? String(body.via).slice(0, 40) : undefined }];
         return ok({ ok: true, to: to.map((p) => p.name), how, watch: to.map((p) => `${target.id}:${p.id}`) }, true);
       } else return bad("Unknown action");
       return ok({ ok: true }, true);
@@ -579,12 +579,12 @@ export function handle(state: State, req: Req): Res {
     return ok({ decisions: ws.decisions, sample: ws.sample });
   }
 
-  // Goals on three levels: the week feeds the month, the month feeds the quarter. Up to three on each level.
+  // Goals on four levels: today feeds the week, the week feeds the month, the month feeds the quarter. Up to three on each level.
   if (a === "plan" && post) {
     const plan = (ws.plan ||= { goals: [] as any[] });
     if (b === "save") {
       const level = LEVELS.includes(body.level) ? body.level : null, title = String(body.title || "").trim().slice(0, 90);
-      if (!level) return bad("Pick week, month or quarter.");
+      if (!level) return bad("Pick today, week, month or quarter.");
       if (title.length < 3) return bad("Give the goal a short name.");
       const progress = Math.max(0, Math.min(100, Math.round(Number(body.progress) || 0)));
       const up = LEVELS[LEVELS.indexOf(level) - 1], feeds = plan.goals.some((g: any) => g.id === body.feeds && g.level === up) ? body.feeds : "";
@@ -595,6 +595,23 @@ export function handle(state: State, req: Req): Res {
         plan.goals.push({ id: "goal-" + now.toString(36) + plan.goals.length, level, title, progress, feeds, createdAt: now, updatedAt: now });
       }
       return ok({ ok: true }, true);
+    }
+    // Draft the steps under one goal: up to three goals on the level below, each feeding it. Nothing is overwritten.
+    // The titles come from the owner's own AI when it is linked (the route passes them in), or from a plain starter set.
+    if (b === "draft") {
+      const goal = plan.goals.find((g: any) => g.id === body.id), at = goal ? LEVELS.indexOf(goal.level) : -1, down = LEVELS[at + 1];
+      if (!goal) return bad("That goal was not found.");
+      if (!down) return bad("Today is the last level. There is nothing below it to draft.");
+      const free = 3 - plan.goals.filter((g: any) => g.level === down).length;
+      if (free <= 0) return bad(`There are already three ${down === "day" ? "goals for today" : down + " goals"}. Finish or remove one first.`);
+      const given = (Array.isArray(body.titles) ? body.titles : []).map((t: any) => String(t || "").replace(/^[\s\d.)*-]+/, "").trim().slice(0, 90)).filter((t: string) => t.length >= 3);
+      const short = goal.title.length > 60 ? goal.title.slice(0, 57).trimEnd() + "…" : goal.title;
+      const starter = [`Plan the first step for: ${short}`, `Do the main work for: ${short}`, `Check the result for: ${short}`];
+      const have = new Set(plan.goals.map((g: any) => g.title.toLowerCase()));
+      const titles = (given.length ? given : starter).filter((t: string) => !have.has(t.toLowerCase())).slice(0, free);
+      if (!titles.length) return bad("These steps are already on the list.");
+      titles.forEach((title: string, i: number) => plan.goals.push({ id: "goal-" + now.toString(36) + plan.goals.length + i, level: down, title, progress: 0, feeds: goal.id, drafted: true, createdAt: now, updatedAt: now }));
+      return ok({ ok: true, added: titles.length, level: down, byAi: given.length > 0 }, true);
     }
     if (b === "remove") {
       plan.goals = plan.goals.filter((g: any) => g.id !== body.id);
@@ -720,6 +737,8 @@ export function handle(state: State, req: Req): Res {
       if (body.accent && ACCENTS[body.accent]) ws.brand.accent = body.accent;
       if (body.theme && ["system", "light", "dark"].includes(body.theme)) state.theme = body.theme;
       if (body.modules) for (const m of MODULES) if (!m.core && body.modules[m.id] != null) ws.modules[m.id] = !!body.modules[m.id];
+      // Whether the owner's own AI may post a Linear comment or alert the team for them. On unless they switch it off.
+      if (typeof body.aiSend === "boolean") ws.modules.aiSend = body.aiSend;
       if (body.weights) {
         let touched = false;
         for (const f of FACTORS) { const v = Number(body.weights[f.key]); if (isFinite(v) && v >= 0 && v <= 10 && v !== ws.rubric.weights[f.key]) { ws.rubric.weights[f.key] = v; touched = true; } }
@@ -730,7 +749,7 @@ export function handle(state: State, req: Req): Res {
       if (body.resetRubric) { ws.rubric.weights = { urgency: 7, impact: 6, unblocks: 4, alignment: 2, waitingAge: 1 }; ws.rubric.version = String(ws.rubric.version).split(".")[0] + "." + (Number(String(ws.rubric.version).split(".")[1] || 0) + 1); }
       return ok({ ok: true }, true);
     }
-    return ok({ brand: ws.brand, theme: state.theme || "system", modules: ws.modules, modulesList: MODULES, phrases: phrasesFrom(ws.phrases), customPhrases: !!ws.phrases, rubric: ws.rubric, factors: FACTORS, accents: ACCENTS, workspace: { id: ws.id, name: ws.name, kind: ws.kind, sample: ws.sample, templateVersion: ws.templateVersion } });
+    return ok({ brand: ws.brand, theme: state.theme || "system", aiSend: ws.modules.aiSend !== false, modules: ws.modules, modulesList: MODULES, phrases: phrasesFrom(ws.phrases), customPhrases: !!ws.phrases, rubric: ws.rubric, factors: FACTORS, accents: ACCENTS, workspace: { id: ws.id, name: ws.name, kind: ws.kind, sample: ws.sample, templateVersion: ws.templateVersion } });
   }
 
   if (a === "workspaces") {

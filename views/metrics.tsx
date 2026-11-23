@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { useApi, useApp } from "@/lib/client";
+import { useApi, useWorkspacePage } from "@/lib/client";
 import { ago, withUnit } from "@/lib/format";
 import { Spark } from "@/components/charts";
 import Link from "@/lib/nav";
@@ -41,7 +41,7 @@ function Metric({ m, i }: { m: any; i: number }) {
 }
 
 export default function Metrics() {
-  const app = useApp();
+  const app = useWorkspacePage();
   const q = useApi("metrics");
   return (
     <Page title="Metrics" sub="The numbers you want to keep healthy. Tap one to see exactly what it measures and where it comes from." actions={<SampleTag show={app.boot.workspace.sample} />}>

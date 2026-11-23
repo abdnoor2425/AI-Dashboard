@@ -1,0 +1,33 @@
+{
+  "format": "workos.catalogue-history/v1",
+  "installation": "alder-demo",
+  "previous": null,
+  "source": "usage",
+  "revision": "2222222222222222222222222222222222222222",
+  "observations": [
+    {
+      "key": "fixture-reads",
+      "kind": "read-request",
+      "count": 7,
+      "observedOn": "2026-09-15",
+      "name": "fixture.check",
+      "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "key": "fixture-unknown",
+      "kind": "stated-use",
+      "count": null,
+      "observedOn": "2026-09-15",
+      "name": "fixture.note",
+      "hash": null
+    },
+    {
+      "key": "fixture-zero",
+      "kind": "stated-use",
+      "count": 0,
+      "observedOn": "2026-09-16",
+      "name": "fixture.check",
+      "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

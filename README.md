@@ -75,9 +75,26 @@ While the dashboard's Google app is waiting for Google's review, Google shows a 
 
 <details><summary>For maintainers: the built-in Google app</summary>
 
-The dashboard signs in with one Google app, set in `lib/server/google-app.ts`. It is a Google "Desktop app" client, which Google treats as safe to ship inside apps people run themselves. Anyone who prefers their own Google app can set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`. It needs the Google Analytics Admin, Google Analytics Data, Gmail, Drive and Calendar APIs switched on.
+The dashboard signs in with one Google app, set in `lib/server/google-app.ts`. The app's secret is not in this repo. It is held by a small relay (see `relay/README.md`) that adds it when a sign-in is finished and keeps nothing; tokens stay on each person's computer. Anyone who prefers their own Google app can set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`. It needs the Google Analytics Admin, Google Analytics Data, Gmail, Drive and Calendar APIs switched on.
 
 </details>
+
+## Client mode: a private workspace for each client
+
+The same download can also run as a small, separate workspace for one client business. It is not a login into your dashboard. Each client gets their own folder, their own password and their own name and colour, and nothing is shared between clients or with you.
+
+A client workspace has a Daily queue and Team queue, a Goal planner that runs from the quarter down to a single day, a catalogue of approved skills, Skill usage, and named sign-ins (operator, reviewer, viewer). It is deliberately quiet: no connected apps, no syncing and no AI calls.
+
+It works on Windows, Mac and Linux and needs Node 24. Ask your AI to "set up a client workspace from the AI-Dashboard folder", or see [docs/WORKOS.md](docs/WORKOS.md). The short version:
+
+```
+npm run doctor
+npm run workos -- install /path/to/new/client-folder examples/workos/alder.json
+npm run workos -- start /path/to/new/client-folder
+```
+
+`npm start` and `npm run setup` still open your own dashboard exactly as before.
+
 
 Your websites are then found in Google Analytics by themselves. You never type them in.
 

@@ -55,7 +55,7 @@
   <!-- ===================== GOALS ===================== -->
   <section class="page" id="p-goals" hidden>
     <div class="wrap">
-      <div class="head"><div class="grow"><div class="eyebrow" id="gHeadEy"></div><h1 class="title">Goals.</h1><p class="lede">This week feeds the month. The month feeds the quarter.</p></div><div class="tabs" role="tablist" id="goalTabs"></div></div>
+      <div class="head"><div class="grow"><div class="eyebrow" id="gHeadEy"></div><h1 class="title">Goals.</h1><p class="lede">Today feeds the week. The week feeds the month. The month feeds the quarter.</p></div><button class="ghost" type="button" id="gDraftTop">Draft steps from goal</button><div class="tabs" role="tablist" id="goalTabs"></div></div>
       <div class="panel goalp" style="margin-top:38px"><div class="iso-stage" id="isoB" style="height:520px"></div><div><div class="eyebrow" id="gEy"></div><h2 class="h2" id="gTitle" style="margin-bottom:8px"></h2><p class="mut" id="gSub" style="margin:0 0 22px;max-width:44ch"></p><div class="lv" id="lvB"></div></div></div>
       <div class="gcards" id="gcards"></div>
       <div class="start" style="margin-top:18px"><div class="grow"><div class="eyebrow"><b>Keep it to three</b></div><b style="display:block;margin-top:7px;font-size:16px">Up to three goals on each level. Click a goal to update how far along it is.</b></div><button class="btn" type="button" data-gadd="">Add a goal</button></div>
@@ -142,5 +142,5 @@
   <label class="fld"><span>The goal</span><input id="gsTitle" maxlength="90" placeholder="For example: Send all invoices" autocomplete="off"></label>
   <label class="fld"><span>How far along <b class="num" id="gsPv">0%</b></span><input id="gsP" type="range" min="0" max="100" step="5" value="0"></label>
   <label class="fld" id="gsFeedW"><span>Feeds this goal on the level above</span><select id="gsFeed"></select></label>
-  <div class="cb-foot"><button class="btn sm line" type="button" id="gsDel">Remove</button><span class="grow"></span><button class="btn sm line" type="button" id="gsCancel">Cancel</button><button class="btn sm" type="submit">Save</button></div></form></div>
+  <div class="cb-foot"><button class="btn sm line" type="button" id="gsDel">Remove</button><button class="btn sm line" type="button" id="gsDraft" hidden>Draft steps from goal</button><span class="grow"></span><button class="btn sm line" type="button" id="gsCancel">Cancel</button><button class="btn sm" type="submit">Save</button></div></form></div>
 <div class="toast" id="toast" role="status"></div>

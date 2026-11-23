@@ -1,0 +1,310 @@
+{
+  "contract": "A current measured goal comparison, a calendar-day deadline, a local evidence handoff, or an explicitly requested fraction of the distance from baseline to target. Decline unrelated, unsafe, conditional, ambiguous, wrong-unit and external requests. A percentage-of-target calculation requires revision 1.1.0.",
+  "requests": [
+    {
+      "intent": "deadline",
+      "text": "How many calendar days are left until the deadline for this action?",
+      "id": "U01"
+    },
+    {
+      "intent": "decline",
+      "text": "Can you update the baseline and then compare with the quarterly target?",
+      "id": "U02"
+    },
+    {
+      "intent": "decline",
+      "text": "Compare the most recent observation to the target for a different client.",
+      "id": "U03"
+    },
+    {
+      "intent": "decline",
+      "text": "Verify that the owner read the handoff.",
+      "id": "U04"
+    },
+    {
+      "intent": "goal",
+      "text": "Check our progress toward the quarterly target using the most recent observation.",
+      "id": "U05"
+    },
+    {
+      "intent": "goal",
+      "text": "Compare the baseline and the current measurement for review turnaround.",
+      "id": "U06"
+    },
+    {
+      "intent": "decline",
+      "text": "Show target progress as a percentage of sales.",
+      "id": "U07"
+    },
+    {
+      "intent": "decline",
+      "text": "Show how many business days are left before the assigned task is due.",
+      "id": "U08"
+    },
+    {
+      "intent": "decline",
+      "text": "If the result improves, email the assigned reviewer the evidence.",
+      "id": "U09"
+    },
+    {
+      "intent": "deadline",
+      "text": "How long do we have until this action is due?",
+      "id": "U10"
+    },
+    {
+      "intent": "deadline",
+      "text": "I need the number of days between today and the deadline.",
+      "id": "U11"
+    },
+    {
+      "intent": "decline",
+      "text": "Quote the phrase 'check the due date' in a status memo.",
+      "id": "U12"
+    },
+    {
+      "intent": "decline",
+      "text": "Would you prepare the evidence note or calculate target progress?",
+      "id": "U13"
+    },
+    {
+      "intent": "decline",
+      "text": "How many percentage points did conversion change?",
+      "id": "U14"
+    },
+    {
+      "intent": "handoff",
+      "text": "Could you write a handover note using this task’s evidence?",
+      "id": "U15"
+    },
+    {
+      "intent": "goal",
+      "text": "How does the observed value compare to the approved target?",
+      "id": "U16"
+    },
+    {
+      "intent": "decline",
+      "text": "Draft a handoff and attach the customer's private file.",
+      "id": "U17"
+    },
+    {
+      "intent": "decline",
+      "text": "How many hours until this task is due?",
+      "id": "U18"
+    },
+    {
+      "intent": "goal",
+      "text": "Has the current measurement improved since our baseline?",
+      "id": "U19"
+    },
+    {
+      "intent": "decline",
+      "text": "Is it a good idea to ask someone to summarize the recorded evidence?",
+      "id": "U20"
+    },
+    {
+      "intent": "decline",
+      "text": "Send the local handoff note to the assigned reviewer.",
+      "id": "U21"
+    },
+    {
+      "intent": "decline",
+      "text": "Could you compare our projected revenue with our target?",
+      "id": "U22"
+    },
+    {
+      "intent": "percent",
+      "text": "Calculate our progress toward the target as a percentage.",
+      "id": "U23"
+    },
+    {
+      "intent": "decline",
+      "text": "How many days are left on the supplier's contract?",
+      "id": "U24"
+    },
+    {
+      "intent": "deadline",
+      "text": "Show me the time left before the deadline.",
+      "id": "U25"
+    },
+    {
+      "intent": "handoff",
+      "text": "Prepare a handover summary of this task’s evidence for the next reviewer.",
+      "id": "U26"
+    },
+    {
+      "intent": "handoff",
+      "text": "Make a local note that the task owner can use when reviewing the assigned task.",
+      "id": "U27"
+    },
+    {
+      "intent": "percent",
+      "text": "How much of the baseline-to-target gap have we closed, in percent?",
+      "id": "U28"
+    },
+    {
+      "intent": "deadline",
+      "text": "Count the days remaining before this action's due date.",
+      "id": "U29"
+    },
+    {
+      "intent": "handoff",
+      "text": "Write up the evidence reference in a review note for the owner.",
+      "id": "U30"
+    },
+    {
+      "intent": "decline",
+      "text": "Write up the evidence reference as a public case study.",
+      "id": "U31"
+    },
+    {
+      "intent": "decline",
+      "text": "Do not prepare a review note for the task owner.",
+      "id": "U32"
+    },
+    {
+      "intent": "decline",
+      "text": "How likely is the current task to hit our target?",
+      "id": "U33"
+    },
+    {
+      "intent": "percent",
+      "text": "What percentage of the way from baseline to target have we covered?",
+      "id": "U34"
+    },
+    {
+      "intent": "deadline",
+      "text": "What's the deadline for this task?",
+      "id": "U35"
+    },
+    {
+      "intent": "handoff",
+      "text": "I need a draft handoff for the next reviewer with the evidence reference.",
+      "id": "U36"
+    },
+    {
+      "intent": "decline",
+      "text": "Summarize the quarterly roadmap and set a reminder.",
+      "id": "U37"
+    },
+    {
+      "intent": "percent",
+      "text": "Tell me the percent of the baseline-to-target distance we have covered.",
+      "id": "U38"
+    },
+    {
+      "intent": "decline",
+      "text": "Draft a handoff note for an external auditor in the client portal.",
+      "id": "U39"
+    },
+    {
+      "intent": "deadline",
+      "text": "Could you tell me when the assigned task is due?",
+      "id": "U40"
+    },
+    {
+      "intent": "goal",
+      "text": "Tell me the change from the baseline to the most recent observation.",
+      "id": "U41"
+    },
+    {
+      "intent": "handoff",
+      "text": "Could you draft a local handoff note for the assigned reviewer?",
+      "id": "U42"
+    },
+    {
+      "intent": "handoff",
+      "text": "Turn this task’s evidence into a brief local handoff.",
+      "id": "U43"
+    },
+    {
+      "intent": "decline",
+      "text": "Measure how many days late the task owner usually is.",
+      "id": "U44"
+    },
+    {
+      "intent": "deadline",
+      "text": "Give me the calendar-day countdown for the current task.",
+      "id": "U45"
+    },
+    {
+      "intent": "decline",
+      "text": "Change the due date for the current task to tomorrow.",
+      "id": "U46"
+    },
+    {
+      "intent": "goal",
+      "text": "Could you compare the most recent observation with our target for me?",
+      "id": "U47"
+    },
+    {
+      "intent": "decline",
+      "text": "Compare the latest reading with our target and update the target.",
+      "id": "U48"
+    },
+    {
+      "intent": "decline",
+      "text": "Compare the most recent observation with next year's forecast.",
+      "id": "U49"
+    },
+    {
+      "intent": "handoff",
+      "text": "Put together a note with the recorded evidence for the assigned reviewer.",
+      "id": "U50"
+    },
+    {
+      "intent": "goal",
+      "text": "Show me where the current measurement stands relative to our target.",
+      "id": "U51"
+    },
+    {
+      "intent": "percent",
+      "text": "Show target progress as a percentage using the observed value.",
+      "id": "U52"
+    },
+    {
+      "intent": "deadline",
+      "text": "When do we need to finish the assigned task?",
+      "id": "U53"
+    },
+    {
+      "intent": "goal",
+      "text": "How far have we come from the starting value on our metric?",
+      "id": "U54"
+    },
+    {
+      "intent": "goal",
+      "text": "Measure the difference between the latest reading and the baseline.",
+      "id": "U55"
+    },
+    {
+      "intent": "decline",
+      "text": "Never check the task deadline.",
+      "id": "U56"
+    },
+    {
+      "intent": "decline",
+      "text": "Count the days remaining before my appointment.",
+      "id": "U57"
+    },
+    {
+      "intent": "deadline",
+      "text": "On what date does this action fall due?",
+      "id": "U58"
+    },
+    {
+      "intent": "handoff",
+      "text": "Give the owner a draft on this screen summarizing the recorded evidence.",
+      "id": "U59"
+    },
+    {
+      "intent": "goal",
+      "text": "Put the current measurement alongside the quarterly target so I can review progress.",
+      "id": "U60"
+    },
+    {
+      "intent": "handoff",
+      "text": "Summarize this task’s evidence for the assigned reviewer to review.",
+      "id": "U61"
+    }
+  ]
+}

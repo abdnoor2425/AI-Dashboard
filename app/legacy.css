@@ -721,3 +721,51 @@
 .lg .ai-row-mark{display: flex; flex: none;}
 .lg .ai-tile{width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; box-shadow: inset 0 0 0 1px rgba(20, 30, 50, 0.08), 0 6px 14px -8px rgba(20, 30, 50, 0.35);}
 .lg .ai-tile svg{transform: scale(0.8);}
+
+/* Your team: "Details of tasks for" a picked person. */
+.lg .person.is-picked{box-shadow: inset 0 0 0 1.5px var(--gold), 0 30px 60px -34px rgba(var(--gold-rgb), .55);}
+.lg .td-hint{text-align: center; margin-top: 4px;}
+.lg .td{--td-linear: var(--violet); margin: 26px 0 34px; border-radius: 26px; border: 1px solid var(--line); background: var(--panel); padding: clamp(18px, 3vw, 30px); box-shadow: inset 0 1px 0 var(--hl), 0 50px 90px -60px var(--shadow); scroll-margin: 90px 0 24px; -webkit-backdrop-filter: blur(26px) saturate(1.15); backdrop-filter: blur(26px) saturate(1.15);}
+.lg .td-head{display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;}
+.lg .td-grow{flex: 1; min-width: 0;}
+.lg .td-head .td-grow{min-width: 240px;}
+.lg .td-title{font: 500 clamp(24px, 3vw, 34px)/1.08 var(--font-display); letter-spacing: -0.045em; margin: 10px 0 0; text-wrap: balance;}
+.lg .td-title em{font: italic 400 1.08em var(--serif); color: var(--gold); letter-spacing: -0.01em;}
+.lg .td-x{width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line-2); display: grid; place-items: center; flex: none; color: var(--text-2);}
+.lg .td-x:hover{color: var(--text); background: var(--fill);}
+.lg .td-search{display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 8px 0 15px; border-radius: 14px; background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--line-2); margin-top: 20px; color: var(--text-3);}
+.lg .td-search:focus-within{box-shadow: inset 0 0 0 1.5px var(--gold);}
+.lg .td-search input{flex: 1; min-width: 0; background: none; border: 0; outline: 0; font: inherit; font-size: 14px; color: var(--text);}
+.lg .td-search input::placeholder{color: var(--text-3);}
+.lg .td-clear{width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: var(--text-2);}
+.lg .td-clear:hover{background: var(--fill);}
+.lg .td-srcs{display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px;}
+.lg .td-src{text-align: left; padding: 16px 18px; border-radius: 20px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(var(--ink), .05), rgba(var(--ink), .015)); display: grid; gap: 4px; transition: border-color 0.2s, transform 0.2s; min-width: 0;}
+.lg .td-src:hover:not([disabled]){transform: translateY(-2px); border-color: var(--line-2);}
+.lg .td-src[aria-expanded="true"]{border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 26px 50px -30px var(--c);}
+.lg .td-src[disabled]{opacity: 0.6; cursor: not-allowed;}
+.lg .td-k{display: flex; align-items: center; gap: 8px; font: 500 9.5px var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-2);}
+.lg .td-k i{width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c);}
+.lg .td-src b{font: 500 30px/1 var(--font-display); letter-spacing: -0.05em; margin-top: 8px;}
+.lg .td-src > span:last-child{font-size: 12.5px; color: var(--text-2);}
+.lg .td-card{margin-top: 14px; border-radius: 22px; border: 1px solid var(--line-2); background: var(--solid); overflow: hidden; animation: td-in 0.3s ease both;}
+@keyframes td-in{from{opacity: 0; transform: translateY(8px);}}
+.lg .td-chead{display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line);}
+.lg .td-chead b{font-weight: 600;}
+.lg .td-chead small{display: block; color: var(--text-2); font-size: 12px;}
+.lg .td-row{display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--line); flex-wrap: wrap;}
+.lg .td-chead + .td-row{border-top: 0;}
+.lg .td-t{flex: 1; min-width: 200px;}
+.lg .td-t b{display: block; font-weight: 500; overflow-wrap: anywhere;}
+.lg .td-t span{font-size: 12.5px; color: var(--text-2);}
+.lg .td-row .btn{box-shadow: inset 0 0 0 1px var(--line-2); background: none;}
+.lg .td-row .btn:hover{background: var(--fill);}
+.lg .td-tag{font: 500 10px var(--mono); letter-spacing: 0.06em; padding: 5px 9px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text-2); white-space: nowrap;}
+.lg .td-tag.warn{color: var(--gold); box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), .45);}
+.lg .td-tag.good{color: var(--good); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good) 45%, transparent);}
+.lg .td-tag.bad{color: var(--bad); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 45%, transparent);}
+.lg .td-empty{display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 22px 18px; color: var(--text-2); font-size: 13.5px; margin: 0;}
+.lg .td-foot{margin: 16px 0 0; font-size: 12.5px; color: var(--text-2);}
+.lg .td mark{background: rgba(var(--gold-rgb), .3); color: inherit; border-radius: 3px; padding: 0 1px;}
+@media (max-width: 720px){.lg .td-srcs{grid-template-columns: minmax(0, 1fr);}}
+@media (prefers-reduced-motion: reduce){.lg .td-card{animation: none;} .lg .td-src{transition: none;}}

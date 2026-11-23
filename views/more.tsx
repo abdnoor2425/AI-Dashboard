@@ -1,11 +1,11 @@
 "use client";
 import React, { useState } from "react";
 import Link from "@/lib/nav";
-import { api, useApi, useApp } from "@/lib/client";
+import { api, useApi, useApp, useWorkspacePage } from "@/lib/client";
 import { ago, clock, compact, dateShort, dayName } from "@/lib/format";
 import { DAY, startOfDay } from "@/lib/rand";
 import { HBars } from "@/components/charts";
-import { Empty, Fold, Icon, Load, Mark, Page, SampleTag, Section, Segmented, SkelCards, SkelRows, Status } from "@/components/ui";
+import { Empty, Fold, Icon, Load, Page, SampleTag, Section, Segmented, SkelCards, SkelRows, Status } from "@/components/ui";
 
 export function Inbox() {
   const app = useApp();
@@ -85,7 +85,7 @@ export function Outputs() {
   return (
     <Page title="Outputs" sub="Every finished document in one place, with the task it came from and which version was approved." actions={<SampleTag show={app.boot.workspace.sample} />}>
       <div className="stack">
-        <div style={{ position: "relative", maxWidth: 420 }}><span style={{ position: "absolute", left: 12, top: 10, color: "var(--text-3)" }}><Icon name="search" size={18} /></span><input id="outputs-search" className="input" style={{ paddingLeft: 38 }} placeholder="Find a document" value={term} onChange={(e) => setTerm(e.target.value)} aria-label="Find a document" /></div>
+        <div style={{ position: "relative", maxWidth: 420 }}><span style={{ position: "absolute", left: 12, top: 10, color: "var(--text-3)" }}><Icon name="search" size={18} /></span><input className="input" style={{ paddingLeft: 38 }} placeholder="Find a document" value={term} onChange={(e) => setTerm(e.target.value)} aria-label="Find a document" /></div>
         <Load q={q} skeleton={<SkelRows n={5} />}>
           {(d) => {
             const list = d.outputs.filter((o: any) => (o.title + o.task + o.scopeLabel + o.owner).toLowerCase().includes(term.toLowerCase()));
@@ -114,15 +114,19 @@ export function Outputs() {
 }
 
 export function Skills() {
-  const app = useApp();
+  const app = useWorkspacePage();
   const q = useApi("skills");
+  const [filter, setFilter] = React.useState("");
+  const match = (skill: any) => [skill.name, skill.purpose, skill.inputs, skill.status, skill.example, skill.approvedFor, skill.output, skill.runtime, ...skill.tools].join(" ").toLowerCase().includes(filter.trim().toLowerCase());
   return (
     <Page title="Skills" sub="Small, repeatable playbooks your AI can run. Each one says what it needs and what it is allowed to touch." actions={<SampleTag show={app.boot.workspace.sample} />}>
+      <label>Search skills by outcome, task, tool or status<input className="input" type="search" value={filter} onChange={e=>setFilter(e.target.value)} /></label>
       <Load q={q} skeleton={<SkelCards n={6} h={200} cols="grid-auto" />}>
         {(d) => (
           <div className="grid-auto">
-            {d.skills.map((s: any, i: number) => (
-              <div key={s.id} className="card pad rise" style={{ ["--i" as any]: i, display: "flex", flexDirection: "column", gap: 8, opacity: s.status === "Unavailable" ? 0.75 : 1 }}>
+            {!d.skills.some(match) && <p>No skills match this search.</p>}
+            {d.skills.filter(match).map((s: any, i: number) => (
+              <div key={s.pin||s.id} className="card pad rise" style={{ ["--i" as any]: i, display: "flex", flexDirection: "column", gap: 8, opacity: s.status === "Unavailable" ? 0.75 : 1 }}>
                 <div className="flex items-center justify-between gap-2"><span className="glyph accent"><Icon name="skills" size={17} /></span><Status>{s.status}</Status></div>
                 <h2 className="t-head">{s.name}</h2>
                 <p className="muted" style={{ fontSize: 14.5 }}>{s.purpose}</p>
@@ -130,6 +134,7 @@ export function Skills() {
                   <dt>Needs</dt><dd style={{ color: "var(--text)" }}>{s.inputs}</dd><dt>Uses</dt><dd style={{ color: "var(--text)" }}>{s.tools.join(", ")}</dd><dt>Access</dt><dd style={{ color: "var(--text)" }}>{s.permissions}</dd><dt>Version</dt><dd style={{ color: "var(--text)" }}>{s.version} · {s.owner}</dd>
                 </dl>
                 <div className="quote" style={{ padding: "9px 12px", fontSize: 13.5 }}><span className="t-cap">Try saying</span><br />"{s.example}"</div>
+                {s.pin && <details><summary>Review and provenance</summary><p>{s.approvedFor} · {s.scope}</p><p>Output: {s.output}</p>{s.stages&&<><p>Discovered, source reviewed, tested on synthetic fixtures and installed. Approved for local rehearsal. {s.status}.</p><p>{s.provenance} · {s.runtime}</p><p>Dependencies: {s.dependencies}</p><p>Data sent: {s.dataSent} · {s.resource}</p><p>{s.maintenance}</p></>}<p>{s.pin} · {s.license}</p><p>Implementation: {s.source}<br/>Regression evidence: {s.evidence}</p></details>}
                 {s.note && <p className="t-foot" style={{ color: "var(--bad)" }}>{s.note}</p>}
               </div>
             ))}
@@ -152,7 +157,7 @@ export function Suggestions() {
           return (
             <div className="stack">
               {fresh.length ? fresh.map((s: any, i: number) => (
-                <div key={s.id} className="card pad rise" style={{ ["--i" as any]: i }}>
+                <div key={s.pin||s.id} className="card pad rise" style={{ ["--i" as any]: i }}>
                   <div className="flex gap-3 items-start"><span className="glyph warn"><Icon name="suggestions" size={17} /></span><div style={{ minWidth: 0, flex: 1 }}>
                     <h2 className="t-head">{s.title}</h2><p className="muted" style={{ marginTop: 4 }}>{s.reason}</p>
                     <div className="flex gap-2 flex-wrap" style={{ marginTop: 10 }}><span className="chip">Gives you: {s.benefit}</span><span className="chip">Takes: {s.effort}</span><span className="chip">{s.owner}</span></div>

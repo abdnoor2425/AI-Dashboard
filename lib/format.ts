@@ -13,8 +13,7 @@ export function withUnit(n: number | null | undefined, unit = ""): string {
   const v = Math.abs(n) >= 1000 ? compact(n) : String(Math.round(n * 10) / 10);
   if (unit === "$") return "$" + v;
   if (unit === "%" ) return v + "%";
-  if (unit === "h") return v + " h";
-  return v;
+  return unit.trim() ? v + " " + unit.trim() : v;
 }
 export const pctText = (d: number | null | undefined) => (d == null ? "" : `${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%`);
 

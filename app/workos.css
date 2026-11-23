@@ -1,0 +1,307 @@
+/* Client mode (a WorkOS installation), drawn in the dashboard's Obsidian look.
+   Everything here is scoped to client mode. The owner dashboard never loads these rules into its pages. */
+html[data-client] { background: #07080a; }
+html[data-client] body { background: #07080a; margin: 0; }
+html[data-client] body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 78% -5%, rgba(235, 197, 124, 0.13), transparent 70%),
+    radial-gradient(50% 40% at 8% 18%, rgba(138, 212, 255, 0.08), transparent 70%),
+    radial-gradient(60% 50% at 50% 110%, rgba(185, 162, 255, 0.09), transparent 70%);
+}
+.lg.workos-shell {
+  /* Obsidian tokens, laid over the names the shared page parts already use. */
+  --bg: #07080a; --ink: 255, 255, 255;
+  --card: rgba(14, 15, 19, 0.72); --card-solid: #0f1014; --card-2: rgba(255, 255, 255, 0.032);
+  --text: #f5f3ef; --text-2: #a9aab2;
+  /* Small caption text must reach WCAG 2.2 AA (4.5:1) on every card surface. */
+  --text-3: #8a8c95;
+  --sep: rgba(255, 255, 255, 0.075); --line: rgba(255, 255, 255, 0.075); --line-strong: rgba(255, 255, 255, 0.15);
+  --fill: rgba(255, 255, 255, 0.07); --fill-2: rgba(255, 255, 255, 0.04);
+  --gold: #ebc57c; --gold-rgb: 235, 197, 124; --good: #5fe0b0; --warn: #f4b860; --bad: #ff7a7a; --ice: #8ad4ff;
+  --client-accent: #ebc57c; --accent: var(--client-accent);
+  --spec: linear-gradient(100deg, #ebc57c, #ff9a6b 34%, #b9a2ff 66%, #8ad4ff);
+  --sans: var(--font-geist-sans), "Geist", "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: var(--font-geist-mono), "Geist Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --serif: "Instrument Serif", "Newsreader", Georgia, serif;
+  --font-display: var(--sans);
+  --side: 236px;
+  position: relative; z-index: 1; min-height: 100vh;
+  color: var(--text); font: 400 14.5px/1.5 var(--sans); -webkit-font-smoothing: antialiased; color-scheme: dark;
+}
+/* ---------- rail ---------- */
+.workos-shell .wo-side {
+  position: fixed; z-index: 30; inset: 0 auto 0 0; width: var(--side); display: flex; flex-direction: column;
+  padding: 20px 14px calc(16px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
+  background: rgba(7, 8, 10, 0.78); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+  border-right: 1px solid var(--line); overflow-y: auto;
+}
+.workos-shell .wo-brand { display: flex; align-items: center; gap: 11px; padding: 2px 6px 18px; }
+.workos-shell .wo-brand i {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55), transparent 42%), radial-gradient(circle at 50% 50%, var(--client-accent), #0b0c10 78%);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 8px 20px -6px #000;
+}
+.workos-shell .wo-brand strong { display: block; font-weight: 600; font-size: 16px; letter-spacing: -0.03em; line-height: 1.15; }
+.workos-shell .wo-brand .t-cap, .workos-shell .wo-grp {
+  font: 500 9px var(--mono); letter-spacing: 0.24em; text-transform: uppercase; color: var(--text-3);
+}
+.workos-shell .wo-grp { display: block; padding: 16px 10px 8px; font-size: 9.5px; }
+.workos-shell nav { display: block; }
+.workos-shell nav a {
+  display: flex; align-items: center; gap: 12px; padding: 9px 11px; border-radius: 12px; color: var(--text-2);
+  font-size: 13.5px; font-weight: 450; letter-spacing: -0.005em; text-decoration: none; transition: background 0.2s, color 0.2s;
+}
+.workos-shell nav a::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: currentColor; opacity: 0.45; flex: none; }
+.workos-shell nav a:hover { color: var(--text); background: rgba(255, 255, 255, 0.04); }
+.workos-shell nav a[aria-current] {
+  color: var(--text); background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  box-shadow: inset 0 0 0 1px var(--line-strong), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.workos-shell nav a[aria-current]::before { background: var(--client-accent); opacity: 1; box-shadow: 0 0 10px var(--client-accent); }
+.workos-shell .wo-private {
+  margin: auto 2px 0; padding: 13px 14px; border-radius: 16px; font-size: 12px; line-height: 1.45; color: var(--text-2);
+  border: 1px solid color-mix(in srgb, var(--client-accent) 30%, transparent); background: color-mix(in srgb, var(--client-accent) 6%, transparent);
+}
+.workos-shell .wo-private b { display: block; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+/* ---------- top bar and page ---------- */
+.workos-shell .wo-top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; margin-left: var(--side); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  min-height: 62px; padding: 10px max(32px, env(safe-area-inset-right, 0px)) 10px 32px;
+  background: rgba(7, 8, 10, 0.6); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-bottom: 1px solid var(--line);
+}
+.workos-shell .wo-grow { flex: 1; }
+.workos-shell .wo-chip {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 12px; border-radius: 99px; font-size: 12.5px; font-weight: 500;
+  color: var(--text-2); box-shadow: inset 0 0 0 1px var(--line);
+}
+.workos-shell .wo-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--client-accent); box-shadow: 0 0 8px var(--client-accent); }
+.workos-shell main {
+  margin-left: var(--side); max-width: 1180px; min-width: 0; overflow-wrap: anywhere; outline: none;
+  padding: 40px max(32px, env(safe-area-inset-right, 0px)) 120px 32px;
+}
+.workos-shell .page-head { padding: 0 0 26px; }
+.workos-shell .large-title { font: 500 clamp(34px, 4.4vw, 56px) / 0.98 var(--sans); letter-spacing: -0.05em; margin: 0; text-wrap: balance; }
+.workos-shell .page-sub { font: italic 400 clamp(18px, 1.6vw, 21px) / 1.3 var(--serif); color: var(--text-2); margin-top: 12px; max-width: 52ch; }
+.workos-shell .stack { display: grid; gap: 14px; }
+.workos-shell .stack > * { min-width: 0; }
+.workos-shell h2, .workos-shell .t-mid { font: 500 22px/1.15 var(--sans); letter-spacing: -0.03em; margin: 0; }
+.workos-shell .stack:not(.card) > h2 { margin-top: 22px; font: 500 10.5px/1.3 var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); }
+.workos-shell h3, .workos-shell .t-head { font: 600 15px/1.25 var(--sans); letter-spacing: -0.015em; margin: 0; }
+.workos-shell p { margin: 0; }
+.workos-shell a:not(.btn):not(nav a) { color: var(--text); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+/* ---------- cards, buttons, fields ---------- */
+.workos-shell .card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 22px; backdrop-filter: blur(26px) saturate(1.15); -webkit-backdrop-filter: blur(26px) saturate(1.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 50px 90px -60px #000;
+}
+.workos-shell .pad { padding: 20px 22px; }
+.workos-shell .card .card { background: rgba(255, 255, 255, 0.025); box-shadow: none; border-radius: 18px; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.workos-shell .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 38px; padding: 0 17px; border-radius: 99px; font-size: 13px; font-weight: 600;
+  letter-spacing: -0.01em; background: none; color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); text-decoration: none; white-space: nowrap;
+}
+.workos-shell .btn:hover { background: rgba(255, 255, 255, 0.06); }
+.workos-shell .btn.primary, .workos-shell .btn.primary:hover { background: var(--text); color: #07080a; box-shadow: none; }
+.workos-shell .btn[disabled] { opacity: 0.35; }
+.workos-shell .wo-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.workos-shell .input, .workos-shell select, .workos-shell textarea {
+  min-height: 42px; border-radius: 14px; padding: 0 14px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--line-strong);
+  border: 0; color: var(--text); font: 400 13.5px var(--sans);
+}
+.workos-shell textarea { padding: 12px 14px; }
+.workos-shell .input:focus, .workos-shell select:focus, .workos-shell textarea:focus { box-shadow: inset 0 0 0 1.5px var(--gold); outline: none; }
+.workos-shell label { font-size: 12.5px; color: var(--text-2); }
+.workos-shell input[type="checkbox"], .workos-shell input[type="radio"] { width: 17px; height: 17px; accent-color: var(--gold); }
+.workos-shell details { border-top: 1px solid var(--line); padding-top: 12px; }
+.workos-shell details.card { border-top: 1px solid var(--line); padding-top: 20px; }
+.workos-shell summary { font-size: 13px; font-weight: 500; color: var(--text-2); }
+.workos-shell summary:hover { color: var(--text); }
+.workos-shell details[open] > summary { color: var(--text); margin-bottom: 12px; }
+.workos-shell [role="alert"] { color: var(--bad); font-size: 13px; }
+.workos-shell [role="status"]:not(:empty) { color: var(--gold); font-size: 13px; }
+.workos-shell .chip { height: auto; min-height: 26px; padding: 3px 10px; border-radius: 99px; background: none; box-shadow: inset 0 0 0 1px var(--line); color: var(--text-2); font: 500 11px var(--mono); }
+.workos-shell .t-cap { font: 500 10px var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-3); }
+.workos-shell .t-foot, .workos-shell .muted { color: var(--text-2); font-size: 13px; }
+.workos-shell .faint { color: var(--text-3); }
+.workos-shell .t-big { font: 500 34px/1 var(--sans); letter-spacing: -0.05em; }
+.workos-shell .num { font-variant-numeric: tabular-nums; }
+.workos-shell article.card > h3:first-child, .workos-shell article.card > .t-head:first-child { font-size: 17px; }
+/* ---------- today at a glance ---------- */
+.workos-shell .wo-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.workos-shell .wo-tiles li { padding: 18px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); display: grid; gap: 6px; min-width: 0; }
+.workos-shell .wo-tiles b { font: 500 clamp(26px, 2.3vw, 34px) / 1 var(--sans); letter-spacing: -0.05em; margin-top: 10px; }
+.workos-shell .wo-tiles li > span:last-child { font: 400 11.5px var(--mono); color: var(--text-3); }
+.workos-shell .wo-src { display: flex; align-items: center; gap: 7px; font: 500 9.5px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
+.workos-shell .wo-src::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
+.workos-shell .wo-src.warn::before { background: var(--warn); }
+.workos-shell .wo-src.bad::before { background: var(--bad); }
+/* ---------- the goal ladder: each level feeds the one above ---------- */
+.workos-shell .wo-ladder { display: grid; gap: 10px; margin: 6px 0; }
+.workos-shell .wo-ladder > div {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: center; padding: 15px 18px; border-radius: 18px; border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 26px 40px -34px #000;
+  margin-left: calc(var(--i) * clamp(0px, 2.4vw, 30px));
+}
+.workos-shell .wo-ladder > div:last-child { border-color: rgba(235, 197, 124, 0.4); background: linear-gradient(180deg, rgba(235, 197, 124, 0.1), rgba(255, 255, 255, 0.015)); }
+.workos-shell .wo-ladder dt { font: 500 10px var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-3); }
+.workos-shell .wo-ladder dd { margin: 0; font-size: 14.5px; font-weight: 500; }
+.workos-shell .workos-facts dt { color: var(--text-3); font-size: 12.5px; }
+.workos-shell :focus-visible { outline: 1.5px solid var(--gold); outline-offset: 3px; border-radius: 10px; }
+@media (prefers-reduced-motion: no-preference) {
+  .workos-shell main > * { animation: wo-in 0.4s ease both; }
+  @keyframes wo-in { from { opacity: 0; transform: translateY(8px); } }
+}
+/* ---------- phones and narrow windows: the rail becomes a strip ---------- */
+@media (max-width: 900px) {
+  .workos-shell .wo-side { position: static; width: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); overflow: visible; }
+  .workos-shell .wo-brand { padding-bottom: 10px; }
+  .workos-shell nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 4px; }
+  .workos-shell nav > div { display: contents; }
+  .workos-shell .wo-grp, .workos-shell .wo-private { display: none; }
+  .workos-shell nav a { flex: none; padding: 7px 12px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--line); }
+  .workos-shell nav a::before { display: none; }
+  .workos-shell .wo-top, .workos-shell main { margin-left: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .workos-shell .wo-top { position: static; }
+  .workos-shell main { padding-top: 26px; }
+  .workos-shell .wo-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workos-shell .wo-ladder > div { grid-template-columns: minmax(0, 1fr); gap: 6px; margin-left: 0; }
+}
+
+.workos-shell .workos-facts {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) 1fr;
+  gap: 0.35rem 1rem;
+  margin-block: 1rem;
+}
+.workos-shell .workos-facts dt {
+  color: var(--text-2);
+}
+.workos-form {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.workos-form label {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 12rem;
+}
+.workos-shell p[role="status"]:empty {
+  display: none;
+}
+.workos-shell summary {
+  cursor: pointer;
+}
+.workos-skip:not(:focus) {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.workos-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 12px;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--sep);
+  border-radius: 8px;
+}
+.workos-fields legend {
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+.workos-shell label {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.workos-fields .input,
+.workos-shell textarea {
+  width: 100%;
+  min-width: 0;
+}
+.workos-shell textarea {
+  font:
+    0.85rem/1.5 ui-monospace,
+    monospace;
+}
+.workos-shell fieldset .btn {
+  align-self: end;
+}
+
+/* Keep long exact revision labels inside the task on narrow viewports. */
+.workos-outputs fieldset {
+  flex: 1 1 100%;
+}
+.workos-outputs fieldset > p {
+  grid-column: 1 / -1;
+}
+.workos-outputs small {
+  overflow-wrap: anywhere;
+}
+.workos-outputs label {
+  align-content: start;
+}
+.workos-outputs input[type="checkbox"] {
+  accent-color: var(--client-accent);
+}
+.workos-fields .btn[aria-pressed="true"] {
+  outline: 2px solid var(--client-accent);
+  outline-offset: -2px;
+}
+
+.workos-plan-tree {
+  border-left: 2px solid var(--client-accent);
+  padding-left: 1rem;
+}
+.workos-plan-tree h3 {
+  font-weight: 650;
+}
+.workos-plan-tree ul {
+  margin: 0.5rem 0 0.5rem 0.4rem;
+  padding-left: 1rem;
+  list-style: disc;
+}
+.workos-plan-tree li + li {
+  margin-top: 0.5rem;
+}
+
+.workos-notice:not(:empty) {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  max-width: min(26rem, 90vw);
+  padding: 0.6rem 1rem;
+  color: var(--text);
+  background: var(--panel, #242729);
+  border: 1px solid var(--sep);
+  border-radius: 0.5rem;
+}
+
+.workos-history-counts {
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));
+ gap:.75rem;
+ margin: .75rem 0;
+}
+.workos-history-counts > div, .workos-history-list > li {padding:.75rem;border:1px solid var(--sep);border-radius:.5rem;}
+.workos-history-counts dt {font-size:.86rem;color:var(--text-2);}
+.workos-history-counts dd:first-of-type {font-weight:650;font-size:1.2rem;}
+.workos-history-list, .workos-history-pins {display:flex;gap:.5rem;flex-wrap:wrap;list-style:none;margin:.75rem 0;}
+.workos-history-list {flex-direction:column;}
+.workos-history-detail {margin-top:1rem;}
+.workos-history-detail summary {margin:.4rem 0;}
+.workos-history-detail code {overflow-wrap:anywhere;}
+.workos-history select {max-width:100%;}
+
+/* Small layout manners for the shared pages inside client mode. */
+.workos-shell main select { max-width: min(100%, 320px); }
+.workos-shell .page-head ~ label, .workos-shell main > label { margin-bottom: 16px; max-width: 520px; }
+.workos-shell .workos-facts { max-width: 560px; }
+.workos-shell .workos-plan-tree { border-left: 2px solid var(--client-accent); padding-left: 1.1rem; display: grid; gap: 4px; }
+.workos-shell .quote { background: rgba(255, 255, 255, 0.035); border-radius: 14px; }

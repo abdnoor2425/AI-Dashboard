@@ -1,0 +1,52 @@
+{
+  "format": "workos.catalogue-history/v1",
+  "installation": "alder-demo",
+  "previous": null,
+  "source": "coverage",
+  "revision": "1111111111111111111111111111111111111111",
+  "coverage": {
+    "definitions": [
+      {
+        "name": "fixture.check",
+        "path": "synthetic/check-v1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "independently-evaluated-offline-example",
+        "client_ready": false,
+        "canonical_alias_of": null
+      },
+      {
+        "name": "fixture.check",
+        "path": "synthetic/check-v1-alias",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "blocked-or-unrun",
+        "client_ready": false,
+        "canonical_alias_of": "synthetic/check-v1"
+      },
+      {
+        "name": "fixture.check",
+        "path": "synthetic/check-v2",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "blocked-or-unrun",
+        "client_ready": false,
+        "canonical_alias_of": null
+      },
+      {
+        "name": "fixture.note",
+        "path": "synthetic/note",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "status": "blocked-or-unrun",
+        "client_ready": false,
+        "canonical_alias_of": null
+      }
+    ]
+  },
+  "evaluations": {
+    "evaluations": [
+      {
+        "name": "fixture.check",
+        "instruction_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "blocked_evaluations": []
+  }
+}

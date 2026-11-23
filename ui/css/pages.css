@@ -6,14 +6,14 @@
   --bg:#17121A; --panel:rgba(40,30,42,.6); --solid:#231A26; --card-a:#34283B; --card-b:#221926;
   --rail:rgba(24,18,27,.82); --bar:rgba(24,18,27,.62); --veil:rgba(18,12,20,.42); --pop:rgba(46,35,50,.97); --scrim:rgba(12,8,14,.7); --stage:rgba(14,9,16,.5); --hl:rgba(255,235,225,.07);
   --line:rgba(255,232,220,.10); --line-2:rgba(255,232,220,.2);
-  --text:#FBF3EA; --text-2:#C6B8B5; --text-3:#93848C; --on:#17121A; --shadow:#07040A;
+  --text:#FBF3EA; --text-2:#C6B8B5; --text-3:#A99AA2; --on:#17121A; --shadow:#07040A;
   --gold:#F5B56A; --gold-rgb:245,181,106;
 }
 :root[data-look="dawn"]{
   --bg:#F4EEE6; --ink:52,36,22; --panel:rgba(255,252,247,.66); --solid:#FFFDF9; --card-a:#FFFFFF; --card-b:#FBF5EC;
   --rail:rgba(248,242,234,.84); --bar:rgba(248,242,234,.68); --veil:rgba(244,238,230,0); --pop:rgba(255,253,249,.98); --scrim:rgba(70,50,30,.34); --stage:rgba(255,252,246,.5); --hl:rgba(255,255,255,.9);
   --line:rgba(70,46,22,.11); --line-2:rgba(70,46,22,.22);
-  --text:#1D1814; --text-2:#5B5149; --text-3:#8C8076; --on:#FFFDF9; --shadow:rgba(110,70,30,.38);
+  --text:#1D1814; --text-2:#5B5149; --text-3:#70655C; --on:#FFFDF9; --shadow:rgba(110,70,30,.38);
   --gold:#A8690F; --gold-rgb:196,128,36; --ember:#D8622B; --ice:#1D7FBF; --mint:#0E8C60; --violet:#6C4FD6; --bad:#CC3B3B; --warn:#B26F12;
   --spec:linear-gradient(100deg,#C98A2B,#E0683A 34%,#7C5CE0 66%,#2F8FD0);
   color-scheme:light;
@@ -22,14 +22,14 @@
   --bg:#EDF1F6; --ink:14,24,42; --panel:rgba(255,255,255,.7); --solid:#FFFFFF; --card-a:#FFFFFF; --card-b:#F4F7FB;
   --rail:rgba(241,245,249,.86); --bar:rgba(241,245,249,.7); --veil:rgba(237,241,246,0); --pop:rgba(255,255,255,.98); --scrim:rgba(20,32,56,.34); --stage:rgba(255,255,255,.52); --hl:rgba(255,255,255,.95);
   --line:rgba(14,24,42,.10); --line-2:rgba(14,24,42,.2);
-  --text:#0B1018; --text-2:#465061; --text-3:#7A8494; --on:#FFFFFF; --shadow:rgba(34,52,92,.34);
+  --text:#0B1018; --text-2:#465061; --text-3:#5F6B7E; --on:#FFFFFF; --shadow:rgba(34,52,92,.34);
   --gold:#9A6A14; --gold-rgb:184,130,34; --ember:#D8622B; --ice:#1877BD; --mint:#0C8A66; --violet:#6248D2; --bad:#CC3B3B; --warn:#A8690F;
   --spec:linear-gradient(100deg,#B98220,#E0683A 34%,#7455E0 66%,#2385CC);
   color-scheme:light;
 }
 /* things that stay black glass in every look */
 .dk,.sphere,.core,.iso,.ring-pin,.marq figure,.mt .th,.me i,.avs i,.orbw,.madeg figure,.mos figure{
-  --ink:255,255,255; --text:#F5F3EF; --text-2:#A9AAB2; --text-3:#6E7079; --line:rgba(255,255,255,.075); --line-2:rgba(255,255,255,.15);
+  --ink:255,255,255; --text:#F5F3EF; --text-2:#A9AAB2; --text-3:#8A8C95; --line:rgba(255,255,255,.075); --line-2:rgba(255,255,255,.15);
   --gold:#EBC57C; --gold-rgb:235,197,124; --on:#07080A; --shadow:#000; --mint:#5FE0B0; --bad:#FF7A7A; --ice:#8AD4FF; color:var(--text)}
 html.swap,html.swap body,html.swap .panel,html.swap .side,html.swap .top,html.swap .ncard,html.swap .tile,html.swap .sq{transition:background-color .5s,color .5s,border-color .5s,box-shadow .5s!important}
 .panel{box-shadow:inset 0 1px 0 var(--hl),0 50px 90px -60px var(--shadow)}
@@ -344,7 +344,7 @@ body.is-brain .main{padding-bottom:0}
    v3: one Overview with Analytics, sites and clients switch, Scan for AI
    ===================================================================== */
 .title em{font:italic 400 1.04em var(--serif);letter-spacing:-.01em;color:var(--gold)}
-.stripeC{--ink:255,255,255; --text:#F5F3EF; --text-2:#A9AAB2; --text-3:#6E7079; --line:rgba(255,255,255,.1); --line-2:rgba(255,255,255,.15); --gold:#EBC57C; --gold-rgb:235,197,124; --on:#07080A; --shadow:#000; --mint:#5FE0B0; --bad:#FF7A7A; color:var(--text)}
+.stripeC{--ink:255,255,255; --text:#F5F3EF; --text-2:#A9AAB2; --text-3:#8A8C95; --line:rgba(255,255,255,.1); --line-2:rgba(255,255,255,.15); --gold:#EBC57C; --gold-rgb:235,197,124; --on:#07080A; --shadow:#000; --mint:#5FE0B0; --bad:#FF7A7A; color:var(--text)}
 #ovWrap[data-mode="clients"] #ovHero,#ovWrap[data-mode="clients"] #ovRest{display:none}
 #ovWrap[data-mode="clients"] .deckSec{margin-top:0}
 .deckSec{margin-top:92px}

@@ -3,18 +3,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handle, activeWs } from "@/lib/api";
 import { dropSecrets, getSecrets, loadState, saveState, setSecrets } from "@/lib/server/store";
-import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, realtime, sendMail, signOutGoogle } from "@/lib/server/google";
+import { GOOGLE_TOOLS, finishGoogle, googleAuthUrl, googleReady, realtime, sendMail, sentTo, signOutGoogle } from "@/lib/server/google";
 import { keyProblem } from "@/lib/server/stripe";
 import { NEWS_EVERY, applyNotes, fallbackSum, fetchStories, keepNotes, notesPrompt } from "@/lib/server/news";
 import { openMade, openPath, readPicture, scanMade } from "@/lib/server/made";
 import * as room from "@/lib/server/room";
 import fs from "node:fs";
-import { linearAlert, linearComment } from "@/lib/server/linear";
+import path from "node:path";
+import { linearAlert, linearComment, linearTasksFor } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
 import { connectAgent, disconnectAgent, listAgents } from "@/lib/server/agents";
 import { brainSummary, dropBrain } from "@/lib/server/brain";
 
+import { requireWorkOSLauncher } from "@/lib/workos/launcher-only";
+// The owner's choice about AI sending, written where the MCP server can read it without calling the dashboard.
+let aiSendingSaved: string | null = null;
+function syncAiSending(ws: any) {
+  const want = JSON.stringify({ on: !ws.sample && ws.modules?.aiSend !== false });
+  if (want === aiSendingSaved) return;
+  try { const dir = process.env.KEYSTONE_HOME || path.join(process.cwd(), ".keystone"); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, "ai-sending.json"), want); aiSendingSaved = want; } catch { /* the tools simply stay off */ }
+}
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -77,6 +86,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   const now = Date.now();
   const state = loadState(now);
   const ws: any = activeWs(state);
+  syncAiSending(ws);
   const pass = () => {
     const res = handle(state, { method: req.method, path: "/api/" + seg.join("/"), query, body, now });
     if (res.changed) saveState();
@@ -115,6 +125,31 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   }
 
   if (a === "sync" && post) return json(await syncWorkspace(ws, now, body.only));
+
+  // Your team: what one person has on their plate. Linear tasks assigned to them and emails you sent them. Read only.
+  if (a === "team" && b && c === "details" && !post) {
+    const team: any[] = Array.isArray(ws.team) ? ws.team : [];
+    const person = team.find((p) => p.id === b);
+    if (!person) return json({ error: "No such person" }, 404);
+    const isOwner = team[0] === person;
+    const on = (id: string) => ws.connections.some((x: any) => x.id === id && x.status === "connected");
+    const email = String(person.email || (isOwner ? ws.setup?.about?.email || "" : "")).trim();
+    const out: any = { person: { id: person.id, name: person.name, role: person.role, email }, isOwner, sample: !!ws.sample, linear: { on: on("linear"), found: true, list: [], error: "" }, email: { on: on("gmail"), hasEmail: !!email, list: [], error: "" }, slack: { on: false } };
+    if (ws.sample) {
+      // The example workspace only has what is already in it: tasks that name this person, and alerts sent to them.
+      const hand: any[] = (handle(state, { method: "GET", path: "/api/team", query: {}, now }).data.handovers || []).filter((h: any) => h.to === person.id);
+      const item = (h: any) => ws.items.find((x: any) => x.id === h.itemId) || {};
+      const theirs = isOwner ? ws.items.filter((x: any) => x.sources?.[0]?.tool === "linear" && x.waitingOn === "me") : hand.filter((h) => h.via === "linear").map(item).filter((x) => x.id);
+      out.linear = { on: true, found: true, error: "", list: theirs.map((i: any) => ({ id: i.id, key: i.sources?.[0]?.ref || "", title: i.title, url: i.sources?.[0]?.url || "", project: i.scopeLabel || "", due: i.due ?? null, doneAt: null, state: i.status === "done" ? "Done" : i.due != null && i.due < now ? "Overdue" : "Open", tone: i.status === "done" ? "good" : i.due != null && i.due < now ? "bad" : "" })) };
+      out.email = { on: true, hasEmail: true, error: "", list: hand.filter((h) => h.via === "alert").map((h: any) => ({ id: h.id, subject: "Please look at: " + h.title, at: h.at, url: "" })) };
+      return json(out);
+    }
+    await Promise.all([
+      out.linear.on && linearTasksFor(ws.id, { name: person.name, email }, isOwner).then((r) => { out.linear.found = r.found; out.linear.list = r.list; }).catch((e: any) => { out.linear.error = String(e?.message || e); }),
+      out.email.on && email && !isOwner && sentTo(ws.id, email).then((l) => { out.email.list = l; }).catch((e: any) => { out.email.error = String(e?.message || e); }),
+    ]);
+    return json(out);
+  }
 
   // --- AI news: public feeds, read from this computer; the linked AI then writes the notes in one go ---
   if (a === "news" && b === "read" && post) {
@@ -251,6 +286,23 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
     saveState();
     return json({ ok: true, provider });
   }
+  // Draft steps from a goal: the owner's own AI suggests up to three short steps for the level below. Without a linked AI a plain starter set is used.
+  if (a === "plan" && b === "draft" && post && !ws.sample) {
+    const goal = (ws.plan?.goals || []).find((g: any) => g.id === body.id);
+    const LV = ["quarter", "month", "week", "day"], down = goal ? LV[LV.indexOf(goal.level) + 1] : "";
+    let titles: string[] = [];
+    const st = goal && down ? await ai.status(ws.ai?.provider).catch(() => null) : null;
+    if (st?.provider) {
+      try {
+        const text = await ai.run(st.provider, `A business owner has this ${goal.level} goal: "${String(goal.title).slice(0, 120)}".\nWrite exactly three short, concrete steps for ${down === "day" ? "today" : "this " + down} that move it forward. One per line, at most ten words each, plain words, no numbering, no extra text.`);
+        titles = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 3);
+        if (titles.length) logUsage(ws, "Draft steps: " + String(goal.title), st.provider, now);
+      } catch { /* the starter set below is used instead */ }
+    }
+    const res = handle(state, { method: "POST", path: "/api/plan/draft", query, body: { id: body.id, titles }, now });
+    if (res.status < 400) saveState();
+    return json(res.data, res.status);
+  }
   if (a === "ai" && b === "ask" && post) {
     const st = await ai.status(ws.ai?.provider);
     if (st.provider) {
@@ -301,8 +353,9 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       }
       if (!body.token) return json({ needs: b === "stripe" ? "Paste your Stripe read-only key first." : `Paste your ${cn.name} token first.` });
       if (b === "stripe") { const bad = keyProblem(String(body.token)); if (bad) return json({ needs: bad }); }
+      if (b === "stripe" && body.stripeScopesReviewed !== true) return json({ needs: "Tick the box to confirm you checked the key is set to Read only in Stripe." });
       if (b === "metricool" && !body.userId) return json({ needs: "Metricool also needs your user ID." });
-      setSecrets(ws.id, { [b]: { token: String(body.token).trim(), userId: body.userId ? String(body.userId).trim() : undefined } });
+      setSecrets(ws.id, { [b]: { token: String(body.token).trim(), userId: body.userId ? String(body.userId).trim() : undefined, ...(b === "stripe" ? { scopesReviewed: true } : {}) } });
       cn.status = "connected"; cn.account = "Token saved on this computer"; cn.detail = "Fetching for the first time";
       // Wait for a sync that is already running, so this key is really checked now.
       for (let i = 0; i < 60 && isSyncing(ws.id); i++) await new Promise((r) => setTimeout(r, 500));
@@ -324,6 +377,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   if (a === "attention" && post && b && (c === "comment" || c === "alert") && !ws.sample) {
     const item = ws.items.find((i: any) => i.id === b);
     if (!item) return json({ error: "No such item" }, 404);
+    if (body.via === "your AI" && ws.modules?.aiSend === false) return json({ error: "The owner switched off sending by AI in Settings." }, 403);
     const issueId = String(item.id).startsWith("lin-") ? String(item.id).slice(4) : null;
     const me = ws.setup?.about?.name || ws.owner || "The owner";
     try {
@@ -367,7 +421,18 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       }
     } catch (e: any) { return json({ error: String(e?.message || e).slice(0, 200) }, 400); }
     const res = pass();
+    // Sent by the owner's AI: leave a note for the open dashboard, so it can say so and play it in Your team.
+    if (res.status < 400 && body.via === "your AI") {
+      ws.aiSent = [...(ws.aiSent || []), { kind: c, title: String(item.title).slice(0, 120), to: res.data?.to || [], watch: res.data?.watch || [], at: now }].slice(-10);
+      saveState();
+    }
     return json(res.data, res.status);
+  }
+  // What the owner's AI sent since the dashboard last looked. Read once, then cleared.
+  if (a === "ai" && b === "sent") {
+    const list = (ws.aiSent || []).filter((x: any) => now - x.at < 10 * 60000);
+    if (ws.aiSent?.length) { ws.aiSent = []; saveState(); }
+    return json({ sent: list });
   }
 
   // --- Housekeeping around the shared router ---
@@ -398,5 +463,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   return json(res.data, res.status);
 }
 
-export const GET = serve;
-export const POST = serve;
+// In client mode (a WorkOS installation) the dashboard API is closed: everything goes through the installation's own launcher.
+const guarded: typeof serve = (...args) => (process.env.WORKOS_LOCAL_CLIENT === "1" ? (requireWorkOSLauncher() as any) : serve(...args));
+export const GET = guarded;
+export const POST = guarded;

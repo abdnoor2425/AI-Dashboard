@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/lib/nav";
 import { usePathname } from "@/lib/nav";
-import { api, useApi, useApp } from "@/lib/client";
+import { api, useApi, useWorkspacePage } from "@/lib/client";
 import { Empty, Icon, Load, Page, SampleTag, Section, Segmented, Skel, SkelRows } from "@/components/ui";
 import { Globe, type GlobeHandle } from "@/components/brain-globe";
 import { ago, factsOf, kindText, needsLook, recentFiles, sizeText, type Brain, type BrainNode, type BrainProject, type Facts } from "@/lib/brain";
@@ -14,12 +14,12 @@ const isPreview = () => typeof globalThis !== "undefined" && "__KEYSTONE_LOCAL__
 
 /** The index for this workspace. With nothing connected yet (or in the preview) it is a made-up WorkOS, clearly marked. */
 function useBrain() {
-  const { boot } = useApp();
+  const { boot } = useWorkspacePage();
   const workspaceId = boot.workspace.id;
-  const preview = isPreview();
+  const preview = !boot.clientStarter && isPreview();
   const q = useApi<Brain>(preview ? null : "brain", { workspaceId }, { keep: true });
   const now = useMemo(() => Date.now(), [q.data]);
-  const real = q.data && q.data.sources.length ? q.data : null;
+  const real = q.data && (q.data.sources.length || boot.clientStarter) ? q.data : null;
   const brain = useMemo(() => real || (preview || q.data ? sampleBrain(now) : null), [real, preview, q.data, now]);
   const facts = useMemo(() => (brain ? factsOf(brain) : null), [brain]);
   return { brain, facts, real: q.data || null, sample: !real, preview, workspaceId, now, error: q.error, reload: q.reload };
@@ -167,7 +167,7 @@ function NodePanel({ n, brain, facts, now, sample, workspaceId, focus, onClose, 
 }
 
 function Home() {
-  const app = useApp();
+  const app = useWorkspacePage();
   const b = useBrain();
   const globe = useRef<GlobeHandle>(null);
   const [focus, setFocus] = useState<string | null>(null);
@@ -183,7 +183,7 @@ function Home() {
   const head = (
     <>
       <SampleTag show={b.sample} />
-      <Link className="btn" href="/second-brain/edit"><Icon name="edit" size={15} />Edit sources</Link>
+      {!app.boot.clientStarter && <Link className="btn" href="/second-brain/edit"><Icon name="edit" size={15} />Edit sources</Link>}
     </>
   );
   if (!b.brain || !b.facts) return <Page title="Second Brain" sub={`Everything ${name} knows, connected.`} actions={head}>{b.error ? <div className="card"><Empty art="connect" title="The Second Brain did not load"><p>{b.error}</p><button className="btn tinted" style={{ marginTop: 10 }} onClick={b.reload}>Try again</button></Empty></div> : <div className="brain-card" style={{ height: 560 }} role="status" aria-label="Loading" />}</Page>;
@@ -237,12 +237,12 @@ function Home() {
           <div className="brain-big num">{stale.length}<small>{stale.length === 1 ? "project going quiet" : "projects going quiet"}</small></div>
           {stale.length ? <ul className="brain-list">{stale.slice(0, 3).map((x) => <li key={x.id}><button onClick={() => openProject(x.id)}><b>{x.name}</b><span>{x.why}</span></button></li>)}</ul> : <p className="t-foot" style={{ marginTop: 14 }}>Every project has been touched lately and connects to another.</p>}
         </div>
-        <button className="card pad tap rise brain-ask" style={{ ["--i" as any]: 3 }} onClick={() => app.openPalette()}>
+        {!app.boot.clientStarter && <button className="card pad tap rise brain-ask" style={{ ["--i" as any]: 3 }} onClick={() => app.openPalette?.()}>
           <div className="t-cap">Ask your Second Brain</div>
           <p className="brain-ask-q">"Which projects lean on {[...facts.projects].sort((x, y) => (facts.ties.get(y.id)?.size || 0) - (facts.ties.get(x.id)?.size || 0))[0]?.name || "this one"}?"</p>
           <span className="brain-ask-box"><Icon name="sparkle" size={16} />Ask in plain words<Icon name="chevron" size={15} /></span>
           <p className="t-foot faint" style={{ marginTop: 12 }}>It knows your projects, how they connect and what changed. It uses your own Claude Code or Codex plan.</p>
-        </button>
+        </button>}
       </div>
     </Page>
   );
@@ -382,5 +382,6 @@ function Edit() {
 
 export default function SecondBrain() {
   const path = usePathname() || "";
-  return /\/edit\/?$/.test(path) ? <Edit /> : <Home />;
+  const { boot } = useWorkspacePage();
+  return !boot.clientStarter && /\/edit\/?$/.test(path) ? <Edit /> : <Home />;
 }

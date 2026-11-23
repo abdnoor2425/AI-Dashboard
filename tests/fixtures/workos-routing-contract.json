@@ -1,0 +1,281 @@
+{
+  "schema": 1,
+  "contract": "A measurement request needs one eligible measurement revision and an observation. A deadline request needs an eligible calendar revision. A local handoff needs its revision and an observation. External work, preferences between unlike actions, predictions and unrelated requests should abstain. Null denotes abstention. Labels express desired behavior even when product wording support is limited.",
+  "pins": {
+    "goal1": "workos.goal-checkin@1.0.0",
+    "goal2": "workos.goal-checkin@1.1.0",
+    "deadline": "workos.deadline-review@1.0.0",
+    "handoff": "workos.evidence-handoff@1.0.0"
+  },
+  "profiles": [
+    {
+      "id": "all",
+      "description": "Alder with measurement",
+      "enabled": [
+        "goal1",
+        "deadline",
+        "handoff"
+      ],
+      "measured": true,
+      "expected": {
+        "goal": "goal1",
+        "deadline": "deadline",
+        "handoff": "handoff"
+      },
+      "overrides": {}
+    },
+    {
+      "id": "no-reading",
+      "description": "Alder before an observation",
+      "enabled": [
+        "goal1",
+        "deadline",
+        "handoff"
+      ],
+      "measured": false,
+      "expected": {
+        "goal": null,
+        "deadline": "deadline",
+        "handoff": null
+      },
+      "overrides": {}
+    },
+    {
+      "id": "goal-only",
+      "description": "Calculator as sole installed skill",
+      "enabled": [
+        "goal1"
+      ],
+      "measured": true,
+      "expected": {
+        "goal": "goal1",
+        "deadline": null,
+        "handoff": null
+      },
+      "overrides": {}
+    },
+    {
+      "id": "calendar-only",
+      "description": "Calendar as sole available tool",
+      "enabled": [
+        "goal1",
+        "deadline",
+        "handoff"
+      ],
+      "measured": true,
+      "expected": {
+        "goal": null,
+        "deadline": "deadline",
+        "handoff": null
+      },
+      "overrides": {
+        "availableTools": [
+          "WorkOS local calendar"
+        ]
+      }
+    },
+    {
+      "id": "no-write",
+      "description": "Receipt permission absent",
+      "enabled": [
+        "goal1",
+        "deadline",
+        "handoff"
+      ],
+      "measured": true,
+      "expected": {
+        "goal": null,
+        "deadline": null,
+        "handoff": null
+      },
+      "overrides": {
+        "permissions": [
+          "goals.read",
+          "queue.read",
+          "evidence.read"
+        ]
+      }
+    },
+    {
+      "id": "revision-two",
+      "description": "Second measurement revision only",
+      "enabled": [
+        "goal2",
+        "deadline",
+        "handoff"
+      ],
+      "measured": true,
+      "expected": {
+        "goal": "goal2",
+        "deadline": "deadline",
+        "handoff": "handoff"
+      },
+      "overrides": {}
+    },
+    {
+      "id": "two-revisions",
+      "description": "Two eligible measurement revisions",
+      "enabled": [
+        "goal1",
+        "goal2",
+        "deadline",
+        "handoff"
+      ],
+      "measured": true,
+      "expected": {
+        "goal": null,
+        "deadline": "deadline",
+        "handoff": "handoff"
+      },
+      "overrides": {}
+    },
+    {
+      "id": "retired",
+      "description": "Handoff revision retired",
+      "enabled": [
+        "goal1",
+        "deadline",
+        "handoff"
+      ],
+      "measured": true,
+      "expected": {
+        "goal": "goal1",
+        "deadline": "deadline",
+        "handoff": null
+      },
+      "overrides": {
+        "deprecatedSkills": [
+          "handoff"
+        ]
+      }
+    }
+  ],
+  "requests": [
+    {
+      "id": "R01",
+      "intent": "goal",
+      "group": "documented",
+      "text": "Review goal progress"
+    },
+    {
+      "id": "R02",
+      "intent": "goal",
+      "group": "presentation",
+      "text": "  PLEASE   review goal progress?  "
+    },
+    {
+      "id": "R03",
+      "intent": "goal",
+      "group": "natural",
+      "text": "Where does the recorded value stand against our target?"
+    },
+    {
+      "id": "R04",
+      "intent": "goal",
+      "group": "natural",
+      "text": "Compare our observed lead time with the quarterly target."
+    },
+    {
+      "id": "R05",
+      "intent": "goal",
+      "group": "natural",
+      "text": "Based on the last measurement, how far have we moved from baseline?"
+    },
+    {
+      "id": "R06",
+      "intent": "deadline",
+      "group": "documented",
+      "text": "Check the task deadline"
+    },
+    {
+      "id": "R07",
+      "intent": "deadline",
+      "group": "presentation",
+      "text": "Please CHECK   the task deadline!"
+    },
+    {
+      "id": "R08",
+      "intent": "deadline",
+      "group": "natural",
+      "text": "How long until this action is due?"
+    },
+    {
+      "id": "R09",
+      "intent": "deadline",
+      "group": "natural",
+      "text": "Count the calendar days between today and the assigned due date."
+    },
+    {
+      "id": "R10",
+      "intent": "deadline",
+      "group": "natural",
+      "text": "Is the due date still ahead of us, and by how many days?"
+    },
+    {
+      "id": "R11",
+      "intent": "handoff",
+      "group": "documented",
+      "text": "Prepare a handoff note"
+    },
+    {
+      "id": "R12",
+      "intent": "handoff",
+      "group": "presentation",
+      "text": "Please  prepare a handoff note."
+    },
+    {
+      "id": "R13",
+      "intent": "handoff",
+      "group": "natural",
+      "text": "Write a local note for the next reviewer with the evidence reference."
+    },
+    {
+      "id": "R14",
+      "intent": "handoff",
+      "group": "natural",
+      "text": "Put this task’s evidence in a handover draft for its owner."
+    },
+    {
+      "id": "R15",
+      "intent": "handoff",
+      "group": "natural",
+      "text": "Summarize the recorded observation for the person reviewing this task."
+    },
+    {
+      "id": "R16",
+      "intent": "decline",
+      "group": "external",
+      "text": "Send the owner an email with this task's evidence."
+    },
+    {
+      "id": "R17",
+      "intent": "decline",
+      "group": "external",
+      "text": "Check the task deadline and move the due date to Friday."
+    },
+    {
+      "id": "R18",
+      "intent": "decline",
+      "group": "ambiguous",
+      "text": "Prepare a handoff note or check the task deadline"
+    },
+    {
+      "id": "R19",
+      "intent": "decline",
+      "group": "prediction",
+      "text": "Will this project hit next quarter’s target?"
+    },
+    {
+      "id": "R20",
+      "intent": "decline",
+      "group": "missing-intent",
+      "text": "Great, thanks for the update."
+    },
+    {
+      "id": "R21",
+      "intent": "decline",
+      "group": "unrelated",
+      "text": "Which of our campaigns should we spend more on?"
+    }
+  ]
+}
