@@ -72,3 +72,14 @@ claude mcp add ai-dashboard -- node /full/path/to/AI-Dashboard/mcp/server.mjs
 # or
 codex mcp add ai-dashboard -- node /full/path/to/AI-Dashboard/mcp/server.mjs
 ```
+
+## Setting up a client workspace (only when the person asks for one)
+
+A client workspace is a separate, private copy for one client business. It needs **Node 24** and works on Windows, Mac and Linux. It never touches the person's own dashboard data.
+
+1. Run `npm run doctor` in the AI-Dashboard folder and fix anything it reports as FAIL.
+2. Copy `examples/workos/alder.json`, and change the name, owner, colour, port and goal to the client's own. Ask the person for these in plain words.
+3. Run `npm run workos -- install <new folder outside AI-Dashboard> <that file>`. The folder must not exist yet.
+4. Run `npm run workos -- start <that folder>` and open the address it prints. The username is the client id from the file, and the password is in the `access` file inside the folder. Tell the person where it is, and never paste the password into chat.
+
+More detail, including backup, restore and adding people, is in `docs/WORKOS.md`.

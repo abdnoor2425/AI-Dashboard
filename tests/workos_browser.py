@@ -938,13 +938,14 @@ def application_rehearsal(root,cleanup,baseline):
 
 
 def standalone_boundary(root):
-    """Direct Next requests must never expose the inherited desktop API or touch its state."""
+    """In client mode, direct Next requests must never expose the owner dashboard's API or touch its state.
+    (Without WORKOS_LOCAL_CLIENT the same server is the owner dashboard, which has its own tests.)"""
     port = free_port()
     base = f"http://127.0.0.1:{port}"
     desktop = root/"desktop"
     desktop.mkdir()
     env = {"HOME":str(desktop),"KEYSTONE_HOME":str(desktop/"data"),"PATH":str(desktop),
-           "NEXT_TELEMETRY_DISABLED":"1","NODE_ENV":"production"}
+           "NEXT_TELEMETRY_DISABLED":"1","NODE_ENV":"production","WORKOS_LOCAL_CLIENT":"1"}
     proc=subprocess.Popen([shutil.which("node"),"node_modules/next/dist/bin/next","start","-H","127.0.0.1","-p",str(port)],
                           env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
     def call(path,body=None,status=200):

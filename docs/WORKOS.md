@@ -27,7 +27,7 @@ The directory must be new, outside the code checkout, with a real existing paren
 
 Work through this list for each client installation and record the result with the exact revision.
 
-1. **Machine and account.** A Mac or Linux machine, a dedicated OS account for this client, Node 24 LTS, npm and Git. Windows is not supported.
+1. **Machine and account.** A Windows, Mac or Linux machine, a dedicated OS account for this client, Node 24 LTS, npm and Git. On Mac and Linux the installation folder is private through file modes (0700). On Windows it is private through its access list, which the installer sets to this account alone.
 2. **Checkout.** Clone the reviewed release, record `git rev-parse HEAD`, then run `npm ci`, `npm test` and `npm run build`.
 3. **Config.** Copy a fixture, set the client ID, name, accent, owner label, port, modules, enabled skill pins, tools, grants and retention. Use synthetic or approved data only.
 4. **Preflight.** Run `npm run doctor -- <config.json> <new-directory>`. Every line must be PASS or an understood WARN.

@@ -4,7 +4,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 type Local = (req: { method: string; path: string; query?: Record<string, string>; body?: any }) => { status: number; data: any };
-const local = (): Local | null => (typeof globalThis !== "undefined" ? (globalThis as any).__KEYSTONE_LOCAL__ || null : null);
+// The in-page preview hook is for the owner dashboard's static previews only. Client mode never uses it: it always talks to its own installation.
+const clientMode = () => typeof document !== "undefined" && document.documentElement.dataset.client === "1";
+const local = (): Local | null => (typeof globalThis !== "undefined" && !clientMode() ? (globalThis as any).__KEYSTONE_LOCAL__ || null : null);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const listeners = new Set<() => void>();
 export const notifyChanged = () => listeners.forEach((l) => l());

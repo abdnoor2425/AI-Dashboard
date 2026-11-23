@@ -79,6 +79,23 @@ The dashboard signs in with one Google app, set in `lib/server/google-app.ts`. T
 
 </details>
 
+## Client mode: a private workspace for each client
+
+The same download can also run as a small, separate workspace for one client business. It is not a login into your dashboard. Each client gets their own folder, their own password and their own name and colour, and nothing is shared between clients or with you.
+
+A client workspace has a Daily queue and Team queue, a Goal planner that runs from the quarter down to a single day, a catalogue of approved skills, Skill usage, and named sign-ins (operator, reviewer, viewer). It is deliberately quiet: no connected apps, no syncing and no AI calls.
+
+It works on Windows, Mac and Linux and needs Node 24. Ask your AI to "set up a client workspace from the AI-Dashboard folder", or see [docs/WORKOS.md](docs/WORKOS.md). The short version:
+
+```
+npm run doctor
+npm run workos -- install /path/to/new/client-folder examples/workos/alder.json
+npm run workos -- start /path/to/new/client-folder
+```
+
+`npm start` and `npm run setup` still open your own dashboard exactly as before.
+
+
 Your websites are then found in Google Analytics by themselves. You never type them in.
 
 **Metricool** needs its Advanced or Custom plan. Paste your user ID and API token. Each website is matched to a Metricool brand by name, and social numbers stay hidden for a website until you confirm its match.
