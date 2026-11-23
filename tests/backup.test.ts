@@ -23,8 +23,9 @@ const rows = (file: string, sql: string) => {
 };
 
 test("backup writes a private, verified snapshot and restore rebuilds a working installation in a new directory", () => {
-  // On Windows the temp folder sits inside AppData, which indexing refuses as a private data folder, so the test works next to the code there.
-  const base = fs.mkdtempSync(WINDOWS ? path.join(root, ".tmp-backup-test-") : path.join(os.tmpdir(), "workos-backup-"));
+  // On Windows the temp folder sits inside AppData, which indexing refuses as a private data folder, and client data may not sit
+  // inside the code folder either. So there the test works in a plain folder in the home folder, removed at the end.
+  const base = fs.mkdtempSync(WINDOWS ? path.join(os.homedir(), "aid-backup-test-") : path.join(os.tmpdir(), "workos-backup-"));
   fs.chmodSync(base, 0o700);
   try {
     const live = path.join(base, "alder");

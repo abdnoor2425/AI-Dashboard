@@ -11,4 +11,3 @@ __pycache__/
 *.pyc
 *.sqlite*
 *.bundle
-.tmp-backup-test-*
