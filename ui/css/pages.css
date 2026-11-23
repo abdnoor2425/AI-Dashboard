@@ -469,10 +469,11 @@ body.is-brain .main{padding-bottom:0}
 body.is-scan .side{display:none}body.is-scan .main{margin-left:0}body.is-scan .menu-btn{display:none}
 .scanw{max-width:1200px}
 .steps5{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:22px;font:500 10.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--text-3)}
-.steps5 span{display:inline-flex;align-items:center;gap:9px}
+.steps5 span,.steps5 button{display:inline-flex;align-items:center;gap:9px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;border-radius:99px;padding:3px 8px 3px 3px;margin:-3px -8px -3px -3px}
+.steps5 button{cursor:pointer;transition:color .2s,background .2s}.steps5 button:hover{color:var(--text);background:rgba(var(--ink),.06)}.steps5 button:hover i{box-shadow:inset 0 0 0 1px var(--gold)}.steps5 button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .steps5 b{font-weight:500}
-.steps5 span i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--line-2);font-style:normal;font-size:9.5px;letter-spacing:0}
-.steps5 span.done{color:var(--text-2)}.steps5 span.done i{background:var(--mint);color:var(--on);box-shadow:none}
+.steps5 span i,.steps5 button i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 1px var(--line-2);font-style:normal;font-size:9.5px;letter-spacing:0}
+.steps5 .done{color:var(--text-2)}.steps5 .done i,.steps5 button.done:hover i{background:var(--mint);color:var(--on);box-shadow:none}
 .steps5 span.cur{color:var(--text)}.steps5 span.cur i{background:var(--text);color:var(--on);box-shadow:0 0 0 4px rgba(var(--gold-rgb),.32)}
 .steps5 hr{flex:0 0 30px;border:0;border-top:1px solid var(--line-2);margin:0}
 .scan{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center;padding:60px 44px 60px 60px;min-height:660px;overflow:hidden}
@@ -537,7 +538,7 @@ body.is-scan .side{display:none}body.is-scan .main{margin-left:0}body.is-scan .m
   .cgrid{grid-template-columns:1fr}
   .cempty,.scan{padding:28px 20px}.corbit{height:300px}.corbit .orbw{width:140px;height:140px}.cname{height:32px;padding:0 11px;font-size:11.5px}
   .cname:nth-of-type(3){left:0}.cname:nth-of-type(4){right:0}
-  .steps5 b{display:none}.steps5 span.cur b{display:inline}.steps5 hr{flex-basis:12px}
+  .steps5 b{display:none}.steps5 span.cur b{display:inline}.steps5 span,.steps5 button{padding:3px;margin:-3px}.steps5 hr{flex-basis:12px}
   .scan-r{padding:34px 26px 44px}.rnode,.rnode .sphere.mono{width:42px;height:42px}.rnode .sphere.mono{font-size:10px}.rnode span{font-size:10.5px;padding:3px 8px;top:calc(100% + 8px)}
   .btn.lg,.scan-row .btn.line{height:48px}
   .cbox{padding:20px}

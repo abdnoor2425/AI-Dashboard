@@ -18,6 +18,10 @@ test("a new install opens on the welcome flow and ends in the person's own works
   assert.equal(call("POST", "firstrun/start").data.id, id);
 
   assert.equal(call("POST", "firstrun/step", { step: "nowhere" }).status, 400);
+  // Welcome cannot be opened before the profile is filled in; every other step can, in any order.
+  assert.equal(call("POST", "firstrun/step", { step: "welcome" }).status, 400);
+  for (const step of ["ai", "connect", "signin", "intro", "signin"]) { call("POST", "firstrun/step", { step }); assert.equal(call("GET", "bootstrap").data.firstRun.step, step); }
+  assert.equal(call("POST", "firstrun/start").data.id, id);
   call("POST", "firstrun/step", { step: "profile" });
   assert.equal(call("POST", "firstrun/profile", { name: "", business: "Northwind" }).status, 400);
   call("POST", "firstrun/profile", { name: "Sam", role: "Founder", business: "Northwind Studio", theme: "light" });
@@ -25,6 +29,10 @@ test("a new install opens on the welcome flow and ends in the person's own works
   assert.equal(state.workspaces[id].team[0].name, "Sam");
   assert.equal(state.theme, "light");
   assert.equal(call("GET", "bootstrap").data.firstRun.step, "welcome");
+  // Going back from Welcome keeps what was entered, and Welcome can be opened again from the bar.
+  call("POST", "firstrun/step", { step: "connect" });
+  assert.equal(state.workspaces[id].name, "Northwind Studio");
+  assert.equal(call("POST", "firstrun/step", { step: "welcome" }).status, 200);
 
   call("POST", "firstrun/finish");
   assert.equal(isOnboarded(state), true);
