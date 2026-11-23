@@ -15,6 +15,7 @@ import * as ai from "@/lib/server/ai";
 import { connectAgent, disconnectAgent, listAgents } from "@/lib/server/agents";
 import { brainSummary, dropBrain } from "@/lib/server/brain";
 
+import { requireWorkOSLauncher } from "@/lib/workos/launcher-only";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -399,5 +400,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   return json(res.data, res.status);
 }
 
-export const GET = serve;
-export const POST = serve;
+// In client mode (a WorkOS installation) the dashboard API is closed: everything goes through the installation's own launcher.
+const guarded: typeof serve = (...args) => (process.env.WORKOS_LOCAL_CLIENT === "1" ? (requireWorkOSLauncher() as any) : serve(...args));
+export const GET = guarded;
+export const POST = guarded;

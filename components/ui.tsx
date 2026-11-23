@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon, Illustration } from "./icons";
-import { useApp } from "@/lib/client";
+import { useWorkspacePage } from "@/lib/client";
 import { countTo } from "@/lib/motion";
 import { ago, pctText } from "@/lib/format";
 
@@ -76,12 +76,12 @@ export function Load({ q, skeleton, children }: { q: { data: any; error: string 
 }
 
 export function Page({ title, sub, actions, children, hideHead }: { title: string; sub?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode; hideHead?: boolean }) {
-  const app = useApp();
+  const app = useWorkspacePage();
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => { app.setTitle(title); app.setTitleShown(false); if (typeof document !== "undefined") document.title = `${title} · ${app.boot?.workspace?.brand?.name || "AI-Dashboard"}`; }, [title]);
+  useEffect(() => { app.setTitle?.(title); app.setTitleShown?.(false); if (typeof document !== "undefined") document.title = `${title} · ${app.boot?.workspace?.brand?.name || app.boot?.workspace?.name || "WorkOS"}`; }, [title]);
   useEffect(() => {
     if (!ref.current || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([e]) => app.setTitleShown(!e.isIntersecting), { rootMargin: "-64px 0px 0px 0px" });
+    const io = new IntersectionObserver(([e]) => app.setTitleShown?.(!e.isIntersecting), { rootMargin: "-64px 0px 0px 0px" });
     io.observe(ref.current); return () => io.disconnect();
   }, []);
   return (
@@ -154,7 +154,8 @@ export function Menu({ button, children, align = "right", label, up }: { button:
 }
 
 export function Fold({ open, children }: { open: boolean; children: React.ReactNode }) {
-  return <div className={"fold" + (open ? " open" : "")} aria-hidden={!open}><div>{children}</div></div>;
+  // inert removes a closed fold's controls from the tab order as well as from assistive technology.
+  return <div className={"fold" + (open ? " open" : "")} inert={!open}><div>{children}</div></div>;
 }
 
 export const toneOfStatus = (s: string) => (/^not |^no /i.test(s) ? "" : /approved|done|connected|tested|pass|decided/i.test(s) ? "good" : /hold|error|overdue|unavailable|changes/i.test(s) ? "bad" : /review|waiting|proposed|manual|stale|progress|open/i.test(s) ? "warn" : "");

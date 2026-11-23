@@ -3,6 +3,8 @@ import path from "node:path";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/shell";
+import { WorkOSShell } from "@/components/workos-shell";
+import "./workos.css";
 
 export const metadata: Metadata = { title: "AI-Dashboard", description: "Your whole business on one calm page, on your own computer." };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
@@ -14,6 +16,12 @@ const shell = () => fs.readFileSync(path.join(process.cwd(), "ui", "shell.html")
 const LOOK = `try{var h=new Date().getHours(),k=h>=5&&h<8?'dawn':h>=8&&h<17?'day':h>=17&&h<20?'dusk':'night',s=localStorage.getItem('aid-look');if(s==='dawn'||s==='day'||s==='dusk'||s==='night')k=s;var r=document.documentElement;r.dataset.look=k;r.dataset.theme=k==='dawn'||k==='day'?'light':'dark'}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Client mode: a WorkOS installation started by its own launcher (scripts/workos.mjs). It has its own pages and no dashboard frame.
+  if (process.env.WORKOS_LOCAL_CLIENT === "1") return (
+    <html lang="en" data-look="night" data-theme="dark" data-client="1">
+      <body><WorkOSShell />{children}</body>
+    </html>
+  );
   return (
     <html lang="en" data-look="night" data-theme="dark" suppressHydrationWarning>
       <head>

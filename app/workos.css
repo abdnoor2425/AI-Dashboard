@@ -1,0 +1,171 @@
+.workos-shell {
+  /* Small caption text must reach WCAG 2.2 AA (4.5:1) on every card surface. */
+  --text-3: #8a8c95;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 2rem clamp(1rem, 4vw, 3rem) 4rem;
+  color: var(--text);
+  font-family: var(--sans), sans-serif;
+}
+.workos-shell header {
+  display: grid;
+  gap: 0.35rem;
+  padding-block: 0.5rem 1rem;
+}
+.workos-shell header strong {
+  border-inline-start: 0.25rem solid var(--client-accent);
+  padding-inline-start: 0.6rem;
+  font-size: 1.6rem;
+}
+.workos-shell nav {
+  display: flex;
+  gap: 0.25rem 0.75rem;
+  flex-wrap: wrap;
+  border-block: 1px solid var(--sep);
+  margin-bottom: 1.5rem;
+}
+.workos-shell nav a {
+  padding: 0.7rem 0.25rem;
+}
+.workos-shell nav a[aria-current] {
+  font-weight: 650;
+  box-shadow: inset 0 -3px currentColor;
+}
+.workos-shell main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workos-shell .workos-facts {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) 1fr;
+  gap: 0.35rem 1rem;
+  margin-block: 1rem;
+}
+.workos-shell .workos-facts dt {
+  color: var(--text-2);
+}
+.workos-form {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.workos-form label {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 12rem;
+}
+.workos-shell :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+.workos-shell p[role="status"]:empty {
+  display: none;
+}
+.workos-shell summary {
+  cursor: pointer;
+}
+.workos-skip:not(:focus) {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.workos-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 12px;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--sep);
+  border-radius: 8px;
+}
+.workos-fields legend {
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+.workos-shell label {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.workos-fields .input,
+.workos-shell textarea {
+  width: 100%;
+  min-width: 0;
+}
+.workos-shell textarea {
+  font:
+    0.85rem/1.5 ui-monospace,
+    monospace;
+}
+.workos-shell fieldset .btn {
+  align-self: end;
+}
+
+/* Keep long exact revision labels inside the task on narrow viewports. */
+.workos-outputs fieldset {
+  flex: 1 1 100%;
+}
+.workos-outputs fieldset > p {
+  grid-column: 1 / -1;
+}
+.workos-outputs small {
+  overflow-wrap: anywhere;
+}
+.workos-outputs label {
+  align-content: start;
+}
+.workos-outputs input[type="checkbox"] {
+  accent-color: var(--client-accent);
+}
+.workos-fields .btn[aria-pressed="true"] {
+  outline: 2px solid var(--client-accent);
+  outline-offset: -2px;
+}
+
+.workos-plan-tree {
+  border-left: 2px solid var(--client-accent);
+  padding-left: 1rem;
+}
+.workos-plan-tree h3 {
+  font-weight: 650;
+}
+.workos-plan-tree ul {
+  margin: 0.5rem 0 0.5rem 0.4rem;
+  padding-left: 1rem;
+  list-style: disc;
+}
+.workos-plan-tree li + li {
+  margin-top: 0.5rem;
+}
+
+.workos-notice:not(:empty) {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  max-width: min(26rem, 90vw);
+  padding: 0.6rem 1rem;
+  color: var(--text);
+  background: var(--panel, #242729);
+  border: 1px solid var(--sep);
+  border-radius: 0.5rem;
+}
+
+.workos-history-counts {
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));
+ gap:.75rem;
+ margin: .75rem 0;
+}
+.workos-history-counts > div, .workos-history-list > li {padding:.75rem;border:1px solid var(--sep);border-radius:.5rem;}
+.workos-history-counts dt {font-size:.86rem;color:var(--text-2);}
+.workos-history-counts dd:first-of-type {font-weight:650;font-size:1.2rem;}
+.workos-history-list, .workos-history-pins {display:flex;gap:.5rem;flex-wrap:wrap;list-style:none;margin:.75rem 0;}
+.workos-history-list {flex-direction:column;}
+.workos-history-detail {margin-top:1rem;}
+.workos-history-detail summary {margin:.4rem 0;}
+.workos-history-detail code {overflow-wrap:anywhere;}
+.workos-history select {max-width:100%;}

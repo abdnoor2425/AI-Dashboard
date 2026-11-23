@@ -1,11 +1,11 @@
 "use client";
 import React, { useState } from "react";
-import { api, useApi, useApp } from "@/lib/client";
+import { api, useApi, useWorkspacePage } from "@/lib/client";
 import { ago } from "@/lib/format";
 import { Empty, Fold, Icon, Load, Page, SampleTag, Section, SkelRows, Status } from "@/components/ui";
 
 function Session({ d, startOpen }: { d: any; startOpen: boolean }) {
-  const app = useApp();
+  const app = useWorkspacePage();
   const [open, setOpen] = useState(startOpen);
   const [outcome, setOutcome] = useState(d.outcome || "");
   const save = async () => { try { await api("decisions/" + d.id, { method: "POST", body: { outcome } }); app.toast(outcome ? "Decision saved" : "Reopened"); } catch (e: any) { app.toast(e.message); } };
@@ -23,10 +23,12 @@ function Session({ d, startOpen }: { d: any; startOpen: boolean }) {
           <div className="grid-2">
             {d.advisors.map((a: any) => <div key={a.name} className="quote"><div className="flex items-center justify-between gap-2" style={{ marginBottom: 6 }}><span className="t-head" style={{ fontSize: 15 }}>{a.name}</span><span className="chip line">{a.stance}</span></div><p style={{ fontSize: 14.5 }} className="muted">{a.argument}</p></div>)}
           </div>
-          {d.simulated && <p className="t-foot faint">This debate is simulated from fixed advisor roles. It is a thinking aid, not advice from live AI. Link Claude Code or Codex on the Connections page for a debate written about your real question.</p>}
+          {d.simulated && <p className="t-foot faint">This debate is simulated from fixed advisor roles. It is a thinking aid, not advice from live AI. {app.boot.clientStarter ? "AI provider calls are disabled in this installation." : "Link Claude Code or Codex on the Connections page for a debate written about your real question."}</p>}
           <div>
+            {app.boot.access?.decisionWrite!==false&&<>
             <label className="t-head" htmlFor={"o-" + d.id} style={{ fontSize: 15 }}>What did you decide?</label>
             <div className="flex gap-2 flex-wrap" style={{ marginTop: 8 }}><input id={"o-" + d.id} className="input" style={{ flex: "1 1 260px", width: "auto" }} value={outcome} onChange={(e) => setOutcome(e.target.value)} placeholder="Write the decision in one line" maxLength={300} /><button className="btn primary" onClick={save}>{d.status === "decided" ? "Update" : "Save decision"}</button></div>
+            </>}
             {d.nextActions.length > 0 && <><div className="t-cap" style={{ margin: "14px 0 6px" }}>Proposed next steps</div><ul style={{ display: "grid", gap: 5 }}>{d.nextActions.map((n: string) => <li key={n} className="flex gap-2" style={{ fontSize: 14.5 }}><span style={{ color: "var(--accent)", marginTop: 2 }}><Icon name="chevron" size={14} stroke={2.2} /></span>{n}</li>)}</ul></>}
           </div>
         </div>
@@ -36,7 +38,7 @@ function Session({ d, startOpen }: { d: any; startOpen: boolean }) {
 }
 
 export default function Decisions() {
-  const app = useApp();
+  const app = useWorkspacePage();
   const q = useApi("decisions");
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,13 +51,13 @@ export default function Decisions() {
   return (
     <Page title="Decision Room" sub="Put a hard question to four advisors who see it differently. Every session is saved so you can come back to it." actions={<SampleTag show={app.boot.workspace.sample} />}>
       <div className="stack">
-        <Section>
+        {app.boot.access?.decisionWrite!==false&&<Section>
           <form className="card pad" onSubmit={start}>
             <label htmlFor="new-decision" className="t-head">What are you deciding?</label>
             <textarea id="new-decision" className="input" rows={2} style={{ marginTop: 10 }} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="For example: Should we raise prices in January?" maxLength={300} />
             <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: 12 }}><button className="btn primary" disabled={busy || question.trim().length < 8}><Icon name="decisions" size={16} />{busy ? "Thinking" : "Hear the advisors"}</button><span className="t-foot">The Operator, the Customer, the Skeptic and the Investor each give a view.</span></div>
           </form>
-        </Section>
+        </Section>}
         <Load q={q} skeleton={<SkelRows n={3} />}>
           {(d) => <Section title="Saved sessions" i={1}><div className="stack" style={{ gap: 12 }}>{d.decisions.length ? d.decisions.map((x: any) => <Session key={x.id} d={x} startOpen={x.id === fresh} />) : <div className="card"><Empty title="No decisions yet"><p>Your first session will be saved here.</p></Empty></div>}</div></Section>}
         </Load>

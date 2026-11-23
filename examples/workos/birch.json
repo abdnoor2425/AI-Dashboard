@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "client": "birch-demo",
+  "name": "Birch Workshop",
+  "owner": "Ellis",
+  "accent": "indigo",
+  "port": 3412,
+  "modules": [
+    "metrics",
+    "team",
+    "skills",
+    "second-brain",
+    "decisions"
+  ],
+  "enabledSkills": [
+    "workos.goal-checkin@1.0.0"
+  ],
+  "permissions": [
+    "goals.read"
+  ],
+  "retentionDays": 30,
+  "goal": {
+    "quarter": "Reduce review turnaround",
+    "month": "Measure the review cycle",
+    "week": "Verify turnaround for the pilot",
+    "metric": "Review turnaround",
+    "unit": "hours",
+    "baseline": 24,
+    "target": 12,
+    "source": "Synthetic QA ledger",
+    "due": "2026-12-31"
+  },
+  "tasks": [
+    {
+      "id": "measure-pilot",
+      "title": "Check workshop intake",
+      "due": "2026-12-02",
+      "after": null
+    },
+    {
+      "id": "repeat-check",
+      "title": "Review the next intake",
+      "due": "2026-12-09",
+      "after": "measure-pilot"
+    }
+  ]
+}

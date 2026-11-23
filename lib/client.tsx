@@ -84,3 +84,12 @@ export function store(key: string, value?: any) {
   } catch { /* storage can be unavailable; the app works without it */ }
   return null;
 }
+
+// Client mode (a WorkOS installation) has no dashboard frame, so its pages get only the basics.
+type WorkspacePageContext = Pick<AppCtx, "boot" | "toast"> & Partial<Pick<AppCtx, "openPalette" | "setTitle" | "setTitleShown">>;
+export const WorkspacePage = createContext<WorkspacePageContext | null>(null);
+export function useWorkspacePage(): WorkspacePageContext {
+  const installed = useContext(WorkspacePage);
+  const original = useContext(App);
+  return installed ?? original;
+}

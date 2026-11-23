@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "client": "alder-demo",
+  "name": "Alder Studio",
+  "owner": "Rowan",
+  "accent": "teal",
+  "port": 3411,
+  "modules": [
+    "metrics",
+    "team",
+    "skills",
+    "second-brain",
+    "decisions"
+  ],
+  "enabledSkills": [
+    "workos.goal-checkin@1.0.0",
+    "workos.deadline-review@1.0.0",
+    "workos.evidence-handoff@1.0.0"
+  ],
+  "permissions": [
+    "goals.read",
+    "receipts.write",
+    "queue.read",
+    "evidence.read",
+    "plan.edit",
+    "work.record",
+    "fixture.import",
+    "catalogue.review"
+  ],
+  "retentionDays": 30,
+  "goal": {
+    "quarter": "Reduce review turnaround",
+    "month": "Measure the review cycle",
+    "week": "Verify turnaround for the pilot",
+    "metric": "Review turnaround",
+    "unit": "hours",
+    "baseline": 24,
+    "target": 12,
+    "source": "Synthetic QA ledger",
+    "due": "2026-12-31"
+  },
+  "tasks": [
+    {
+      "id": "measure-pilot",
+      "title": "Check pilot turnaround",
+      "due": "2026-12-02",
+      "after": null
+    },
+    {
+      "id": "repeat-check",
+      "title": "Check the next review cycle",
+      "due": "2026-12-09",
+      "after": "measure-pilot"
+    }
+  ],
+  "availableTools": [
+    "WorkOS local calculator",
+    "WorkOS local calendar",
+    "WorkOS local notes"
+  ]
+}

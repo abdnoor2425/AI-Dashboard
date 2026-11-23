@@ -1,0 +1,48 @@
+name: WorkOS checks
+
+on:
+  push:
+    branches: [main, workos]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Type check
+        run: node_modules/.bin/tsc --noEmit --incremental false
+      - name: Build
+        run: npm run build
+      - name: Preflight
+        run: npm run doctor
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+      - name: Calendar oracle
+        run: python3 tests/workos_calendar_oracle.py
+      - name: Routing benchmarks
+        run: |
+          node scripts/workos-routing-eval.mjs > /dev/null
+          node scripts/workos-routing-policy.mjs > /dev/null
+          for set in contract holdout conversational; do
+            node scripts/workos-routing-contract.mjs "$set" > /dev/null
+          done
+      - name: Browser rehearsal
+        run: |
+          python3 -m pip install playwright==1.65.2
+          python3 -m playwright install --with-deps chromium
+          python3 tests/workos_browser.py

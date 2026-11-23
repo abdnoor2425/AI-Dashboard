@@ -67,3 +67,13 @@ test("Stripe: a key is only used after its permissions were confirmed, reads are
   fs.rmSync(dir, { recursive: true, force: true });
   assert.equal(r.status, 0, r.stderr);
 });
+
+test("Windows: a folder is private only when this account is the one name on its access list", async () => {
+  const { onlyThisAccount } = await import("../lib/workos/private.mjs");
+  const dir = "C:\\Users\\rowan\\clients\\alder";
+  assert.equal(onlyThisAccount(`${dir} DESKTOP-1\\rowan:(OI)(CI)(F)\r\n\r\nSuccessfully processed 1 files; Failed processing 0 files\r\n`, dir, "rowan"), true);
+  assert.equal(onlyThisAccount(`${dir}\\access DESKTOP-1\\Rowan:(I)(F)\r\n`, dir + "\\access", "rowan"), true);
+  assert.equal(onlyThisAccount(`${dir} DESKTOP-1\\rowan:(OI)(CI)(F)\r\n      BUILTIN\\Users:(OI)(CI)(RX)\r\n`, dir, "rowan"), false);
+  assert.equal(onlyThisAccount(`${dir} NT AUTHORITY\\SYSTEM:(OI)(CI)(F)\r\n`, dir, "rowan"), false);
+  assert.equal(onlyThisAccount("", dir, "rowan"), false);
+});

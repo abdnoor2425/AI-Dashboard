@@ -3,6 +3,7 @@ import { BrainError, brainFilePath, brainSummary, browseFolders, changeBrain, ge
 import { openPath } from "@/lib/server/made";
 import { hasWorkspace, loadState } from "@/lib/server/store";
 
+import { requireWorkOSLauncher } from "@/lib/workos/launcher-only";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -65,5 +66,7 @@ async function serve(req: NextRequest) {
   }
 }
 
-export const GET = serve;
-export const POST = serve;
+// In client mode (a WorkOS installation) the dashboard API is closed: everything goes through the installation's own launcher.
+const guarded: typeof serve = (...args) => (process.env.WORKOS_LOCAL_CLIENT === "1" ? (requireWorkOSLauncher() as any) : serve(...args));
+export const GET = guarded;
+export const POST = guarded;

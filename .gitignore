@@ -6,3 +6,8 @@ preview/*.css
 next-env.d.ts
 *.tsbuildinfo
 .env*
+
+__pycache__/
+*.pyc
+*.sqlite*
+*.bundle
