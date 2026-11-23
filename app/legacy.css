@@ -779,3 +779,15 @@
 .lg .td mark{background: rgba(var(--gold-rgb), .3); color: inherit; border-radius: 3px; padding: 0 1px;}
 @media (max-width: 720px){.lg .td-srcs{grid-template-columns: minmax(0, 1fr);}}
 @media (prefers-reduced-motion: reduce){.lg .td-card{animation: none;} .lg .td-src{transition: none;}}
+
+/* Metricool by file */
+.lg .mcf{display: grid; gap: 12px;}
+.lg .mcf-drop{display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px; border: 1.5px dashed var(--sep); border-radius: 16px; color: var(--accent); transition: background .2s, border-color .2s;}
+.lg .mcf-drop.over{border-color: var(--accent); background: var(--fill-2);}
+.lg .mcf-words{flex: 1; min-width: 180px; display: grid; gap: 2px;} .lg .mcf-words b{font-size: 15.5px; color: var(--text);} .lg .mcf-words small{font-size: 13px; color: var(--text-3);}
+.lg .mcf-note{font-size: 13px; color: var(--text-3); line-height: 1.45;} .lg .mcf-note.bad{color: var(--bad);}
+.lg .mcf-now{display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--fill-2);}
+.lg .mcf-now b{display: block; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;} .lg .mcf-now small{font-size: 12.5px; color: var(--text-3);}
+.lg .mcf-ai{display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; background: var(--fill-2);} .lg .mcf-ai p{font-size: 13.5px; color: var(--text-2);}
+.lg .mcf-path{display: block; padding: 9px 12px; border-radius: 10px; background: var(--bg, transparent); box-shadow: inset 0 0 0 1px var(--sep); font-size: 12px; overflow-wrap: anywhere; user-select: all;}
+.lg .mcf.compact .mcf-ai p{display: none;}

@@ -103,6 +103,9 @@ body.is-setup .su-brand{display:flex}
 .su-ff{display:flex;align-items:center;gap:14px;margin-top:14px}.su-ff small{flex:1;font-size:12px;color:var(--text-3);line-height:1.45}
 .su-path{display:flex;align-items:center;gap:10px}.su-path b{flex:1;min-width:0;font:400 12px var(--mono);color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
 .su-path .round{width:30px;height:30px;flex:none}.su-path .round svg{width:14px;height:14px}
+.su-file{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;border:1.5px dashed var(--line-2);transition:background .2s,border-color .2s}.su-file.over{border-color:var(--gold);background:rgba(var(--ink),.06)}
+.su-file>svg{width:24px;height:24px;color:var(--gold);flex:none}.su-file>div{flex:1;min-width:150px}.su-file b{display:block;font-size:14px;font-weight:600;color:var(--text)}.su-file small{font-size:12.5px;color:var(--text-3)}
+.su-fnote.bad{color:var(--bad)}.su-or{display:flex;align-items:center;gap:12px;margin:14px 0 4px;font:400 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}.su-or:before,.su-or:after{content:"";flex:1;height:1px;background:var(--line)}
 .su-pick{transition:box-shadow .2s,background .2s}.su-pick.over{background:rgba(var(--ink),.07);box-shadow:inset 0 0 0 2px var(--gold)}
 .su-drop{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;border:1.5px dashed var(--line-2);color:var(--text-2)}.su-pick.over .su-drop{border-color:var(--gold);color:var(--text)}
 .su-drop svg{width:26px;height:26px;color:var(--gold);flex:none}.su-drop b{display:block;font-size:14.5px;font-weight:600;color:var(--text)}.su-drop small{font-size:12.5px;color:var(--text-3)}

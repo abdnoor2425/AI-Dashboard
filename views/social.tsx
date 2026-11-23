@@ -4,6 +4,7 @@ import Link from "@/lib/nav";
 import { useApi, useApp } from "@/lib/client";
 import { clock, compact, dayName } from "@/lib/format";
 import { AreaChart, HBars, Spark } from "@/components/charts";
+import { MetricoolFile } from "@/components/metricool-file";
 import { Delta, Empty, Fold, Icon, Load, Mark, Num, Page, SampleTag, Section, SkelCards, SourceLine } from "@/components/ui";
 
 function SocialInner() {
@@ -11,11 +12,18 @@ function SocialInner() {
   const site = app.scope.mode === "sites" && app.scope.id !== "all" ? app.scope.id : "all";
   const q = useApi("social", { site });
   const [comp, setComp] = useState(false);
+  const [file, setFile] = useState(false);
   return (
-    <Page title="Social" sub={site === "all" ? "Reach and followers across every website's Metricool brand." : `What ${app.scopeLabel} is doing on social, from its Metricool brand.`} actions={<SampleTag show={app.boot.workspace.sample} />}>
+    <Page title="Social" sub={site === "all" ? "Reach and followers across your social accounts, from Metricool." : `What ${app.scopeLabel} is doing on social, from its Metricool brand.`} actions={<SampleTag show={app.boot.workspace.sample} />}>
       <Load q={q} skeleton={<SkelCards n={4} h={170} />}>
         {(d) => d.state !== "ok" ? (
-          <div className="card"><Empty art="connect" title={d.state === "unconfirmed" ? "Confirm this website's Metricool brand" : "No Metricool brand matched yet"}><p>Metricool calls each website a brand. Match {app.scopeLabel} to its brand once and its social numbers show here.</p><Link href="/connections" className="btn primary" style={{ marginTop: 12 }}>Match the brand</Link></Empty></div>
+          app.boot.workspace.sample ? <div className="card"><Empty art="connect" title={d.state === "unconfirmed" ? "Confirm this website's Metricool brand" : "No Metricool brand matched yet"}><p>Metricool calls each website a brand. Match {app.scopeLabel} to its brand once and its social numbers show here.</p><Link href="/connections" className="btn primary" style={{ marginTop: 12 }}>Match the brand</Link></Empty></div> : (
+            <div className="card pad stack" style={{ gap: 14 }}>
+              <div><h2 className="t-mid">Add your Metricool numbers</h2><p className="muted" style={{ marginTop: 6 }}>{d.file && !d.file.used ? `${d.file.name} has no numbers for ${app.scopeLabel}. Add a file that names this website as its brand.` : "Drop in a Metricool export and your reach and followers show here."}</p></div>
+              <MetricoolFile onDone={() => q.reload()} />
+              <p className="t-foot faint">On Metricool's Advanced or Custom plan you can connect the API instead, on <Link className="link" href="/connections">Connections</Link>.</p>
+            </div>
+          )
         ) : (
           <div className="stack">
             <Section>
@@ -27,7 +35,13 @@ function SocialInner() {
                 <p className="muted" style={{ margin: "12px 0 4px", fontSize: 16 }}>{d.sentence}</p>
                 <AreaChart data={d.reach} label="Reach per day" height={200} />
               </div>
-              <SourceLine source={d.source} at={d.lastSync} extra="reach is added across networks, so one person can be counted twice" />
+              <SourceLine source={d.file?.used ? `${d.source} (${d.file.name})` : d.source} at={d.lastSync} extra="reach is added across networks, so one person can be counted twice" />
+              {!app.boot.workspace.sample && (d.file?.used || d.fileProblem) && (
+                <div className="card group" style={{ marginTop: 12 }}>
+                  <button className="row flush" onClick={() => setFile((f) => !f)} aria-expanded={file}><span className="glyph"><Icon name="files" size={16} /></span><span className="row-main"><span className="row-title" style={{ display: "block" }}>Update the Metricool file</span><span className="row-sub">{d.fileProblem ? `${d.fileProblem.file} could not be used` : "Drop in a newer export, or let your AI save one"}</span></span><Icon name="chevron" size={15} className="chev" /></button>
+                  <Fold open={file}><div style={{ padding: 16 }}><MetricoolFile compact onDone={() => q.reload()} /></div></Fold>
+                </div>
+              )}
             </Section>
 
             {d.pending.length > 0 && <Link href="/connections" className="notice"><span className="dot warn" /><span style={{ flex: 1 }}>{d.pending.map((p: any) => p.name).join(", ")} {d.pending.length > 1 ? "are" : "is"} left out until {d.pending.length > 1 ? "their brands are" : "its brand is"} confirmed in Metricool.</span><Icon name="chevron" size={15} className="chev" /></Link>}
@@ -89,6 +103,7 @@ function SocialInner() {
 
 export default function Social() {
   const app = useApp();
-  if (app.boot.sites.length) return <SocialInner />;
+  // A workspace with no website yet can still show social numbers from a Metricool file.
+  if (app.boot.sites.length || !app.boot.workspace.sample) return <SocialInner />;
   return <Page title="Social"><div className="card"><Empty art="connect" title="No websites yet"><p>Social numbers belong to a website. Connect Google Analytics first, then Metricool.</p><Link className="btn primary" style={{ marginTop: 14 }} href="/connections">Open Connections</Link></Empty></div></Page>;
 }
