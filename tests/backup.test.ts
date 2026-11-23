@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
+import { WINDOWS, isPrivate, lockDown } from "../lib/workos/private.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const workos = (...args: string[]) =>
@@ -22,7 +23,9 @@ const rows = (file: string, sql: string) => {
 };
 
 test("backup writes a private, verified snapshot and restore rebuilds a working installation in a new directory", () => {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), "workos-backup-"));
+  // On Windows the temp folder sits inside AppData, which indexing refuses as a private data folder, and client data may not sit
+  // inside the code folder either. So there the test works in a plain folder in the home folder, removed at the end.
+  const base = fs.mkdtempSync(WINDOWS ? path.join(os.homedir(), "aid-backup-test-") : path.join(os.tmpdir(), "workos-backup-"));
   fs.chmodSync(base, 0o700);
   try {
     const live = path.join(base, "alder");
@@ -40,9 +43,13 @@ test("backup writes a private, verified snapshot and restore rebuilds a working 
     const made = workos("backup", live, saved);
     assert.equal(made.status, 0, made.stderr);
     assert.ok(!made.stdout.includes(fs.readFileSync(path.join(live, "access"), "utf8").trim()));
-    assert.equal(fs.statSync(saved).mode & 0o777, 0o700);
-    for (const name of ["workos.sqlite", "access", "backup.json"])
-      assert.equal(fs.statSync(path.join(saved, name)).mode & 0o777, 0o600, name);
+    // Private means file modes on Mac and Linux, and an access list naming this account alone on Windows.
+    assert.ok(isPrivate(saved));
+    if (!WINDOWS) assert.equal(fs.statSync(saved).mode & 0o777, 0o700);
+    for (const name of ["workos.sqlite", "access", "backup.json"]) {
+      assert.ok(isPrivate(path.join(saved, name)), name);
+      if (!WINDOWS) assert.equal(fs.statSync(path.join(saved, name)).mode & 0o777, 0o600, name);
+    }
     const manifest = JSON.parse(fs.readFileSync(path.join(saved, "backup.json"), "utf8"));
     assert.equal(manifest.client, "alder-demo");
     assert.equal(manifest.schema, 3);
@@ -70,12 +77,15 @@ test("backup writes a private, verified snapshot and restore rebuilds a working 
     const bad = path.join(base, "tampered");
     fs.cpSync(saved, bad, { recursive: true });
     fs.chmodSync(bad, 0o700); // older Node versions do not carry the directory mode across in cpSync
+    lockDown(bad); // and a copy on Windows does not carry the access list
     fs.appendFileSync(path.join(bad, "workos.sqlite"), "x");
     assert.match(workos("restore", bad, path.join(base, "never")).stderr, /does not match its manifest/);
     assert.ok(!fs.existsSync(path.join(base, "never")));
 
     // Links inside the project directory are refused rather than followed.
-    fs.symlinkSync("/etc/hosts", path.join(live, "project", "outside"));
+    // Windows only lets an admin make a file link, so there the link is a folder junction, as in the brain tests.
+    if (WINDOWS) { fs.mkdirSync(path.join(base, "elsewhere")); fs.symlinkSync(path.join(base, "elsewhere"), path.join(live, "project", "outside"), "junction"); }
+    else fs.symlinkSync("/etc/hosts", path.join(live, "project", "outside"));
     assert.match(workos("backup", live, path.join(base, "linked")).stderr, /only regular files/);
     assert.ok(!fs.existsSync(path.join(base, "linked")));
     assert.equal(

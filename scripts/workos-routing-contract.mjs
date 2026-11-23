@@ -7,7 +7,8 @@ import { catalogue, eligible } from "../lib/workos/config.ts";
 import { selectSkill } from "../lib/workos/routing.ts";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
-const fixture = read("../tests/fixtures/workos-routing-contract.json");
+// Line endings are made the same first, so a Windows download of the same file gives the same checksum.
+const fixture = read("../tests/fixtures/workos-routing-contract.json").replace(/\r\n/g, "\n");
 const corpus = JSON.parse(fixture);
 const alder = JSON.parse(read("../examples/workos/alder.json"));
 const checksum = createHash("sha256").update(fixture).digest("hex");
