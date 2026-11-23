@@ -120,12 +120,14 @@ function needsView(ws: any, now: number) {
   };
 }
 
-/* ---------- goals: week feeds month, month feeds quarter ---------- */
-export const LEVELS = ["quarter", "month", "week"] as const;
+/* ---------- goals: today feeds the week, the week feeds the month, the month feeds the quarter ---------- */
+export const LEVELS = ["quarter", "month", "week", "day"] as const;
+export const LEVEL_NAMES = ["Quarter", "Month", "Week", "Today"];
 export function periodName(level: string, now: number) {
   const d = new Date(now);
   if (level === "quarter") return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
   if (level === "month") return d.toLocaleDateString("en-US", { month: "long" });
+  if (level === "day") return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   const a = new Date(startOfDay(now) - ((d.getDay() + 6) % 7) * DAY), b = new Date(a.getTime() + 6 * DAY);
   const f = (x: Date, m: boolean) => x.toLocaleDateString("en-GB", m ? { day: "numeric", month: "long" } : { day: "numeric" });
   return a.getMonth() === b.getMonth() ? `${f(a, false)} to ${f(b, true)}` : `${f(a, true)} to ${f(b, true)}`;
@@ -138,7 +140,7 @@ function goalsView(ws: any, now: number) {
     const mine = list.filter((g) => g.level === lv), p = mine.length ? Math.round(mine.reduce((a, g) => a + (g.progress || 0), 0) / mine.length) : 0;
     const on = mine.filter((g) => (g.progress || 0) >= 45).length, top = mine.slice().sort((a, b) => (b.progress || 0) - (a.progress || 0))[0];
     return {
-      id: lv, k: ["Quarter", "Month", "Week"][n], sub: periodName(lv, now), p, n: mine.length, head: mine[0]?.title || "", top: top?.title || "",
+      id: lv, k: LEVEL_NAMES[n], sub: periodName(lv, now), p, n: mine.length, head: mine[0]?.title || "", top: top?.title || "",
       note: mine.length ? `${plural(mine.length, "goal")} · ${on === mine.length ? "on pace" : `${on} of ${mine.length} on track`}` : "No goals yet",
       items: mine.map((g) => [g.title, Math.round(g.progress || 0), g.feeds && title(g.feeds) ? "Feeds: " + title(g.feeds) : n === 0 && mine[0] === g ? "Top goal" : "", g.id]),
     };

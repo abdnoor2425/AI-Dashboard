@@ -1,33 +1,36 @@
-/* ---------- goals: the week feeds the month, the month feeds the quarter ---------- */
-let glevel=2;const stacks=[];
-function mountStack(stage,list,big){stage.innerHTML=`<div class="iso" style="--s:${big?1.18:1}"><div class="floor"></div>${GOALS.map((g,i)=>`<div class="plate" data-l="${i}" style="--i:${i};--p:${g.p}%"><div class="face"><div class="fill"></div><div class="lab">${String(3-i).padStart(2,'0')} · ${g.k}</div><div class="pct num">${g.p}%</div></div><div class="e1"></div><div class="e2"></div></div>`).join('')}</div>`;
-  if(list)list.innerHTML=[2,1,0].map(i=>{const g=GOALS[i];return `<button class="lvr" type="button" data-l="${i}" aria-pressed="false"><div class="eyebrow">${g.k} · ${esc(g.sub)}</div><div class="r1" style="margin-top:10px"><b>${g.n?esc(g.head):'No goals yet'}</b><span class="num">${g.p}%</span></div><div class="meter"><i style="width:${g.p}%"></i></div><small>${esc(g.note)}</small></button>`}).join('');
+/* ---------- goals: today feeds the week, the week feeds the month, the month feeds the quarter ---------- */
+let glevel=2;const stacks=[];const LV=()=>GOALS.map((_,i)=>i).reverse(),LVN=['quarter','month','week','day'],gName=l=>l===3?'goal for today':GOALS[l].k.toLowerCase()+' goal';
+function mountStack(stage,list,big){stage.innerHTML=`<div class="iso" style="--s:${big?1.18:1};--gap:${GOALS.length>3?60:80}px"><div class="floor"></div>${GOALS.map((g,i)=>`<div class="plate" data-l="${i}" style="--i:${i};--p:${g.p}%"><div class="face"><div class="fill"></div><div class="lab">${String(GOALS.length-i).padStart(2,'0')} · ${g.k}</div><div class="pct num">${g.p}%</div></div><div class="e1"></div><div class="e2"></div></div>`).join('')}</div>`;
+  if(list)list.innerHTML=LV().map(i=>{const g=GOALS[i];return `<button class="lvr" type="button" data-l="${i}" aria-pressed="false"><div class="eyebrow">${g.k} · ${esc(g.sub)}</div><div class="r1" style="margin-top:10px"><b>${g.n?esc(g.head):'No goals yet'}</b><span class="num">${g.p}%</span></div><div class="meter"><i style="width:${g.p}%"></i></div><small>${esc(g.note)}</small></button>`}).join('');
   if(!stacks.includes(stage))stacks.push(stage);
   stage.querySelectorAll('.plate').forEach(p=>p.onclick=()=>setLevel(+p.dataset.l));
   if(list)list.querySelectorAll('.lvr').forEach(b=>{b.onclick=()=>setLevel(+b.dataset.l);b.onpointerenter=()=>setLevel(+b.dataset.l)})}
 function setLevel(l){if(!GOALS.length)return;glevel=l;$$('.plate').forEach(p=>{const on=+p.dataset.l===l;p.classList.toggle('act',on);p.classList.toggle('dim',!on);p.style.setProperty('--lift',on?'26px':'0px')});$$('.lvr').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.l===l));
-  const g=GOALS[l];$('#goalTabs').innerHTML=[2,1,0].map((i,n)=>`<button role="tab" type="button" data-l="${i}" aria-selected="${i===l}"><small>${nn(n)}</small>${GOALS[i].k}</button>`).join('');$$('#goalTabs button').forEach(b=>b.onclick=()=>setLevel(+b.dataset.l));
+  const g=GOALS[l];$('#goalTabs').innerHTML=LV().map((i,n)=>`<button role="tab" type="button" data-l="${i}" aria-selected="${i===l}"><small>${nn(n)}</small>${GOALS[i].k}</button>`).join('');$$('#goalTabs button').forEach(b=>b.onclick=()=>setLevel(+b.dataset.l));
   $('#gEy').innerHTML=`<b>${g.k}</b> &nbsp;·&nbsp; ${esc(g.sub)}`;$('#gTitle').textContent=g.n?g.p+'% there.':'Nothing set yet.';
-  $('#gSub').textContent=!g.n?(l===0?'Start here. Up to three goals for the quarter, and everything else stacks up to them.':'Add up to three goals. Each one can feed a goal on the level above.'):l===2?'Goals for this week. Each one moves a month goal forward.':l===1?`Goals for ${g.sub}. Each one moves a quarter goal forward.`:'Goals for the quarter. Everything else stacks up to these.';
+  $('#gSub').textContent=!g.n?(l===0?'Start here. Up to three goals for the quarter, and everything else stacks up to them.':'Add up to three goals. Each one can feed a goal on the level above.'):l===3?'What you will do today. Each one moves a week goal forward.':l===2?'Goals for this week. Each one moves a month goal forward.':l===1?`Goals for ${g.sub}. Each one moves a quarter goal forward.`:'Goals for the quarter. Everything else stacks up to these.';
   $('#gcards').innerHTML=g.items.map(it=>`<button class="panel gcard tilt" type="button" data-gedit="${esc(it[3])}"><div class="gtop"><div class="torus-wrap"><div class="torus" style="--p:${it[1]}"></div></div><b class="num">${it[1]}%</b></div><h3>${esc(it[0])}</h3>${it[2]?`<div class="feeds">${ic('upa',2)}${esc(it[2])}</div>`:''}<span class="gedit">Update</span></button>`).join('')
-   +(g.items.length<3?`<button class="panel gcard gadd" type="button" data-gadd="${l}"><div class="gtop"><div class="sphere" style="--glow:${GLOW[GCOL[l]]}">${ic('plus',2)}</div></div><h3>Add a ${g.k.toLowerCase()} goal</h3><div class="feeds">${3-g.items.length} of 3 free</div></button>`:'')}
+   +(g.items.length<3?`<button class="panel gcard gadd" type="button" data-gadd="${l}"><div class="gtop"><div class="sphere" style="--glow:${GLOW[GCOL[l]]}">${ic('plus',2)}</div></div><h3>Add a ${gName(l)}</h3><div class="feeds">${3-g.items.length} of 3 free</div></button>`:'')}
 function mountGoals(){const G=D.goals;$('#gHeadEy').textContent=G.levels.length?`Week ${G.week} · ${G.levels[1].sub} · ${G.levels[0].sub}`:'';mountStack($('#isoB'),$('#lvB'),true);setLevel(glevel)}
 
 /* one small form to add or update a goal */
 let gEdit=null;
 function openGoal(id,level){const all=GOALS.flatMap((g,i)=>g.items.map(it=>({id:it[3],title:it[0],p:it[1],l:i,feeds:it[4]||''})));const cur=all.find(x=>x.id===id)||null,l=cur?cur.l:level;gEdit={id:cur?cur.id:'',l};
   const up=l>0?GOALS[l-1]:null;
-  $('#gsT').textContent=cur?'Update this goal':'Add a '+GOALS[l].k.toLowerCase()+' goal';$('#gsE').innerHTML=`<b>${GOALS[l].k}</b> &nbsp;·&nbsp; ${esc(GOALS[l].sub)}`;$('#gsI').style.setProperty('--glow',GLOW[GCOL[l]]);
+  $('#gsT').textContent=cur?'Update this goal':'Add a '+gName(l);$('#gsE').innerHTML=`<b>${GOALS[l].k}</b> &nbsp;·&nbsp; ${esc(GOALS[l].sub)}`;$('#gsI').style.setProperty('--glow',GLOW[GCOL[l]]);
   $('#gsTitle').value=cur?cur.title:'';$('#gsP').value=cur?cur.p:0;$('#gsPv').textContent=(cur?cur.p:0)+'%';
   $('#gsFeedW').hidden=!up||!up.items.length;$('#gsFeed').innerHTML='<option value="">Nothing yet</option>'+(up?up.items.map(it=>`<option value="${esc(it[3])}">${esc(it[0])}</option>`).join(''):'');
   const raw=(D.goals.raw||[]).find(x=>x.id===id);$('#gsFeed').value=raw&&raw.feeds?raw.feeds:'';
-  $('#gsDel').hidden=!cur;$('#gsheet').hidden=false;setTimeout(()=>$('#gsTitle').focus(),30)}
+  $('#gsDel').hidden=!cur;$('#gsDraft').hidden=!cur||l>=GOALS.length-1;$('#gsheet').hidden=false;setTimeout(()=>$('#gsTitle').focus(),30)}
 const closeGoal=()=>{$('#gsheet').hidden=true};
 $('#gsP').oninput=e=>{$('#gsPv').textContent=e.target.value+'%'};
 $('#gsX').onclick=$('#gsCancel').onclick=closeGoal;$('#gsheet').addEventListener('click',e=>{if(e.target.id==='gsheet')closeGoal()});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#gsheet').hidden)closeGoal()});
 $('#gsForm').onsubmit=e=>{e.preventDefault();const title=$('#gsTitle').value.trim();if(title.length<3)return toast('Give the goal a short name');
-  post('plan/save',{id:gEdit.id,level:['quarter','month','week'][gEdit.l],title,progress:+$('#gsP').value,feeds:$('#gsFeed').value}).then(()=>{closeGoal();glevel=gEdit.l;return refresh(true)}).then(()=>toast('Saved')).catch(er=>toast(er.message))};
+  post('plan/save',{id:gEdit.id,level:LVN[gEdit.l],title,progress:+$('#gsP').value,feeds:$('#gsFeed').value}).then(()=>{closeGoal();glevel=gEdit.l;return refresh(true)}).then(()=>toast('Saved')).catch(er=>toast(er.message))};
+const gDraft=(id,btn)=>{if(!id)return;const was=btn.textContent;btn.disabled=true;btn.textContent='Drafting';return post('plan/draft',{id}).then(r=>{closeGoal();glevel=LVN.indexOf(r.level);return refresh(true).then(()=>toast(r.added+(r.added>1?' steps':' step')+' drafted'+(r.byAi?' by your AI':'')+'. Open one to change it.'))}).catch(er=>toast(er.message)).finally(()=>{btn.disabled=false;btn.textContent=was})};
+$('#gsDraft').onclick=e=>gDraft(gEdit&&gEdit.id,e.currentTarget);
+$('#gDraftTop').onclick=e=>{const g=GOALS[glevel];if(glevel>=GOALS.length-1)return toast('Pick a week, month or quarter goal first');if(!g||!g.items.length)return toast('Add a goal on this level first');if(g.items.length>1)return toast('Open the goal you want, then press Draft steps from goal');gDraft(g.items[0][3],e.currentTarget)};
 $('#gsDel').onclick=()=>{if(!gEdit||!gEdit.id)return;post('plan/remove',{id:gEdit.id}).then(()=>{closeGoal();return refresh(true)}).then(()=>toast('The goal was removed')).catch(er=>toast(er.message))};
 document.addEventListener('click',e=>{const a=e.target.closest('[data-gadd]');if(a)return openGoal('',a.dataset.gadd===''?glevel:+a.dataset.gadd);const g=e.target.closest('[data-gedit]');if(g)openGoal(g.dataset.gedit,glevel)});
 

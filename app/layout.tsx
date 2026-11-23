@@ -5,6 +5,10 @@ import "./globals.css";
 import { AppShell } from "@/components/shell";
 import { WorkOSShell } from "@/components/workos-shell";
 import "./workos.css";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import "@fontsource/instrument-serif/400.css";
+import "@fontsource/instrument-serif/400-italic.css";
 
 export const metadata: Metadata = { title: "AI-Dashboard", description: "Your whole business on one calm page, on your own computer." };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
@@ -16,9 +20,10 @@ const shell = () => fs.readFileSync(path.join(process.cwd(), "ui", "shell.html")
 const LOOK = `try{var h=new Date().getHours(),k=h>=5&&h<8?'dawn':h>=8&&h<17?'day':h>=17&&h<20?'dusk':'night',s=localStorage.getItem('aid-look');if(s==='dawn'||s==='day'||s==='dusk'||s==='night')k=s;var r=document.documentElement;r.dataset.look=k;r.dataset.theme=k==='dawn'||k==='day'?'light':'dark'}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Client mode: a WorkOS installation started by its own launcher (scripts/workos.mjs). It has its own pages and no dashboard frame.
+  // Client mode: a WorkOS installation started by its own launcher (scripts/workos.mjs). It has its own pages in the dashboard's look.
+  // It loads nothing from the internet, so its fonts ship with the app.
   if (process.env.WORKOS_LOCAL_CLIENT === "1") return (
-    <html lang="en" data-look="night" data-theme="dark" data-client="1">
+    <html lang="en" data-look="night" data-theme="dark" data-client="1" className={GeistSans.variable + " " + GeistMono.variable}>
       <body><WorkOSShell />{children}</body>
     </html>
   );

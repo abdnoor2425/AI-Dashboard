@@ -798,27 +798,61 @@ function Operations() {
       <Load q={q} skeleton={<p>Loading the plan…</p>}>
         {(d: Model) => (
           <div className="stack">
+            <ul className="wo-tiles" aria-label="Today at a glance">
+              <li>
+                <span className="wo-src">Daily queue</span>
+                <b className="num">{d.tasks.filter((t) => !t.verified).length}</b>
+                <span>still to finish</span>
+              </li>
+              <li>
+                <span className="wo-src warn">Reviews</span>
+                <b className="num">
+                  {d.approved ? d.tasks.filter((t) => t.receipt && !t.verified).length : 1}
+                </b>
+                <span>{d.approved ? "receipts to check" : "goal to approve"}</span>
+              </li>
+              <li>
+                <span className="wo-src bad">Blockers</span>
+                <b className="num">{d.tasks.filter((t) => t.blocker).length}</b>
+                <span>waiting on something</span>
+              </li>
+              <li>
+                <span className="wo-src">Done</span>
+                <b className="num">
+                  {d.tasks.filter((t) => t.verified).length} of {d.tasks.length}
+                </b>
+                <span>checked and verified</span>
+              </li>
+            </ul>
             <section className="card pad stack">
               <h2 className="t-mid">{d.goal.quarter}</h2>
-              <dl className="workos-facts">
-                <dt>Quarterly goal</dt>
-                <dd>
-                  {d.approved ? "Approved" : "Proposed"} ·{" "}
-                  {d.plan.quarter.owner} · Due {d.goal.due}
-                </dd>
-                <dt>Monthly outcome</dt>
-                <dd>
-                  {d.plan.months.map((m) => m.title).join(", ") || "None yet"}
-                </dd>
-                <dt>Weekly milestone</dt>
-                <dd>
-                  {d.plan.weeks.map((w) => w.title).join(", ") || "None yet"}
-                </dd>
-                <dt>{d.goal.metric}</dt>
-                <dd>
-                  {d.goal.baseline} → {d.goal.target} {d.goal.unit} ·{" "}
-                  {d.goal.source}
-                </dd>
+              <dl className="wo-ladder">
+                <div style={{ ["--i" as any]: 0 }}>
+                  <dt>Quarterly goal</dt>
+                  <dd>
+                    {d.approved ? "Approved" : "Proposed"} ·{" "}
+                    {d.plan.quarter.owner} · Due {d.goal.due}
+                  </dd>
+                </div>
+                <div style={{ ["--i" as any]: 1 }}>
+                  <dt>Monthly outcome</dt>
+                  <dd>
+                    {d.plan.months.map((m) => m.title).join(", ") || "None yet"}
+                  </dd>
+                </div>
+                <div style={{ ["--i" as any]: 2 }}>
+                  <dt>Weekly milestone</dt>
+                  <dd>
+                    {d.plan.weeks.map((w) => w.title).join(", ") || "None yet"}
+                  </dd>
+                </div>
+                <div style={{ ["--i" as any]: 3 }}>
+                  <dt>{d.goal.metric}</dt>
+                  <dd>
+                    {d.goal.baseline} → {d.goal.target} {d.goal.unit} ·{" "}
+                    {d.goal.source}
+                  </dd>
+                </div>
               </dl>
               {d.approved && (
                 <p>
@@ -838,9 +872,8 @@ function Operations() {
                   planner. Historical receipts remain available.
                 </p>
               ))}
-              <a href="#planner">Open goal planner</a>
+              <div className="wo-acts">
               {boot.access.actions.includes("approve") && !d.approved && (
-                <div>
                   <button
                     className="btn primary"
                     onClick={() =>
@@ -851,8 +884,10 @@ function Operations() {
                   >
                     Approve goal
                   </button>
-                </div>
               )}
+                <a className="btn" href="#planner">Open goal planner</a>
+                {boot.workspace.modules.team && <a className="btn" href="#team">Open team queue</a>}
+              </div>
               {error && <p role="alert">{error}</p>}
             </section>
             <h2 className="t-mid">Daily actions</h2>
@@ -1065,6 +1100,12 @@ function Usage() {
   );
 }
 
+// The rail groups the pages by what the person came to do.
+const GROUPS: [string, string[]][] = [
+  ["Work", ["workos", "team", "planner", "rehearsal"]],
+  ["Skills", ["skills", "usage"]],
+  ["Think", ["metrics", "second-brain", "decisions"]],
+];
 export function StarterPages({ page }: { page: string }) {
   const { boot } = useWorkspacePage();
   const w = boot.workspace;
@@ -1105,25 +1146,51 @@ export function StarterPages({ page }: { page: string }) {
       >
         Skip to content
       </a>
-      <header>
-        <span className="t-cap">WorkOS</span>
-        <strong>{w.name}</strong>
-        <span>{w.owner} · Local review installation</span>
-        <span>
+      <aside className="wo-side">
+        <header className="wo-brand">
+          <i aria-hidden="true" />
+          <div>
+            <strong>{w.name}</strong>
+            <span className="t-cap">WorkOS</span>
+          </div>
+        </header>
+        <nav aria-label="WorkOS pages">
+          {GROUPS.map(([group, keys]) => {
+            const shown = keys.filter((k) => tabs.includes(k));
+            return shown.length ? (
+              <div key={group} role="group" aria-label={group}>
+                <span className="wo-grp" aria-hidden="true">
+                  {group}
+                </span>
+                {shown.map((k) => (
+                  <a
+                    key={k}
+                    href={"#" + k}
+                    aria-current={current === k ? "page" : undefined}
+                  >
+                    {labels[k]}
+                  </a>
+                ))}
+              </div>
+            ) : null;
+          })}
+        </nav>
+        <p className="wo-private">
+          <b>Private to this computer.</b> This workspace has its own folder
+          and password. Nobody outside it can see this work.
+        </p>
+      </aside>
+      <div className="wo-top">
+        <span className="wo-chip">
+          <i aria-hidden="true" />
+          Client mode
+        </span>
+        <span className="wo-chip">{w.owner} · Local review installation</span>
+        <span className="wo-grow" />
+        <span className="wo-chip">
           Signed in as {boot.access.principal} · {boot.access.role}
         </span>
-      </header>
-      <nav aria-label="WorkOS pages">
-        {tabs.map((k) => (
-          <a
-            key={k}
-            href={"#" + k}
-            aria-current={current === k ? "page" : undefined}
-          >
-            {labels[k]}
-          </a>
-        ))}
-      </nav>
+      </div>
       <main id={contentId} tabIndex={-1} key={current}>
         {!tabs.includes(current) ? (
           <p>

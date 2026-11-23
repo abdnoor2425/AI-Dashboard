@@ -59,6 +59,31 @@ test("goals: three levels, three on each, and a goal can feed the level above", 
   assert.equal(ws.plan.goals.find((g: any) => g.id === m.id).feeds, "");
 });
 
+test("goals: a Today level, and steps drafted under a goal feed it without overwriting anything", () => {
+  const { call, ws } = fresh();
+  call("POST", "plan/save", { level: "week", title: "Send six proposals" });
+  const w = ws.plan.goals[0];
+  assert.equal(call("POST", "plan/save", { level: "day", title: "Finish two proposals", feeds: w.id }).status, 200);
+  assert.equal(ws.plan.goals.find((g: any) => g.level === "day").feeds, w.id);
+  const view = call("GET", "ui").data.goals;
+  assert.deepEqual(view.levels.map((l: any) => l.k), ["Quarter", "Month", "Week", "Today"]);
+  assert.equal(view.levels[3].items[0][2], "Feeds: Send six proposals");
+  // Drafting fills only the free places on the level below.
+  const d = call("POST", "plan/draft", { id: w.id, titles: ["1. Call the two warm leads", "- Write the pricing page", "Book the review", "A fourth"] });
+  assert.equal(d.status, 200); assert.equal(d.data.added, 2); assert.equal(d.data.level, "day"); assert.equal(d.data.byAi, true);
+  const today = ws.plan.goals.filter((g: any) => g.level === "day");
+  assert.deepEqual(today.map((g: any) => g.title), ["Finish two proposals", "Call the two warm leads", "Write the pricing page"]);
+  assert.ok(today.slice(1).every((g: any) => g.feeds === w.id && g.progress === 0));
+  assert.equal(call("POST", "plan/draft", { id: w.id }).status, 400, "the level below is full");
+  assert.equal(call("POST", "plan/draft", { id: today[0].id }).status, 400, "nothing sits below today");
+  // Without AI titles a plain starter set is used.
+  call("POST", "plan/save", { level: "quarter", title: "Grow revenue by a fifth" });
+  const q = ws.plan.goals.find((g: any) => g.level === "quarter");
+  const s = call("POST", "plan/draft", { id: q.id });
+  assert.equal(s.data.added, 3); assert.equal(s.data.byAi, false);
+  assert.ok(ws.plan.goals.filter((g: any) => g.level === "month").every((g: any) => g.feeds === q.id));
+});
+
 test("news topics: up to three, your own can be added, never none", () => {
   const { call, ws } = fresh();
   assert.equal(call("POST", "news/topics", { topics: [] }).status, 400);

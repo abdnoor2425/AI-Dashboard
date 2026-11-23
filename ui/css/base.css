@@ -5,7 +5,7 @@
   --bg:#07080A; --ink:255,255,255; --panel:rgba(14,15,19,.64); --tile:rgba(255,255,255,.032); --solid:#0F1014; --card-a:#17181e; --card-b:#0c0d11;
   --rail:rgba(7,8,10,.78); --bar:rgba(7,8,10,.6); --veil:rgba(7,8,10,.55); --pop:rgba(20,21,26,.96); --scrim:rgba(3,4,6,.72); --stage:rgba(4,5,8,.62); --hl:rgba(255,255,255,.05);
   --line:rgba(255,255,255,.075); --line-2:rgba(255,255,255,.15);
-  --text:#F5F3EF; --text-2:#A9AAB2; --text-3:#6E7079; --on:#07080A; --shadow:#000;
+  --text:#F5F3EF; --text-2:#A9AAB2; --text-3:#8A8C95; --on:#07080A; --shadow:#000;
   --gold:#EBC57C; --gold-rgb:235,197,124; --ember:#FF9A6B; --ice:#8AD4FF; --mint:#5FE0B0; --violet:#B9A2FF; --bad:#FF7A7A; --warn:#F4B860;
   --spec:linear-gradient(100deg,#EBC57C,#FF9A6B 34%,#B9A2FF 66%,#8AD4FF);
   --sans:"Geist","Inter",-apple-system,"Segoe UI",system-ui,sans-serif;

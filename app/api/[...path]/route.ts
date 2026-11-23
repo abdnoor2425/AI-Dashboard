@@ -252,6 +252,23 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
     saveState();
     return json({ ok: true, provider });
   }
+  // Draft steps from a goal: the owner's own AI suggests up to three short steps for the level below. Without a linked AI a plain starter set is used.
+  if (a === "plan" && b === "draft" && post && !ws.sample) {
+    const goal = (ws.plan?.goals || []).find((g: any) => g.id === body.id);
+    const LV = ["quarter", "month", "week", "day"], down = goal ? LV[LV.indexOf(goal.level) + 1] : "";
+    let titles: string[] = [];
+    const st = goal && down ? await ai.status(ws.ai?.provider).catch(() => null) : null;
+    if (st?.provider) {
+      try {
+        const text = await ai.run(st.provider, `A business owner has this ${goal.level} goal: "${String(goal.title).slice(0, 120)}".\nWrite exactly three short, concrete steps for ${down === "day" ? "today" : "this " + down} that move it forward. One per line, at most ten words each, plain words, no numbering, no extra text.`);
+        titles = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 3);
+        if (titles.length) logUsage(ws, "Draft steps: " + String(goal.title), st.provider, now);
+      } catch { /* the starter set below is used instead */ }
+    }
+    const res = handle(state, { method: "POST", path: "/api/plan/draft", query, body: { id: body.id, titles }, now });
+    if (res.status < 400) saveState();
+    return json(res.data, res.status);
+  }
   if (a === "ai" && b === "ask" && post) {
     const st = await ai.status(ws.ai?.provider);
     if (st.provider) {

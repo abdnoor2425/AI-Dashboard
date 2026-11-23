@@ -579,12 +579,12 @@ export function handle(state: State, req: Req): Res {
     return ok({ decisions: ws.decisions, sample: ws.sample });
   }
 
-  // Goals on three levels: the week feeds the month, the month feeds the quarter. Up to three on each level.
+  // Goals on four levels: today feeds the week, the week feeds the month, the month feeds the quarter. Up to three on each level.
   if (a === "plan" && post) {
     const plan = (ws.plan ||= { goals: [] as any[] });
     if (b === "save") {
       const level = LEVELS.includes(body.level) ? body.level : null, title = String(body.title || "").trim().slice(0, 90);
-      if (!level) return bad("Pick week, month or quarter.");
+      if (!level) return bad("Pick today, week, month or quarter.");
       if (title.length < 3) return bad("Give the goal a short name.");
       const progress = Math.max(0, Math.min(100, Math.round(Number(body.progress) || 0)));
       const up = LEVELS[LEVELS.indexOf(level) - 1], feeds = plan.goals.some((g: any) => g.id === body.feeds && g.level === up) ? body.feeds : "";
@@ -595,6 +595,23 @@ export function handle(state: State, req: Req): Res {
         plan.goals.push({ id: "goal-" + now.toString(36) + plan.goals.length, level, title, progress, feeds, createdAt: now, updatedAt: now });
       }
       return ok({ ok: true }, true);
+    }
+    // Draft the steps under one goal: up to three goals on the level below, each feeding it. Nothing is overwritten.
+    // The titles come from the owner's own AI when it is linked (the route passes them in), or from a plain starter set.
+    if (b === "draft") {
+      const goal = plan.goals.find((g: any) => g.id === body.id), at = goal ? LEVELS.indexOf(goal.level) : -1, down = LEVELS[at + 1];
+      if (!goal) return bad("That goal was not found.");
+      if (!down) return bad("Today is the last level. There is nothing below it to draft.");
+      const free = 3 - plan.goals.filter((g: any) => g.level === down).length;
+      if (free <= 0) return bad(`There are already three ${down === "day" ? "goals for today" : down + " goals"}. Finish or remove one first.`);
+      const given = (Array.isArray(body.titles) ? body.titles : []).map((t: any) => String(t || "").replace(/^[\s\d.)*-]+/, "").trim().slice(0, 90)).filter((t: string) => t.length >= 3);
+      const short = goal.title.length > 60 ? goal.title.slice(0, 57).trimEnd() + "…" : goal.title;
+      const starter = [`Plan the first step for: ${short}`, `Do the main work for: ${short}`, `Check the result for: ${short}`];
+      const have = new Set(plan.goals.map((g: any) => g.title.toLowerCase()));
+      const titles = (given.length ? given : starter).filter((t: string) => !have.has(t.toLowerCase())).slice(0, free);
+      if (!titles.length) return bad("These steps are already on the list.");
+      titles.forEach((title: string, i: number) => plan.goals.push({ id: "goal-" + now.toString(36) + plan.goals.length + i, level: down, title, progress: 0, feeds: goal.id, drafted: true, createdAt: now, updatedAt: now }));
+      return ok({ ok: true, added: titles.length, level: down, byAi: given.length > 0 }, true);
     }
     if (b === "remove") {
       plan.goals = plan.goals.filter((g: any) => g.id !== body.id);
