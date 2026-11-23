@@ -3,7 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { handle } from "../relay/worker.js";
+import relay from "../relay/worker.js";
+const handle = relay.handle;
 import { tokenTarget } from "../lib/server/google.ts";
 
 const ENV = { GOOGLE_CLIENT_ID: "id.apps.example", GOOGLE_CLIENT_SECRET: "relay-only-secret" };

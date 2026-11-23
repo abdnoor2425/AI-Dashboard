@@ -9,7 +9,7 @@ const MAX = 8 * 1024;
 
 const answer = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
-export async function handle(request, env, fetcher = fetch) {
+async function handle(request, env, fetcher = fetch) {
   const url = new URL(request.url);
   if (request.method === "GET" && url.pathname === "/") return answer(200, { ok: true, service: "ai-dashboard-google-relay" });
   if (url.pathname !== "/token") return answer(404, { error: "not_found" });
@@ -33,4 +33,5 @@ export async function handle(request, env, fetcher = fetch) {
   return new Response(await r.text(), { status: r.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 }
 
-export default { fetch: (request, env) => handle(request, env) };
+// One default export only, so the file can be pasted into the host as it is. "handle" is there for the tests.
+export default { fetch: (request, env) => handle(request, env), handle };
