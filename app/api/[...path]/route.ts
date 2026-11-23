@@ -13,6 +13,8 @@ import path from "node:path";
 import { linearAlert, linearComment, linearTasksFor } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
+import { ensureFolder, readSocial, refreshSocial, saveUpload } from "@/lib/server/social-file";
+import { FILE_HELP } from "@/lib/social-file";
 import { connectAgent, disconnectAgent, listAgents, scanReport } from "@/lib/server/agents";
 import { brainSummary, dropBrain } from "@/lib/server/brain";
 
@@ -92,6 +94,31 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
     if (res.changed) saveState();
     return res;
   };
+
+  // --- Metricool by file: a newer file in the Metricool folder (put there by the person or by their AI) is picked up on the next look ---
+  if (!post && ["social", "overview", "ui", "bootstrap", "connections", "metrics"].includes(a) && (await refreshSocial(ws))) saveState();
+  if (a === "social" && b === "file") {
+    if (ws.sample) return json({ error: "Start your own workspace first." }, 400);
+    const cn = ws.connections.find((x: any) => x.id === "metricool");
+    const view = () => ({ folder: ensureFolder(ws.id), ...FILE_HELP, file: ws.socialFile ? { name: ws.socialFile.file, at: ws.socialFile.at, rows: ws.socialFile.rows, networks: Object.values<any>(ws.socialFile.brands).flat().map((n: any) => n.name).filter((n: string, i: number, l: string[]) => l.indexOf(n) === i) } : null, problem: ws.socialFileProblem || null });
+    if (!post) return json(view());
+    if (body.action === "open") { await openPath(path.join(ensureFolder(ws.id), "READ ME.txt"), "folder"); return json({ ok: true }); }
+    if (body.action === "remove") {
+      ws.socialFileOff = now; delete ws.socialFile; delete ws.socialFileProblem;
+      if (cn && cn.account === "From a file") { cn.status = "off"; cn.account = ""; cn.detail = "Not connected"; cn.lastSync = null; }
+      saveState(); return json({ ok: true, ...view() });
+    }
+    // A file picked or dropped on the page. It is checked first, so a file that cannot be read never replaces one that works.
+    let data: Buffer;
+    try { data = Buffer.from(String(body.data || ""), "base64"); } catch { data = Buffer.alloc(0); }
+    try {
+      await readSocial(String(body.name || ""), data, now);
+      saveUpload(ws.id, String(body.name || ""), data);
+    } catch (e: any) { return json({ error: String(e?.message || e).slice(0, 240) }, 400); }
+    delete ws.socialFileOff; delete ws.socialFileProblem;
+    await refreshSocial(ws); saveState();
+    return json({ ok: true, ...view() });
+  }
 
   // --- Google sign-in comes back here ---
   if (a === "oauth" && b === "google" && c === "callback") {
@@ -350,7 +377,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
           if (b === "calendar") ws.modules.calendar = false;
           if (!ws.connections.some((x: any) => GOOGLE_TOOLS.includes(x.id) && x.status !== "off")) await signOutGoogle(ws.id);
         }
-        else { setSecrets(ws.id, { [b]: null }); cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; if (b === "linear") ws.items = ws.items.filter((i: any) => !String(i.id).startsWith("lin-")); if (b === "stripe") delete ws.money; if (b === "metricool") ws.sites.forEach((s: any) => { if (s.live) delete s.live.social; s.metricoolBrand = { id: "", name: "", matched: false, confirmed: false }; }); }
+        else { setSecrets(ws.id, { [b]: null }); cn.status = "off"; cn.detail = "Not connected"; cn.lastSync = null; cn.account = ""; if (b === "linear") ws.items = ws.items.filter((i: any) => !String(i.id).startsWith("lin-")); if (b === "stripe") delete ws.money; if (b === "metricool") { ws.socialFileOff = now; delete ws.socialFile; delete ws.socialFileProblem; } if (b === "metricool") ws.sites.forEach((s: any) => { if (s.live) delete s.live.social; s.metricoolBrand = { id: "", name: "", matched: false, confirmed: false }; }); }
         saveState();
         return json({ ok: true });
       }

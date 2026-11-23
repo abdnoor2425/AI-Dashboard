@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api, useApi, useApp } from "@/lib/client";
 import { ago } from "@/lib/format";
 import { Empty, Icon, Load, Mark, Page, SampleTag, Section, SkelCards, SkelRows } from "@/components/ui";
+import { MetricoolFile } from "@/components/metricool-file";
 import { Logo } from "@/components/logos";
 
 const LABEL: Record<string, { text: string; tone: string }> = {
@@ -83,8 +84,15 @@ function ToolDetail({ id, close }: { id: string; close: () => void }) {
         <div><dt>How it connects</dt><dd>{c.id === "stripe" ? "Stripe makes you a read-only key, you check it and paste it here. It is saved on this computer only." : HOW[c.auth] || HOW.oauth}</dd></div>
       </dl>
       {notReady && <p className="t-foot inset" style={{ padding: 18 }}>Google sign-in is not switched on in this copy of the dashboard yet. Download the latest version and it will be.</p>}
+      {c.id === "metricool" && !app.boot.workspace.sample && (
+        <div className="inset stack" style={{ gap: 12, padding: 18 }}>
+          <span className="t-cap">Add your numbers from a file</span>
+          <MetricoolFile onDone={() => q.reload()} />
+        </div>
+      )}
       {needsToken && (
         <div className="inset stack" style={{ gap: 12, padding: 18 }}>
+          {c.id === "metricool" && <span className="t-cap">Or connect with the Metricool API</span>}
           {c.id === "metricool" && <label><span className="t-cap">User ID</span><input className="input" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="1234567" inputMode="numeric" autoComplete="off" /></label>}
           {c.id === "stripe" && <>
             <p className="t-foot"><b>Step 1.</b> Open Stripe. Check that Charges, Customers, Subscriptions and Payouts say Read and everything else says None, then press Create key.</p>

@@ -26,6 +26,8 @@ type Bin = { cmd: string; pre: string[] };
    and asks the person's own shell once for the PATH their terminal has. The same list is given to every AI app it starts,
    because most of them are Node scripts that need to find `node`. */
 const kids = (dir: string, tail: string[]) => { try { return fs.readdirSync(dir).sort().reverse().map((v) => path.join(dir, v, ...tail)); } catch { return []; } };
+/** The Claude desktop app carries its own copy of Claude Code, one or two folders down, named by version. */
+const claudeInApp = (base: string) => { const v = kids(base, []); return [...v, ...v.flatMap((d) => kids(d, []))]; };
 let shellDirs: string[] = [], shellAsked: Promise<void> | null = null;
 export function usualDirs(h = home(), platform = process.platform): string[] {
   const j = (...p: string[]) => path.join(h, ...p);
@@ -36,6 +38,7 @@ export function usualDirs(h = home(), platform = process.platform): string[] {
       path.join(la, "pnpm"), path.join(la, "Microsoft", "WinGet", "Links"), path.join(la, "Microsoft", "WindowsApps"), path.join(la, "fnm_multishells"),
       ...kids(path.join(ad, "nvm"), []), ...kids(path.join(ad, "fnm", "node-versions"), ["installation"]), ...kids(path.join(la, "fnm_multishells"), []),
       j(".claude", "local"), j(".claude", "bin"), j(".codex", "bin"), j(".gemini", "bin"), j(".grok", "bin"), j(".hermes", "bin"), j(".muse", "bin"),
+      ...claudeInApp(path.join(ad, "Claude", "claude-code")),
       path.join(la, "Programs", "hermes"), path.join(la, "hermes", "bin"), path.join(la, "Programs", "Grok"), path.join(la, "Programs", "muse"), path.join(la, "Programs", "codex"),
     ];
   }
@@ -45,7 +48,7 @@ export function usualDirs(h = home(), platform = process.platform): string[] {
     j("Library", "pnpm"), j(".local", "share", "pnpm"), j(".asdf", "shims"), j(".local", "share", "mise", "shims"), j(".nodenv", "shims"), j(".pyenv", "shims"),
     j(".claude", "local"), j(".claude", "bin"), j(".codex", "bin"), j(".gemini", "bin"), j(".grok", "bin"), j(".hermes", "bin"), j(".hermes", "hermes-agent", "venv", "bin"), j(".muse", "bin"), j(".meta", "bin"),
     ...kids(j(".nvm", "versions", "node"), ["bin"]), ...kids(j(".local", "share", "fnm", "node-versions"), ["installation", "bin"]), ...kids(j("Library", "Application Support", "fnm", "node-versions"), ["installation", "bin"]), ...kids(j(".local", "share", "nvm"), ["bin"]),
-    ...kids(j("Library", "Application Support", "Claude", "claude-code"), []), "/Applications/Codex.app/Contents/Resources", "/Applications/Codex.app/Contents/MacOS",
+    ...claudeInApp(j("Library", "Application Support", "Claude", "claude-code")), ...claudeInApp(j(".config", "Claude", "claude-code")), "/Applications/Codex.app/Contents/Resources", "/Applications/Codex.app/Contents/MacOS",
     "/snap/bin", j(".nix-profile", "bin"), "/run/current-system/sw/bin", "/var/lib/flatpak/exports/bin", j(".local", "share", "flatpak", "exports", "bin"), j(".linuxbrew", "bin"),
     "/usr/bin", "/bin", "/usr/sbin", "/sbin",
   ];

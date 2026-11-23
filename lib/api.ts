@@ -7,6 +7,7 @@ import type { Scored } from "./scoring.ts";
 import { ACCENTS, MODULES, NETWORK_BASE, makeState, makeWorkspace, starterTeam } from "./sample.ts";
 import { handoversFrom, phrasesFrom } from "./handover.ts";
 import { LEVELS, TOPICS, findClients, uiBundle } from "./ui.ts";
+import { networksFor } from "./social-file.ts";
 
 export type State = ReturnType<typeof makeState>;
 export interface Req { method: string; path: string; query?: Record<string, string>; body?: any; now?: number }
@@ -82,6 +83,18 @@ function addSeries(list: { t: number; v: number }[][]) {
 }
 
 const NETWORK_LABEL: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", facebook: "Facebook", linkedin: "LinkedIn", x: "X" };
+
+/** Social numbers read from a Metricool file, for one website or for everything. Used when the Metricool connection has nothing to show. */
+function fileSocial(ws: any, site?: any) {
+  const networks = networksFor(ws?.socialFile, site);
+  if (!networks || !networks.length) return null;
+  const days = new Map<number, number>();
+  for (const n of networks) for (const p of n.series) days.set(p.t, (days.get(p.t) || 0) + p.v);
+  const reach = [...days.entries()].sort((a, b) => a[0] - b[0]).map(([t, v]) => ({ t, v }));
+  const totals = { reach: networks.reduce((a, n) => a + n.reach, 0), reachPrev: networks.reduce((a, n) => a + n.reachPrev, 0), followers: networks.reduce((a, n) => a + n.followers, 0) };
+  return { state: "ok", networks, reach, totals, fromFile: true };
+}
+const fileFor = (ws: any, list: any[]) => fileSocial(ws, list.length === 1 && (ws?.sites?.length || 0) > 1 ? list[0] : null);
 
 function siteSocial(site: any, now: number) {
   if (site.live?.social && site.metricoolBrand?.confirmed) {
@@ -194,17 +207,19 @@ function handoverList(ws: any, limit = 12) {
 }
 
 /** Visitors, leads and social reach for one website or several added together. */
-function siteNumbers(siteList: any[], now: number): any[] {
+function siteNumbers(siteList: any[], now: number, ws?: any): any[] {
   const numbers: any[] = [];
   const tr = siteList.map((s: any) => siteTraffic(s, 7, now));
   const v = tr.reduce((a: number, x: any) => a + x.totals.visitors, 0), vp = tr.reduce((a: number, x: any) => a + x.totals.visitorsPrev, 0);
   const l = tr.reduce((a: number, x: any) => a + x.totals.leads, 0), lp = tr.reduce((a: number, x: any) => a + x.totals.leadsPrev, 0);
   numbers.push({ id: "visitors", label: "Visitors", value: v, delta: pct(v, vp), spark: addSeries(tr.map((x: any) => x.visitors)), sentence: sentence(pct(v, vp), "Visitors", "week"), href: "website", source: "Google Analytics", period: "Last 7 days" });
   numbers.push({ id: "leads", label: "Leads", value: l, delta: pct(l, lp), spark: addSeries(tr.map((x: any) => x.leads)), sentence: sentence(pct(l, lp), "Leads", "week"), href: "website", source: "Google Analytics", period: "Last 7 days" });
-  const soc = siteList.map((s: any) => siteSocial(s, now)).filter((s: any) => s.state === "ok");
+  let soc = siteList.map((s: any) => siteSocial(s, now)).filter((s: any) => s.state === "ok");
+  const file = soc.length ? null : fileFor(ws, siteList);
+  if (file) soc = [file];
   if (soc.length) {
     const r = soc.reduce((a: number, x: any) => a + x.totals.reach, 0), rp = soc.reduce((a: number, x: any) => a + x.totals.reachPrev, 0);
-    numbers.push({ id: "reach", label: "Social reach", value: r, delta: pct(r, rp), spark: addSeries(soc.map((x: any) => x.reach)), sentence: sentence(pct(r, rp), "Reach", "week"), href: "social", source: "Metricool", period: "Last 7 days" });
+    numbers.push({ id: "reach", label: "Social reach", value: r, delta: pct(r, rp), spark: addSeries(soc.map((x: any) => x.reach)), sentence: sentence(pct(r, rp), "Reach", "week"), href: "social", source: file ? "Metricool file" : "Metricool", period: "Last 7 days" });
   } else numbers.push({ id: "reach", label: "Social reach", value: null, delta: null, spark: [], sentence: "Confirm this website's Metricool brand to see reach.", href: "connections", source: "Metricool", period: "Last 7 days", state: "unknown" });
   return numbers;
 }
@@ -230,9 +245,11 @@ function overview(ws: any, scope: string, now: number) {
   if (!clientsMode && !siteList.length) {
     // No website is connected yet. Say so, rather than show a zero that looks like a real result.
     for (const [id, label] of [["visitors", "Visitors"], ["leads", "Leads"]]) numbers.push({ id, label, value: null, delta: null, spark: [], sentence: "Connect Google Analytics to see this.", href: "connections", source: "Google Analytics", period: "Last 7 days", state: "unknown" });
-    numbers.push({ id: "reach", label: "Social reach", value: null, delta: null, spark: [], sentence: "Connect Metricool to see reach.", href: "connections", source: "Metricool", period: "Last 7 days", state: "unknown" });
+    const file = fileSocial(ws);
+    if (file) numbers.push({ id: "reach", label: "Social reach", value: file.totals.reach, delta: pct(file.totals.reach, file.totals.reachPrev), spark: file.reach, sentence: sentence(pct(file.totals.reach, file.totals.reachPrev), "Reach", "week"), href: "social", source: "Metricool file", period: "Last 7 days" });
+    else numbers.push({ id: "reach", label: "Social reach", value: null, delta: null, spark: [], sentence: "Connect Metricool to see reach.", href: "connections", source: "Metricool", period: "Last 7 days", state: "unknown" });
   } else if (!clientsMode) {
-    numbers.push(...siteNumbers(siteList, now));
+    numbers.push(...siteNumbers(siteList, now, ws));
   } else {
     const mine = q.needsYou.filter((i) => inMode(i.scope, scope));
     const replies = mine.filter((i) => i.kind === "reply").length, approvals = mine.filter((i) => i.kind === "approval").length;
@@ -252,7 +269,7 @@ function overview(ws: any, scope: string, now: number) {
   // without asking the server again or redrawing the rest of the page.
   const goalTile = numbers.find((n) => n.id === "goal");
   const bySite: Record<string, any> | null = !clientsMode && ws.sites.length > 1
-    ? Object.fromEntries([["all", ws.sites], ...ws.sites.map((s: any) => [s.id, [s]])].map(([k, list]: any) => [k, { numbers: [...siteNumbers(list, now), ...(goalTile ? [goalTile] : [])], chart: siteChart(list, now) }]))
+    ? Object.fromEntries([["all", ws.sites], ...ws.sites.map((s: any) => [s.id, [s]])].map(([k, list]: any) => [k, { numbers: [...siteNumbers(list, now, ws), ...(goalTile ? [goalTile] : [])], chart: siteChart(list, now) }]))
     : null;
   const reelList = ws.modules?.reels === false ? [] : (ws.reels || []).filter((r: any) => inScope(r.scope, scope)).sort((x: any, y: any) => y.publishedAt - x.publishedAt);
   const reelView = (r: any) => { const sc = [r.final.hooks.spoken, r.final.hooks.text, r.final.hooks.visual, ...r.final.buckets.map((b: any) => b.score)]; const site = ws.sites.find((s: any) => s.id === r.site);
@@ -471,6 +488,9 @@ export function handle(state: State, req: Req): Res {
     const list = q.site && q.site !== "all" ? ws.sites.filter((s: any) => s.id === q.site) : ws.sites;
     const per = list.map((s: any) => ({ site: { id: s.id, name: s.name, color: s.color }, ...siteSocial(s, now) }));
     const okOnes = per.filter((p: any) => p.state === "ok");
+    // Nothing from the Metricool connection: use the Metricool file, when one was added.
+    const file = okOnes.length || ws.sample ? null : fileFor(ws, list);
+    if (file) okOnes.push({ site: { id: "file", name: "Your social accounts", color: "#B8892B" }, ...file });
     const nets: Record<string, any> = {};
     okOnes.forEach((p: any) => p.networks.forEach((n: any) => {
       const x = (nets[n.id] ||= { id: n.id, name: n.name, followers: 0, followersDelta: 0, reach: 0, reachPrev: 0, series: [] as any[] });
@@ -490,11 +510,13 @@ export function handle(state: State, req: Req): Res {
     }) : [];
     return ok({
       state: okOnes.length ? "ok" : per[0]?.state || "unmatched",
-      pending: per.filter((p: any) => p.state !== "ok").map((p: any) => ({ ...p.site, state: p.state })),
+      pending: file ? [] : per.filter((p: any) => p.state !== "ok").map((p: any) => ({ ...p.site, state: p.state })),
+      file: ws.socialFile ? { name: ws.socialFile.file, at: ws.socialFile.at, rows: ws.socialFile.rows, from: ws.socialFile.from, to: ws.socialFile.to, used: !!file } : null,
+      fileProblem: ws.socialFileProblem || null,
       totals: tot, delta: pct(tot.reach, tot.reachPrev), sentence: sentence(pct(tot.reach, tot.reachPrev), "Reach", "week"),
-      reach, networks, perSite: per.length > 1 ? okOnes.map((p: any) => ({ ...p.site, reach: p.totals.reach, delta: pct(p.totals.reach, p.totals.reachPrev) })).sort((x: any, y: any) => y.reach - x.reach) : null,
+      reach, networks, perSite: per.length > 1 && !file ? okOnes.map((p: any) => ({ ...p.site, reach: p.totals.reach, delta: pct(p.totals.reach, p.totals.reachPrev) })).sort((x: any, y: any) => y.reach - x.reach) : null,
       best: best ? { id: best.id, title: best.title, platform: NETWORK_LABEL[best.platform], views: (best.perf.d7 || best.perf.h72 || best.perf.h24).views, why: best.rationale, site: ws.sites.find((s: any) => s.id === best.site)?.name } : null,
-      upNext, competitors, lastSync: ws.connections.find((x: any) => x.id === "metricool")?.lastSync, source: "Metricool", sample: ws.sample,
+      upNext, competitors, lastSync: file ? ws.socialFile.at : ws.connections.find((x: any) => x.id === "metricool")?.lastSync, source: file ? "Metricool file" : "Metricool", sample: ws.sample,
     });
   }
 

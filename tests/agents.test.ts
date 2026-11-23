@@ -106,3 +106,11 @@ test("Hermes and Muse Code are on the list of AI apps", () => {
   const ids = agents.AGENTS.map((a: any) => a.id);
   for (const id of ["claude-code", "codex", "gemini", "grok", "hermes", "muse"]) assert.ok(ids.includes(id), id);
 });
+
+test("the copy of Claude Code inside the Claude desktop app is found, two folders down", { skip: process.platform === "win32" }, () => {
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), "aid-app-"));
+  const deep = path.join(h, "Library", "Application Support", "Claude", "claude-code", "2.1.330", "9424831ad51c");
+  fs.mkdirSync(deep, { recursive: true });
+  fs.writeFileSync(path.join(deep, "claude"), "#!/bin/sh\n", { mode: 0o755 });
+  assert.deepEqual(agents.lookFor("claude", agents.usualDirs(h, "darwin"), false), [path.join(deep, "claude")]);
+});
