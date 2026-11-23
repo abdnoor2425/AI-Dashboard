@@ -25,7 +25,7 @@ function AiMark({ id }: { id: string }) {
 
 const STRIPE_KEY_URL = "https://dashboard.stripe.com/apikeys/create?name=AI-Dashboard" + ["rak_charge_read", "rak_customer_read", "rak_subscription_read", "rak_payout_read"].map((p) => "&permissions%5B%5D=" + p).join("");
 const HOW: Record<string, string> = {
-  google: "Click Connect and sign in with Google. Read-only access, and the sign-in stays on this computer.",
+  google: "Click Connect and sign in with Google. The first Google sign-in connects Gmail, Drive, Calendar and Google Analytics together: tick Select all on Google's page. Read-only access, and the sign-in stays on this computer.",
   oauth: "Sign in on the tool's own page. The dashboard asks for read-only access.",
   token: "Paste the access token from the tool's settings. It is saved on this computer only and never leaves it.",
   file: "Upload or point to the file. Nothing is sent anywhere.",
@@ -181,7 +181,7 @@ export default function Connections() {
     try {
       const p = new URLSearchParams(window.location.search);
       if (p.get("problem")) app.toast(p.get("problem") as string);
-      if (p.get("connected")) app.toast(({ "google-analytics": "Google Analytics connected. Your websites are being fetched.", gmail: "Gmail connected", drive: "Google Drive connected", calendar: "Google Calendar connected" } as Record<string, string>)[p.get("connected") as string] || "Connected");
+      if (p.get("connected")) app.toast(({ google: "Your Google apps are connected. Your data is being fetched.", "google-analytics": "Google Analytics connected. Your websites are being fetched.", gmail: "Gmail connected", drive: "Google Drive connected", calendar: "Google Calendar connected" } as Record<string, string>)[p.get("connected") as string] || "Connected");
       if (p.get("problem") || p.get("connected")) window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     } catch { /* nothing to show */ }
   }, []);
