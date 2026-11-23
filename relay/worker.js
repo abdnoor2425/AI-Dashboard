@@ -28,8 +28,10 @@ async function handle(request, env, fetcher = fetch) {
   // A sign-in may only come back to a dashboard on the person's own computer.
   if (grant === "authorization_code" && !LOCAL.test(out.get("redirect_uri"))) return answer(400, { error: "redirect_not_local" });
   let r;
-  try { r = await fetcher(GOOGLE_TOKEN, { method: "POST", redirect: "error", headers: { "content-type": "application/x-www-form-urlencoded" }, body: out }); }
+  // Redirects are never followed ("manual", because this host does not allow "error"), so the secret can only reach Google's own address.
+  try { r = await fetcher(GOOGLE_TOKEN, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" }, body: out.toString() }); }
   catch { return answer(502, { error: "google_unreachable" }); }
+  if (r.status >= 300 && r.status < 400) return answer(502, { error: "google_unreachable" });
   return new Response(await r.text(), { status: r.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 }
 

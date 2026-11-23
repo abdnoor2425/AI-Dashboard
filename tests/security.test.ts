@@ -34,7 +34,7 @@ test("the relay adds the secret, forwards only what Google needs and passes the 
   assert.equal(r.status, 200);
   assert.equal((await r.json()).access_token, "at");
   assert.equal(seen.url, "https://oauth2.googleapis.com/token");
-  assert.equal(seen.opts.redirect, "error");
+  assert.equal(seen.opts.redirect, "manual");
   assert.equal(seen.body.get("client_secret"), ENV.GOOGLE_CLIENT_SECRET);
   assert.equal(seen.body.get("extra"), null);
   assert.deepEqual([...seen.body.keys()].sort(), ["client_id", "client_secret", "code", "code_verifier", "grant_type", "redirect_uri"]);

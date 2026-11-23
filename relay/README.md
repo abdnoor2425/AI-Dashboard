@@ -13,7 +13,7 @@ sees anyone's emails, files, calendar or numbers: those are read by each person'
 2. Create a free Cloudflare account, open Workers, and create a Worker. Paste in `worker.js`.
 3. In the Worker's Settings, add two secrets: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 4. Copy the Worker's address (it looks like `https://name.account.workers.dev`).
-5. Put that address in `lib/server/google-app.ts` as the default for `relayUrl`, or set `GOOGLE_RELAY_URL`.
+5. The address is set as the default for `relayUrl` in `lib/server/google-app.ts` (or set `GOOGLE_RELAY_URL` to use another relay).
 
 Opening the address in a browser should show `{"ok":true,...}`.
 

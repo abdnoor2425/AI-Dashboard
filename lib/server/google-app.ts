@@ -6,6 +6,6 @@
 export const GOOGLE_APP = {
   clientId: process.env.GOOGLE_CLIENT_ID || "684561729599-n0jlj47puuc2sic8thq4l6e90kit1qls.apps.googleusercontent.com",
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-  /** Where the relay runs. Empty until it is hosted; Google sign-in then says it is not switched on yet. */
-  relayUrl: (process.env.GOOGLE_RELAY_URL || "").replace(/\/+$/, ""),
+  /** Where the relay runs (relay/worker.js). It holds the app's secret, so this repo does not. */
+  relayUrl: (process.env.GOOGLE_RELAY_URL || "https://ai-dashboard-relay.abdnoor2425.workers.dev").replace(/\/+$/, ""),
 };
