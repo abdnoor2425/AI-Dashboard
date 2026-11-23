@@ -179,7 +179,9 @@ test("invalid source, unknown fields, conflicts and transaction interruptions fa
   db.close();
 });
 test("MCP defaults to read tools and refuses both sending tools before any HTTP dispatch", () => {
-  const env = { ...process.env };
+  // A data folder where the owner has not switched AI sending on: the same as a fresh download.
+  const noOwnerChoice = fs.mkdtempSync(path.join(os.tmpdir(), "aid-mcp-"));
+  const env: NodeJS.ProcessEnv = { ...process.env, KEYSTONE_HOME: noOwnerChoice };
   delete env.KEYSTONE_EXTERNAL_WRITES;
   const messages = [
     { method: "tools/list" },

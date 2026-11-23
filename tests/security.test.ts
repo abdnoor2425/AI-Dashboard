@@ -78,3 +78,23 @@ test("Windows: a folder is private only when this account is the one name on its
   assert.equal(onlyThisAccount(`${dir} NT AUTHORITY\\SYSTEM:(OI)(CI)(F)\r\n`, dir, "rowan"), false);
   assert.equal(onlyThisAccount("", dir, "rowan"), false);
 });
+
+test("the AI's two sending tools follow the owner's switch, and are off when no choice was saved", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const os = await import("node:os");
+  const list = (home: string) => {
+    const env: NodeJS.ProcessEnv = { ...process.env, KEYSTONE_HOME: home };
+    delete env.KEYSTONE_EXTERNAL_WRITES;
+    const r = spawnSync(process.execPath, ["mcp/server.mjs"], { env, input: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) + "\n", encoding: "utf8" });
+    return JSON.parse(r.stdout.trim().split("\n")[0]).result.tools.map((t: any) => t.name);
+  };
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "aid-send-"));
+  try {
+    assert.ok(!list(home).includes("keystone_alert_team"));
+    fs.writeFileSync(path.join(home, "ai-sending.json"), JSON.stringify({ on: true }));
+    const on = list(home);
+    assert.ok(on.includes("keystone_alert_team") && on.includes("keystone_comment_on_linear"));
+    fs.writeFileSync(path.join(home, "ai-sending.json"), JSON.stringify({ on: false }));
+    assert.ok(!list(home).includes("keystone_comment_on_linear"));
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});

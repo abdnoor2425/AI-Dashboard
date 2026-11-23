@@ -7,6 +7,9 @@
 // It has no dependencies and no keys. It only talks to the dashboard running on this computer (http://localhost:3210),
 // and almost every tool is read only. The two exceptions act only when the owner asks: posting a comment
 // on a Linear ticket, and alerting team members about an item.
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import readline from "node:readline";
 
 const BASE = (process.env.KEYSTONE_URL || "http://localhost:3210").replace(/\/$/, "");
@@ -39,13 +42,17 @@ const TOOLS = [
 ].map(([name, path, description, properties]) => ({ name: "keystone_" + name, path, description, inputSchema: { type: "object", properties, additionalProperties: false } }));
 
 const item = { type: "string", description: "The item id from keystone_attention." };
-// The two tools that send something to other people are off unless the owner switched them on (KEYSTONE_EXTERNAL_WRITES=1).
-const WRITES = process.env.KEYSTONE_EXTERNAL_WRITES === "1";
+// The two tools that send something to other people follow the owner's switch in Settings ("Let my AI send for me").
+// The dashboard writes that choice to ai-sending.json in its data folder, so it is known here without asking the dashboard.
+// With no dashboard set up yet there is no file, and the tools stay off. KEYSTONE_EXTERNAL_WRITES=1 turns them on by hand.
+const DATA = process.env.KEYSTONE_HOME || path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".keystone");
+const ownerAllows = () => { try { return JSON.parse(fs.readFileSync(path.join(DATA, "ai-sending.json"), "utf8")).on === true; } catch { return false; } };
+const WRITES = process.env.KEYSTONE_EXTERNAL_WRITES === "1" || ownerAllows();
 const ALL_ACTIONS = [
   { name: "keystone_comment_on_linear", description: "Post a comment on the Linear ticket behind an attention item, in the owner's name. Only use it when the owner asks you to, and use their words.", required: ["item", "text"],
     properties: { item, text: { type: "string", description: "The comment to post." } }, run: (a) => [`attention/${encodeURIComponent(a.item)}/comment`, { text: a.text, via: "your AI" }] },
   { name: "keystone_alert_team", description: "Alert one or more team members about an attention item: a Linear mention, or an email if they are not on Linear. Only use it when the owner asks you to.", required: ["item", "people"],
-    properties: { item, people: { type: "array", items: { type: "string" }, description: "Person ids from keystone_team." }, note: { type: "string", description: "A short optional note." } }, run: (a) => [`attention/${encodeURIComponent(a.item)}/alert`, { people: a.people, note: a.note || "" }] },
+    properties: { item, people: { type: "array", items: { type: "string" }, description: "Person ids from keystone_team." }, note: { type: "string", description: "A short optional note." } }, run: (a) => [`attention/${encodeURIComponent(a.item)}/alert`, { via: "your AI", people: a.people, note: a.note || "" }] },
 ];
 
 const ACTIONS = WRITES ? ALL_ACTIONS : [];

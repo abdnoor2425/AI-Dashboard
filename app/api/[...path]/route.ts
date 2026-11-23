@@ -9,6 +9,7 @@ import { NEWS_EVERY, applyNotes, fallbackSum, fetchStories, keepNotes, notesProm
 import { openMade, openPath, readPicture, scanMade } from "@/lib/server/made";
 import * as room from "@/lib/server/room";
 import fs from "node:fs";
+import path from "node:path";
 import { linearAlert, linearComment } from "@/lib/server/linear";
 import { clearGoogle, isSyncing, markGoogle, syncWorkspace } from "@/lib/server/sync";
 import * as ai from "@/lib/server/ai";
@@ -16,6 +17,13 @@ import { connectAgent, disconnectAgent, listAgents } from "@/lib/server/agents";
 import { brainSummary, dropBrain } from "@/lib/server/brain";
 
 import { requireWorkOSLauncher } from "@/lib/workos/launcher-only";
+// The owner's choice about AI sending, written where the MCP server can read it without calling the dashboard.
+let aiSendingSaved: string | null = null;
+function syncAiSending(ws: any) {
+  const want = JSON.stringify({ on: !ws.sample && ws.modules?.aiSend !== false });
+  if (want === aiSendingSaved) return;
+  try { const dir = process.env.KEYSTONE_HOME || path.join(process.cwd(), ".keystone"); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, "ai-sending.json"), want); aiSendingSaved = want; } catch { /* the tools simply stay off */ }
+}
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -78,6 +86,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   const now = Date.now();
   const state = loadState(now);
   const ws: any = activeWs(state);
+  syncAiSending(ws);
   const pass = () => {
     const res = handle(state, { method: req.method, path: "/api/" + seg.join("/"), query, body, now });
     if (res.changed) saveState();
@@ -343,6 +352,7 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
   if (a === "attention" && post && b && (c === "comment" || c === "alert") && !ws.sample) {
     const item = ws.items.find((i: any) => i.id === b);
     if (!item) return json({ error: "No such item" }, 404);
+    if (body.via === "your AI" && ws.modules?.aiSend === false) return json({ error: "The owner switched off sending by AI in Settings." }, 403);
     const issueId = String(item.id).startsWith("lin-") ? String(item.id).slice(4) : null;
     const me = ws.setup?.about?.name || ws.owner || "The owner";
     try {
@@ -386,7 +396,18 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       }
     } catch (e: any) { return json({ error: String(e?.message || e).slice(0, 200) }, 400); }
     const res = pass();
+    // Sent by the owner's AI: leave a note for the open dashboard, so it can say so and play it in Your team.
+    if (res.status < 400 && body.via === "your AI") {
+      ws.aiSent = [...(ws.aiSent || []), { kind: c, title: String(item.title).slice(0, 120), to: res.data?.to || [], watch: res.data?.watch || [], at: now }].slice(-10);
+      saveState();
+    }
     return json(res.data, res.status);
+  }
+  // What the owner's AI sent since the dashboard last looked. Read once, then cleared.
+  if (a === "ai" && b === "sent") {
+    const list = (ws.aiSent || []).filter((x: any) => now - x.at < 10 * 60000);
+    if (ws.aiSent?.length) { ws.aiSent = []; saveState(); }
+    return json({ sent: list });
   }
 
   // --- Housekeeping around the shared router ---

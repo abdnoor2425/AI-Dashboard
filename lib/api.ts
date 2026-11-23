@@ -411,7 +411,7 @@ export function handle(state: State, req: Req): Res {
         if (!to.length) return bad("Pick at least one person to alert.");
         const linear = target.sources.some((x: any) => x.tool === "linear");
         const how = body.how && typeof body.how === "object" ? { linear: [].concat(body.how.linear || []).map(String), email: [].concat(body.how.email || []).map(String) } : linear ? { linear: to.map((p) => p.name), email: [] } : { linear: [], email: to.map((p) => p.name) };
-        target.alerts = [...(target.alerts || []), { to: to.map((p) => p.name), note: String(body.note || "").trim().slice(0, 300), by, at: now, how }];
+        target.alerts = [...(target.alerts || []), { to: to.map((p) => p.name), note: String(body.note || "").trim().slice(0, 300), by, at: now, how, via: body.via ? String(body.via).slice(0, 40) : undefined }];
         return ok({ ok: true, to: to.map((p) => p.name), how, watch: to.map((p) => `${target.id}:${p.id}`) }, true);
       } else return bad("Unknown action");
       return ok({ ok: true }, true);
@@ -737,6 +737,8 @@ export function handle(state: State, req: Req): Res {
       if (body.accent && ACCENTS[body.accent]) ws.brand.accent = body.accent;
       if (body.theme && ["system", "light", "dark"].includes(body.theme)) state.theme = body.theme;
       if (body.modules) for (const m of MODULES) if (!m.core && body.modules[m.id] != null) ws.modules[m.id] = !!body.modules[m.id];
+      // Whether the owner's own AI may post a Linear comment or alert the team for them. On unless they switch it off.
+      if (typeof body.aiSend === "boolean") ws.modules.aiSend = body.aiSend;
       if (body.weights) {
         let touched = false;
         for (const f of FACTORS) { const v = Number(body.weights[f.key]); if (isFinite(v) && v >= 0 && v <= 10 && v !== ws.rubric.weights[f.key]) { ws.rubric.weights[f.key] = v; touched = true; } }
@@ -747,7 +749,7 @@ export function handle(state: State, req: Req): Res {
       if (body.resetRubric) { ws.rubric.weights = { urgency: 7, impact: 6, unblocks: 4, alignment: 2, waitingAge: 1 }; ws.rubric.version = String(ws.rubric.version).split(".")[0] + "." + (Number(String(ws.rubric.version).split(".")[1] || 0) + 1); }
       return ok({ ok: true }, true);
     }
-    return ok({ brand: ws.brand, theme: state.theme || "system", modules: ws.modules, modulesList: MODULES, phrases: phrasesFrom(ws.phrases), customPhrases: !!ws.phrases, rubric: ws.rubric, factors: FACTORS, accents: ACCENTS, workspace: { id: ws.id, name: ws.name, kind: ws.kind, sample: ws.sample, templateVersion: ws.templateVersion } });
+    return ok({ brand: ws.brand, theme: state.theme || "system", aiSend: ws.modules.aiSend !== false, modules: ws.modules, modulesList: MODULES, phrases: phrasesFrom(ws.phrases), customPhrases: !!ws.phrases, rubric: ws.rubric, factors: FACTORS, accents: ACCENTS, workspace: { id: ws.id, name: ws.name, kind: ws.kind, sample: ws.sample, templateVersion: ws.templateVersion } });
   }
 
   if (a === "workspaces") {

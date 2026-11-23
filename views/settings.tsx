@@ -48,6 +48,17 @@ function Phrases({ d }: { d: any }) {
   );
 }
 
+function AiSend({ d }: { d: any }) {
+  const app = useApp();
+  const [on, setOn] = useState(d.aiSend !== false);
+  const toggle = (v: boolean) => { setOn(v); api("settings", { method: "POST", body: { aiSend: v } }).then(() => app.toast(v ? "Your AI can send for you" : "Your AI can only read now"), (e: any) => { setOn(!v); app.toast(e.message); }); };
+  return (
+    <div className="card group">
+      <div className="row"><span className="glyph"><Icon name="sparkle" size={16} /></span><span className="row-main"><span className="row-title" style={{ display: "block" }}>Let my AI send for me</span><span className="row-sub">When you ask it to, your AI can post a comment on a Linear ticket or alert someone on your team. You see it happen in Your team. Everything else it does is read only.</span></span><Switch label="Let my AI send for me" checked={on} onChange={toggle} /></div>
+    </div>
+  );
+}
+
 function Pages({ d }: { d: any }) {
   const app = useApp();
   const toggle = (id: string, on: boolean) => api("settings", { method: "POST", body: { modules: { [id]: on } } }).then(() => app.reloadBoot(), (e: any) => app.toast(e.message));
@@ -179,6 +190,7 @@ export default function Settings() {
           <div className="stack">
             <Section title="Look"><Appearance d={d} /></Section>
             <Section title="Ranking" i={1}><Rubric d={d} /></Section>
+            <Section title="Your AI" i={2}><AiSend d={d} /></Section>
             <Section title="Watch it live" i={2}><Phrases d={d} /></Section>
             <Section title="Pages" i={2}><Pages d={d} /><p className="t-foot faint" style={{ padding: "10px 6px 0" }}>Overview, Attention, Connections, Setup and Settings always stay on.</p></Section>
             <Section title="Workspaces" i={3}><Workspaces d={d} /></Section>

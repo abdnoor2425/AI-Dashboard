@@ -185,6 +185,25 @@ export function AppShell({ shell, children }: { shell: string; children: React.R
   const firstRun = !!boot?.firstRun;
   const ready = !!boot;
 
+  // When the owner's own AI posts a Linear comment or alerts someone, say so here and play it in Your team.
+  useEffect(() => {
+    if (!boot || boot.clientStarter || boot.firstRun || boot.workspace?.sample) return;
+    let busy = false;
+    const look = async () => {
+      if (busy || document.hidden) return; busy = true;
+      try {
+        const r = await api("ai/sent");
+        for (const x of r?.sent || []) {
+          if (x.kind === "alert" && x.watch?.length) { requestWatch(x.watch); pv()?.toast?.(`Your AI alerted ${x.to.join(" and ")}.${page === "team" ? "" : " Open Your team to watch it."}`); }
+          else pv()?.toast?.(`Your AI posted a comment on “${x.title}”.`);
+        }
+      } catch { /* the dashboard may be restarting */ }
+      busy = false;
+    };
+    const t = window.setInterval(look, 6000);
+    return () => window.clearInterval(t);
+  }, [boot, page]);
+
   // The screens are drawn by ui/js. It starts once the frame is on the page, and is told whenever the basics change.
   useEffect(() => {
     if (!ready || boot.clientStarter) return;
