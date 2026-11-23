@@ -7,7 +7,7 @@ import { handle } from "../lib/api.ts";
 import { makeState } from "../lib/sample.ts";
 import { keyProblem, major, monthly, shapeMoney } from "../lib/server/stripe.ts";
 import { applyNotes, fallbackSum, keepNotes, notesPrompt, parseHn, parseRss, pick } from "../lib/server/news.ts";
-import { cwdIn, listFiles, openMade, readPicture, scanMade, typeOf } from "../lib/server/made.ts";
+import { cwdIn, listFiles, openMade, otherRoots, readPicture, scanMade, typeOf } from "../lib/server/made.ts";
 import { engagement } from "../lib/server/google.ts";
 
 const now = Date.parse("2026-11-17T10:00:00Z"), DAY = 864e5, HOUR = 36e5;
@@ -216,4 +216,26 @@ test("Google Analytics: engagement and time on site come with the 28 days before
   assert.equal(e.engagement.rate, 0.62); assert.equal(e.engagement.prev, 0.5); assert.equal(e.time.sec, 95.5);
   assert.equal(engagement({ rows: [] }), null);
   assert.equal(engagement({ rows: [row("date_range_0", [0, 0, 0])] }), null);
+});
+
+test("Hermes, Grok and Muse Code: the project folder comes from their own records, and their saved media is picked up", () => {
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), "aid-other-ai-"));
+  const now = Date.now(), since = now - 14 * 86400000;
+  const proj = path.join(h, "work", "launch-site");
+  fs.mkdirSync(proj, { recursive: true });
+  fs.mkdirSync(path.join(h, ".hermes", "sessions"), { recursive: true });
+  fs.mkdirSync(path.join(h, ".hermes", "cache", "scratch"), { recursive: true });
+  fs.mkdirSync(path.join(h, ".muse", "sessions", "a"), { recursive: true });
+  fs.mkdirSync(path.join(h, ".grok", "outputs"), { recursive: true });
+  fs.writeFileSync(path.join(h, ".hermes", "sessions", "s1.jsonl"), JSON.stringify({ role: "system", working_directory: proj, text: "private words" }) + "\n");
+  fs.writeFileSync(path.join(h, ".muse", "sessions", "a", "state.json"), JSON.stringify({ workspaceRoot: proj }));
+  fs.writeFileSync(path.join(h, ".hermes", "cache", "scratch", "chart.png"), "png");
+  const roots = otherRoots(since, h);
+  const has = (ai: string, dir: string) => roots.some((r) => r.ai === ai && r.dir === dir);
+  assert.ok(has("Hermes", proj) && has("Muse Code", proj));
+  assert.ok(has("Hermes", path.join(h, ".hermes", "cache", "scratch")) && has("Grok", path.join(h, ".grok", "outputs")));
+  const made = scanMade(now, roots.filter((r) => r.ai === "Hermes"));
+  assert.deepEqual(made.items.map((x: any) => [x.title, x.type, x.ai]), [["chart.png", "image", "Hermes"]]);
+  assert.ok(!JSON.stringify(roots).includes("private words"));
+  fs.rmSync(h, { recursive: true, force: true });
 });

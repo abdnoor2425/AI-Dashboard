@@ -29,7 +29,16 @@ const kids = (dir: string, tail: string[]) => { try { return fs.readdirSync(dir)
 let shellDirs: string[] = [], shellAsked: Promise<void> | null = null;
 export function usualDirs(h = home(), platform = process.platform): string[] {
   const j = (...p: string[]) => path.join(h, ...p);
-  if (platform === "win32") return [j(".local", "bin"), path.join(appData(), "npm"), j(".bun", "bin"), j(".cargo", "bin"), j("scoop", "shims"), j(".volta", "bin"), path.join(localAppData(), "pnpm"), path.join(localAppData(), "Programs", "hermes"), j(".hermes", "bin"), j(".grok", "bin"), j(".muse", "bin")];
+  if (platform === "win32") {
+    const pf = process.env.ProgramFiles || "C:\\Program Files", la = localAppData(), ad = appData();
+    return [
+      j(".local", "bin"), path.join(ad, "npm"), path.join(pf, "nodejs"), j(".bun", "bin"), j(".cargo", "bin"), j("scoop", "shims"), j(".volta", "bin"), path.join(la, "Volta", "bin"),
+      path.join(la, "pnpm"), path.join(la, "Microsoft", "WinGet", "Links"), path.join(la, "Microsoft", "WindowsApps"), path.join(la, "fnm_multishells"),
+      ...kids(path.join(ad, "nvm"), []), ...kids(path.join(ad, "fnm", "node-versions"), ["installation"]), ...kids(path.join(la, "fnm_multishells"), []),
+      j(".claude", "local"), j(".claude", "bin"), j(".codex", "bin"), j(".gemini", "bin"), j(".grok", "bin"), j(".hermes", "bin"), j(".muse", "bin"),
+      path.join(la, "Programs", "hermes"), path.join(la, "hermes", "bin"), path.join(la, "Programs", "Grok"), path.join(la, "Programs", "muse"), path.join(la, "Programs", "codex"),
+    ];
+  }
   return [
     j(".local", "bin"), j("bin"), "/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin", "/home/linuxbrew/.linuxbrew/bin",
     j(".npm-global", "bin"), j(".npm-packages", "bin"), j(".npm", "bin"), j(".bun", "bin"), j(".cargo", "bin"), j(".volta", "bin"), j(".deno", "bin"), j(".yarn", "bin"),
@@ -37,6 +46,7 @@ export function usualDirs(h = home(), platform = process.platform): string[] {
     j(".claude", "local"), j(".claude", "bin"), j(".codex", "bin"), j(".gemini", "bin"), j(".grok", "bin"), j(".hermes", "bin"), j(".hermes", "hermes-agent", "venv", "bin"), j(".muse", "bin"), j(".meta", "bin"),
     ...kids(j(".nvm", "versions", "node"), ["bin"]), ...kids(j(".local", "share", "fnm", "node-versions"), ["installation", "bin"]), ...kids(j("Library", "Application Support", "fnm", "node-versions"), ["installation", "bin"]), ...kids(j(".local", "share", "nvm"), ["bin"]),
     ...kids(j("Library", "Application Support", "Claude", "claude-code"), []), "/Applications/Codex.app/Contents/Resources", "/Applications/Codex.app/Contents/MacOS",
+    "/snap/bin", j(".nix-profile", "bin"), "/run/current-system/sw/bin", "/var/lib/flatpak/exports/bin", j(".local", "share", "flatpak", "exports", "bin"), j(".linuxbrew", "bin"),
     "/usr/bin", "/bin", "/usr/sbin", "/sbin",
   ];
 }
@@ -275,4 +285,13 @@ export async function disconnectAgent(id: string) {
   const a = AGENTS.find((x) => x.id === id);
   if (!a) throw new Error("No such AI app.");
   await a.disconnect();
+}
+
+/** A plain report of what the scan sees on this computer, for fixing a scan that misses something. Paths and yes or no only. */
+export async function scanReport() {
+  await askShell();
+  const bins = ["claude", "codex", "gemini", "grok", "hermes", "muse", "node"];
+  const found = Object.fromEntries(await Promise.all(bins.map(async (b) => [b, (await findBin(b))?.cmd || null])));
+  const homes = Object.fromEntries([".claude", ".claude.json", ".codex", ".gemini", ".grok", ".hermes", ".muse", ".cursor"].map((f) => [f, exists(path.join(home(), f))]));
+  return { platform: process.platform, node: process.execPath, commands: found, settingsFolders: homes, fromShell: shellDirs.length, lookedIn: searchPath().filter(exists), agents: await listAgents() };
 }
