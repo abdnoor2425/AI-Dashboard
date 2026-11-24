@@ -216,7 +216,7 @@ export async function startSession(ctx: Ctx, body: any, now: number) {
     chosen: R.ownBoard("other", body.seats) ? [...new Set((body.seats as any[]).map(String))].filter((k) => R.seatOf(k)).slice(0, R.SEATS_MAX) : null, auto: body.auto === true,
   };
   if (Array.isArray(body.seats) && body.seats.length && !s.chosen) throw new Error(`Keep at least ${R.SEATS_MIN} seats, so there is a real debate.`);
-  const pool = R.coreFacts(u, ctx.team, now);
+  const pool = R.coreFacts(u, ctx.team, now, ws.socialFile);
   s.menu = pool.menu; s.gaps = pool.gaps;
   number(s, pool.core, 0, () => true);
   // Attached files move into this decision's own folder and leave the composer.
@@ -254,9 +254,12 @@ function background(s: any, ctx: Ctx, job: () => Promise<void>) {
 /** A council started from the one screen does not wait for the owner between steps. It stops only when the Chair has a question no data could answer. */
 function carryOn(s: any, ctx: Ctx) {
   if (!s.auto) return;
-  if (s.status === "brief" && s.brief && !s.brief.questions.length) gather(s, ctx);
+  if (s.status === "brief" && s.brief && !held(s)) gather(s, ctx);
   else if (s.status === "ready" && !s.startedAt) run(s, ctx);
 }
+
+/** True when the Chair needs the owner first: an answer only they have, or a yes to read a file in a folder that is switched off. */
+const held = (s: any) => (s.held != null ? !!s.held : !!s.brief?.questions?.length);
 
 /** The council the screen shows before any AI has read the question: a first guess from its words. */
 export function suggestBoard(q: any) {
@@ -284,7 +287,7 @@ async function ask(s: any, ctx: Ctx, prompt: string, label: string): Promise<any
   throw last;
 }
 const cite = (s: any, text: any, max: number) => { const r = R.checkCites(text, s.pack, max); s.checks.cites += r.cites.length; s.checks.dropped += r.dropped; return r.text; };
-const briefIn = (s: any): R.BriefIn => ({ title: s.brief.title, stake: R.plainCites(s.brief.stake, s.pack), options: s.brief.options, answers: (s.brief.questions || []).map((x: any, i: number) => (s.brief.answers[i] != null ? `${x.q} ${x.choices[s.brief.answers[i]]}.` : "")).filter(Boolean) });
+const briefIn = (s: any): R.BriefIn => ({ asked: s.q, intent: s.brief.intent || "", missing: (s.brief.needs || []).filter((n: any) => !n.ref || !s.pack.find((f: any) => f.id === n.ref)?.on).map((n: any) => n.what), title: s.brief.title, stake: R.plainCites(s.brief.stake, s.pack), options: s.brief.options, answers: (s.brief.questions || []).map((x: any, i: number) => (s.brief.answers[i] != null ? `${x.q} ${x.choices[s.brief.answers[i]]}.` : "")).filter(Boolean) });
 
 async function writeBrief(s: any, ctx: Ctx, now: number) {
   const { ws } = ctx, home = ctx.home || HOME;
@@ -307,7 +310,7 @@ async function writeBrief(s: any, ctx: Ctx, now: number) {
   if (options.length < 3) options.push({ title: "Change nothing for now", detail: "Leave things as they are and look again later." });
   const kind = R.KINDS[data.kind] ? data.kind : "other";
   s.brief = {
-    title: R.clip(data.title, 110) || s.q, stake: cite(s, data.stake, 320), kind, kindLabel: R.KINDS[kind].label, oneWay: data.one_way === true, options, statusQuo: 2,
+    title: R.clip(data.title, 110) || s.q, intent: R.plainCites(R.clip(data.intent, 300), s.pack), stake: cite(s, data.stake, 320), kind, kindLabel: R.KINDS[kind].label, oneWay: data.one_way === true, options, statusQuo: 2,
     questions: (Array.isArray(data.questions) ? data.questions : []).slice(0, 2).map((x: any) => ({ q: R.clip(x?.q, 110), choices: (Array.isArray(x?.choices) ? x.choices : []).slice(0, 3).map((c: any) => R.clip(c, 28)).filter(Boolean) })).filter((x: any) => x.q && x.choices.length > 1),
     answers: [], depth: data.depth === "quick" ? "quick" : "full", depthWhy: R.clip(data.depth_why, 200),
     keywords: [...new Set([...(Array.isArray(data.keywords) ? data.keywords : []).map((k: any) => String(k).toLowerCase().replace(/[^a-z0-9 -]/g, "")).filter((k: string) => k.length > 3), ...keys])].slice(0, 10),
@@ -316,10 +319,24 @@ async function writeBrief(s: any, ctx: Ctx, now: number) {
   if (s.modeAsk === "auto") s.mode = s.brief.depth;
   Object.assign(s, (s.chosen && R.ownBoard(kind, s.chosen, s.brief.seatWhy)) || R.pickBoard(kind, s.mode, s.brief.seatWhy));
   // The Chair asked for more: numbers the dashboard reads itself, and files by name.
-  const more = (Array.isArray(data.more) ? data.more : []).map((m: any) => s.menu[Number(String(m).replace(/\D/g, "")) - 1]).filter(Boolean).slice(0, 6);
-  number(s, [...new Set(more)].map(({ menu, ...f }: any) => f), 1, () => true);
-  const wants = [...new Set((Array.isArray(data.files) ? data.files : []).map((n: any) => files[Number(n) - 1]).filter(Boolean))].slice(0, 4);
-  number(s, wants.map((n: any) => ({ src: "file", what: n.name, value: "Not read", period: "", age: sinceText(n.modifiedAt, now), link: "#brain", note: "", ref: n.id, folder: n.project, path: [brain.sources.find((x: any) => x.id === n.sourceId)?.name, ...String(n.path).split("/").slice(0, -1)].filter(Boolean).join(" / ") })), 1, () => true);
+  const idOf = (v: any) => Number(String(v).replace(/\D/g, ""));
+  const asked: any[] = (Array.isArray(data.needs) ? data.needs : []).slice(0, 6).map((n: any) => ({ what: R.clip(n?.what, 80), from: String(n?.from || "").toUpperCase().replace(/[^EMF0-9]/g, "") })).filter((n: any) => n.what);
+  const fromList = (letter: string, list: any[]) => asked.filter((n) => n.from[0] === letter).map((n) => list[idOf(n.from) - 1]).filter(Boolean);
+  // Numbers: what the Chair picked or said the answer needs, then everything else from the sources that fit this kind of decision.
+  const more = R.moreFor(kind, s.menu, [...fromList("M", s.menu), ...(Array.isArray(data.more) ? data.more : []).map((m: any) => s.menu[idOf(m) - 1]).filter(Boolean).slice(0, 10)]);
+  const idAt = new Map<any, string>();
+  for (const m of more) { idAt.set(m, "E" + (s.pack.length + 1)); const { menu, ...f } = m; number(s, [f], 1, () => true); }
+  const wants = [...new Set([...fromList("F", files), ...(Array.isArray(data.files) ? data.files : []).map((n: any) => files[idOf(n) - 1]).filter(Boolean)])].slice(0, R.FILES_MAX);
+  for (const n of wants as any[]) {
+    idAt.set(n, "E" + (s.pack.length + 1));
+    number(s, [{ src: "file", what: n.name, value: "Not read", period: "", age: sinceText(n.modifiedAt, now), link: "#brain", note: "", ref: n.id, folder: n.project, path: [brain.sources.find((x: any) => x.id === n.sourceId)?.name, ...String(n.path).split("/").slice(0, -1)].filter(Boolean).join(" / ") }], 1, () => true);
+  }
+  // What a sound answer needs, each tied to the fact that covers it. A need with nothing behind it is said out loud, never guessed.
+  s.brief.needs = asked.map((n) => {
+    const hit = n.from[0] === "E" ? (s.pack.find((f: any) => f.id === n.from) ? n.from : null) : n.from[0] === "M" ? idAt.get(s.menu[idOf(n.from) - 1]) : n.from[0] === "F" ? idAt.get(files[idOf(n.from) - 1]) : null;
+    return { what: n.what, ref: hit || null };
+  });
+  for (const n of s.brief.needs) if (!n.ref) { const g = `${n.what}. Nothing connected covers it.`; if (!s.gaps.includes(g)) s.gaps.push(g); }
   // One last pass: mail subjects, things the AIs made, and past decisions that touch the same words.
   const kw = s.brief.keywords;
   const mail = (ws.inbox || []).filter((m: any) => m.subject && now - m.at < 30 * DAY);
@@ -333,6 +350,8 @@ async function writeBrief(s: any, ctx: Ctx, now: number) {
     number(s, [{ src: "past", what: p.brief.title, value: p.checkin?.result ? ({ worked: "Worked", partly: "Partly", no: "Did not work" } as any)[p.checkin.result] : p.result.label, period: "Decided " + dayText(p.at), age: sinceText(p.at, now), link: "#room/verdict/" + p.id, note: R.clip(p.verdict.call, 150) }], 2, () => true);
   delete s.menu;
   applyAccess(s);
+  // A council that runs by itself still stops here when only the owner can move it on.
+  s.held = s.brief.questions.length > 0 || s.pack.some((f: any) => f.src === "file" && !f.on);
   s.status = "brief";
   ctx.usage?.("Decision Room: " + s.brief.title, s.ai);
 }
@@ -373,21 +392,22 @@ export function gather(s: any, ctx: Ctx) {
         if (info.size > 12 * 1024 * 1024) throw new Error("large");
         const got = await textOf(f.what, fs.readFileSync(file));
         if (got.text.length < 20) throw new Error("empty");
-        f.text = got.text.slice(0, 2400); f.value = "Read"; f.period = `${words(got.text).toLocaleString("en-US")} words`; f.note = "Read from your folder for this decision."; excerpts++; count += words(f.text);
+        f.text = got.text.slice(0, R.FILE_CHARS); f.value = "Read"; f.period = `${words(got.text).toLocaleString("en-US")} words`; f.note = "Read from your folder for this decision."; excerpts++; count += words(f.text);
       } catch { f.on = false; f.value = "Not read"; f.note = "This file could not be opened as text."; s.shared.skipped++; }
     }
     const texts = (s.pack as any[]).filter((f) => f.on && f.text);
     s.shared = { ...s.shared, excerpts, words: count, attach: s.attach.length, facts: s.pack.filter((f: any) => f.on).length };
     s.calls.total = R.callsFor(s.mode, s.seats.length, texts.length > 0);
     if (texts.length) {
-      const data = await ask(s, ctx, R.notesPrompt(texts.map((f) => ({ id: f.id, name: f.what, text: f.text })), s.brief.title), "reading the files").catch((e) => { if (ai.isLimit(String(e?.message)) || e?.pause) throw e; s.calls.total--; return { notes: [] }; });
+      const data = await ask(s, ctx, R.notesPrompt(texts.map((f) => ({ id: f.id, name: f.what, text: f.text })), s.brief.title, s.brief.intent), "reading the files").catch((e) => { if (ai.isLimit(String(e?.message)) || e?.pause) throw e; s.calls.total--; return { notes: [] }; });
       for (const n of Array.isArray(data.notes) ? data.notes : []) {
         const f = texts.find((x) => x.id === String(n?.id).toUpperCase());
         if (!f) continue;
         f.value = R.clip(n.value, 18) || "Read"; if (n.covers) f.period = R.clip(n.covers, 24); f.note = R.clip(n.note, 190) || f.note;
+        f.points = (Array.isArray(n.points) ? n.points : []).map((x: any) => R.clip(x, 150)).filter(Boolean).slice(0, 4);
       }
     }
-    for (const g of (s.pack as any[]).filter((f) => !f.on && f.pass > 0).map((f) => `${f.what}. ${f.src === "file" ? "That folder is switched off." : "That source is switched off."}`).slice(0, 3)) if (!s.gaps.includes(g)) s.gaps.push(g);
+    for (const g of (s.pack as any[]).filter((f) => !f.on && f.pass > 0).map((f) => `${f.what}. ${f.src === "file" ? f.note || "That folder is switched off." : "That source is switched off."}`).slice(0, 4)) if (!s.gaps.includes(g)) s.gaps.push(g);
     s.status = "ready";
   });
 }

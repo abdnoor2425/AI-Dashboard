@@ -14,10 +14,12 @@ process.env.PATH = bin + path.delimiter + path.dirname(process.execPath) + path.
 fs.writeFileSync(path.join(bin, "fake-ai.mjs"), `
 let p = ""; process.stdin.on("data", (d) => (p += d)); process.stdin.on("end", () => {
   const out = (o) => console.log("Here you go:\\n" + JSON.stringify(o));
-  if (p.includes("Prepare the brief")) return out({ title: "Should we raise the price?", stake: "Revenue is {E1} and a ghost number is {E99}.", kind: "pricing", one_way: false,
+  const file = (p.match(/F(\\d+)\\. Pricing research/) || [])[1];
+  if (p.includes("Prepare the brief")) return out({ title: "Should we raise the price?", intent: "Earn more from each customer without losing the ones who pay today.",
+    needs: [{ what: "What comes in each month", from: "E1" }, { what: "How revenue moved lately", from: "M1" }, { what: "What customers say about price", from: file ? "F" + file : "" }], stake: "Revenue is {E1} and a ghost number is {E99}.", kind: "pricing", one_way: false,
     options: [{ title: "Raise for all", detail: "Everyone pays more." }, { title: "Raise for new", detail: "Only new customers pay more." }, { title: "Change nothing", detail: "Leave it." }],
-    questions: [{ q: "Is the date fixed?", choices: ["Yes", "No"] }], depth: "full", depth_why: "It touches income.", more: ["M1"], files: [], keywords: ["price"], seat_why: { cu: "Customers feel it first." } });
-  if (p.includes("You read documents")) return out({ notes: [{ id: (p.match(/--- (E\\d+):/) || [])[1], value: "9 of 10", covers: "10 calls", note: "Nine of ten callers said the price is fair." }] });
+    questions: p.includes("QUESTION: Should we change the subscription price") ? [] : [{ q: "Is the date fixed?", choices: ["Yes", "No"] }], depth: "full", depth_why: "It touches income.", more: ["M1"], files: file ? [file] : [], keywords: ["price"], seat_why: { cu: "Customers feel it first." } });
+  if (p.includes("You read documents")) return out({ notes: [{ id: (p.match(/--- (E\\d+):/) || [])[1], value: "9 of 10", covers: "10 calls", note: "Nine of ten callers said the price is fair.", points: ["Two callers asked for a yearly plan.", "Nobody named a rival."] }] });
   if (p.includes("This is round 1")) { if (p.includes("You hold The Attention seat")) return console.log("I would rather not say."); return out({ stance: "For B", scores: p.includes("You hold The Capital seat") ? [3, 6, 7] : [4, 8, 5], say: "New customers have never seen the old price. Revenue is {E1}, or so says {E77}.", ask: "" }); }
   if (p.includes("Find where the seats truly disagree")) return out({ cruxes: [{ a: "cu", b: "cp", q: "Do today's customers ever pay more?" }, { a: "cu", b: "zz", q: "Not a real seat" }], answer: { seat: "cp", fact: "E1", say: "Stripe says {E1}." } });
   if (p.includes("This is round 2")) return out({ say: "I can live with it if the promise is written down." });
@@ -239,4 +241,73 @@ test("the owner can choose who sits, and a council started from the one screen c
   room.gather(s, ctx);
   s = await wait("done");
   assert.equal(s.result.voted, 4); assert.equal(s.verdict.answer, "Yes. Raise it for new customers only.");
+});
+
+test("a price question gets all of Stripe and the website, and the brief says what the owner is after", () => {
+  const u = { money: { state: "ok", sym: "$", when: "just now", monthName: "May", prevName: "April", total: 1200, delta: 4, mrr: 980, subs: 20, failed: [], months: [["Feb", 1], ["Mar", 2], ["Apr", 3], ["May", 4]], pace: 2400, top: [{ name: "Acme", paid: 500, share: 40 }], recent: [["Acme", "Pro plan · 2 May", "$49"]] },
+    ga: { state: "ok", when: "just now", sites: [{ name: "platewise.test", v: Array(56).fill(100), l: Array(56).fill(2), src: [{ name: "Google", n: 60, share: 0.6 }, { name: "Direct", n: 40, share: 0.4 }], pages: [{ path: "/pricing", n: 900 }, { path: "/", n: 700 }] }] },
+    needs: {}, goals: { state: "off" }, clients: { on: [{ n: "Acme", need: true }] } };
+  const social = { file: "metricool.csv", at: 0, brands: { main: [{ name: "Instagram", followers: 1200, followersDelta: 30, reach: 9000, reachPrev: 8000 }] } };
+  const { menu } = R.coreFacts(u, [{ owner: "Kim", due: null }], 86400000, social);
+  const by = (what: string) => menu.find((f) => f.what === what)!;
+  assert.equal(by("Average paid by one subscription each month").value, "$49");
+  assert.match(by("Latest payments").note, /Acme \$49 \(Pro plan\)/);
+  assert.equal(by("Leads from the websites").value, "56"); assert.equal(by("Visitors who become a lead").value, "2%");
+  assert.match(by("Top source of visitors to platewise.test").note, /Google 60%, Direct 40%/);
+  assert.match(by("Most visited page on platewise.test").note, /\/pricing 900/);
+  assert.equal(by("Followers on social").value, "1,200"); assert.match(by("Reach on social").note, /Instagram 9,000\. From metricool\.csv/);
+  // The Chair picked nothing, and still every Stripe, website and client number is in. Team tasks and social stay out of a price question.
+  const got = R.moreFor("pricing", menu, []);
+  assert.deepEqual([...new Set(got.map((f) => f.src))].sort(), ["clients", "ga", "stripe"]);
+  assert.equal(got.filter((f) => f.src === "stripe").length, menu.filter((f) => f.src === "stripe").length);
+  // What the Chair asked for comes first and is never pushed out by the cap.
+  const team = menu.find((f) => f.src === "linear")!;
+  assert.equal(R.moreFor("pricing", menu, [team])[0], team); assert.ok(R.moreFor("marketing", menu, []).some((f) => f.src === "social"));
+  assert.ok(R.moreFor("pricing", Array.from({ length: 40 }, () => ({ src: "stripe" })), []).length <= R.MORE_MAX); assert.deepEqual(R.moreFor("other", menu, []), []);
+  // Every seat is told what the owner is after and what is missing.
+  const prompt = R.openingPrompt(R.ROSTER[0], { title: "Raise the price?", asked: "should i charge more", intent: "Earn more from each customer.", missing: ["Churn after the last change"], stake: "", options: [{ title: "A", detail: "" }, { title: "B", detail: "" }, { title: "C", detail: "" }], answers: [] }, []);
+  for (const part of ["IN THE OWNER'S OWN WORDS: should i charge more", "WHAT THE OWNER IS REALLY AFTER: Earn more from each customer.", "NOT IN THE EVIDENCE (say so rather than guess): Churn after the last change."]) assert.ok(prompt.includes(part), part);
+});
+
+test("the council asks before it reads a closed file, reads it once allowed, and says what it could not find", { skip: process.platform === "win32" }, async () => {
+  const { changeBrain } = await import("../lib/server/brain.ts");
+  const temp = fs.mkdtempSync(path.join(fs.realpathSync(process.cwd()), "keystone-room-test-"));
+  test.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(temp, "Research"));
+  fs.writeFileSync(path.join(temp, "Research", "Pricing research.txt"), "We asked ten customers about the price. Eight said 69 dollars a month is fair. Two would leave.");
+  const ws: any = { id: "files", name: "Test Co", owner: "Dana Reyes", team: [{ name: "Dana Reyes" }], items: [], inbox: [], setup: { about: { name: "Dana Reyes" } } };
+  changeBrain("files", { action: "connect", path: path.join(temp, "Research") });
+  const u = { money: { state: "ok", sym: "$", when: "just now", monthName: "May", prevName: "April", total: 1200, delta: 4, mrr: 980, subs: 20, failed: [], months: [["Feb", 1], ["Mar", 2], ["Apr", 3], ["May", 4]] }, ga: { state: "off" }, needs: {}, goals: { state: "off" }, clients: { on: [] } };
+  const ctx = { ws, u, team: [] };
+  const wait = async (id: string, want: string) => { for (let i = 0; i < 300; i++) { const s = room.readSession("files", id); if (s.status === want) return s; if (s.status === "failed") throw new Error(s.error); await new Promise((r) => setTimeout(r, 50)); } throw new Error("never reached " + want); };
+  const { id } = await room.startSession(ctx, { q: "Should we change the subscription price this spring?", ai: "Claude Code", mode: "quick", auto: true }, Date.now());
+  // The Chair has no question for the owner, but it wants a file in a folder that is switched off. So it stops and asks.
+  let s = await wait(id, "brief");
+  await new Promise((r) => setTimeout(r, 150));
+  s = room.readSession("files", id);
+  assert.equal(s.status, "brief", "it did not carry on without asking"); assert.equal(s.brief.questions.length, 0); assert.equal(s.held, true);
+  assert.equal(s.brief.intent, "Earn more from each customer without losing the ones who pay today.");
+  const doc = s.pack.find((f: any) => f.src === "file");
+  assert.equal(doc.what, "Pricing research.txt"); assert.equal(doc.on, false);
+  // Stripe is read in full for a price question: the months the Chair asked for, and the average subscription it did not ask for.
+  assert.ok(s.pack.some((f: any) => f.what === "Average paid by one subscription each month" && f.value === "$49"));
+  assert.deepEqual(s.brief.needs.map((n: any) => !!n.ref), [true, true, true]); assert.equal(s.brief.needs[2].ref, doc.id);
+  room.editSession(s, { allowFiles: true });
+  room.gather(s, ctx);
+  s = await wait(id, "done");
+  const read = s.pack.find((f: any) => f.src === "file");
+  assert.equal(read.on, true); assert.match(read.text, /Eight said 69 dollars/); assert.deepEqual(read.points, ["Two callers asked for a yearly plan.", "Nobody named a rival."]);
+  // Each seat was told the goal behind the question, and got the key points of the file with its words.
+  const logDir = fs.readdirSync(path.join(keystone, "room")).map((d) => path.join(keystone, "room", d, id)).find((d) => fs.existsSync(d))!;
+  const sent = fs.readFileSync(path.join(logDir, "shared-log.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const opening = sent.find((x) => x.sent.includes("This is round 1")).sent;
+  for (const part of ["WHAT THE OWNER IS REALLY AFTER: Earn more from each customer", "Key points: Two callers asked for a yearly plan. | Nobody named a rival.", "Eight said 69 dollars"]) assert.ok(opening.includes(part), part);
+  assert.ok(!opening.includes("NOT IN THE EVIDENCE"), "nothing it needed was missing once the file was allowed");
+  assert.match(decisionMd(s), /intent: Earn more from each customer/); assert.match(reportHtml(s), /What you are after: Earn more from each customer/);
+  // Without the folder, the same question has a need nothing covers. The council carries on by itself and says so.
+  const bare: any = { ...ws, id: "bare" };
+  const two = await room.startSession({ ws: bare, u, team: [] }, { q: "Should we change the subscription price this spring?", ai: "Claude Code", mode: "quick", auto: true }, Date.now());
+  let b: any; for (let i = 0; i < 300 && (b = room.readSession("bare", two.id)).status !== "done"; i++) { if (b.status === "failed") throw new Error(b.error); await new Promise((r) => setTimeout(r, 50)); }
+  assert.equal(b.status, "done"); assert.equal(b.held, false); assert.equal(b.brief.needs[2].ref, null);
+  assert.ok(b.gaps.includes("What customers say about price. Nothing connected covers it."));
 });

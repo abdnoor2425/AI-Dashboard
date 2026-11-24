@@ -93,7 +93,7 @@ export function reportHtml(s: any): string {
 
   const pages = [
     `<section class="pg">${head}
- <p class="ask">The question: ${esc(s.q || s.brief.title)}</p>
+ <p class="ask">The question: ${esc(s.q || s.brief.title)}${s.brief.intent ? `<br>What you are after: ${esc(s.brief.intent)}` : ""}</p>
  <p class="ey">The answer</p>
  <h1>${esc(A.answer)}</h1>
  <span class="verd ${r.band}">${esc(band.label)} · ${r.score.toFixed(1)} of 10 · ${n} seat${n === 1 ? "" : "s"}</span>
@@ -153,7 +153,7 @@ export function decisionMd(s: any): string {
   const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
   const lines = [
     `# Decision: ${one(s.brief.title)}`, "",
-    `question: ${one(s.q || s.brief.title)}`, `answer: ${one(A.answer)}`,
+    `question: ${one(s.q || s.brief.title)}`, ...(s.brief.intent ? [`intent: ${one(s.brief.intent)}`] : []), `answer: ${one(A.answer)}`,
     `verdict: ${({ go: "go", cond: "go_with_conditions", reshape: "reshape", no: "do_not", wait: "wait" } as any)[r.band]}`,
     `score: ${r.score.toFixed(1)} of 10, counted by code from ${seats.length} weighted votes`,
     `decided: ${iso(s.at)}`, `asked_by: ${one(s.owner)}`, `look_again: ${iso(v.again.on)}`, "",
