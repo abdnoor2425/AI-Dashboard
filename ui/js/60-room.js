@@ -17,7 +17,7 @@ Object.assign(IC,{
 /* Everything below is drawn from a real session on this computer. RM is the room's front page, DS the decision that is open. */
 const DGLOW={'--gold':'rgba(235,197,124,.5)','--ice':'rgba(138,212,255,.5)','--mint':'rgba(95,224,176,.46)','--violet':'rgba(185,162,255,.5)','--ember':'rgba(255,154,107,.5)','--bad':'rgba(255,122,122,.45)','--warn':'rgba(244,184,96,.5)','--text-3':'rgba(160,165,180,.4)'};
 /* source key: name, colour, icon, which access switch it needs */
-const DSRC={stripe:['Stripe','--gold','money','num'],ga:['Google Analytics','--ice','web','num'],linear:['Linear','--mint','team','num'],goals:['Goals','--violet','goals','num'],needs:['Needs you','--ember','needs','num'],clients:['Clients','--mint','team','num'],
+const DSRC={stripe:['Stripe','--gold','money','num'],ga:['Google Analytics','--ice','web','num'],linear:['Linear','--mint','team','num'],goals:['Goals','--violet','goals','num'],needs:['Needs you','--ember','needs','num'],clients:['Clients','--mint','team','num'],social:['Social','--violet','web','num'],
  file:['WorkOS file','--ember','folder','files'],mail:['Gmail, subjects only','--bad','mail','mail'],made:['AI made','--violet','made','made'],att:['Attached by you','--warn','clip','att'],past:['Past decision','--text-3','room','num']};
 const DPASS=['First look. No AI used.','The council asked for more.','One last pass.'];
 const DSTEPS=[['ask','Ask'],['brief','Brief'],['board','Board'],['evidence','Evidence'],['live','The Room'],['verdict','Verdict']];
@@ -53,7 +53,9 @@ const dAi=()=>DS?DS.ai:(DR.ai||(RM&&RM.ai)||'');
 const dHref=(step,id)=>'#room/'+step+(id||(DS&&step!=='ask'&&step!=='history')?'/'+(id||DS.id):'');
 const dPlural=(n,w)=>n+' '+w+(n===1?'':'s');
 
-const dStepList=()=>DS&&DS.auto?DSTEPS.filter(x=>x[0]!=='board'&&(x[0]!=='brief'||!DS.brief||DS.brief.questions.length)).map(x=>x[0]==='evidence'?['evidence','Facts']:x):DSTEPS;
+/* the Chair needs the owner first: an answer only they have, or a yes to read a closed file */
+const dHeld=()=>!!(DS&&DS.brief&&(DS.held!=null?DS.held:DS.brief.questions.length));
+const dStepList=()=>DS&&DS.auto?DSTEPS.filter(x=>x[0]!=='board'&&(x[0]!=='brief'||!DS.brief||dHeld())).map(x=>x[0]==='evidence'?['evidence','Facts']:x):DSTEPS;
 function dSteps(){const L=dStepList(),ci=Math.max(0,L.findIndex(s=>s[0]===DR.step));
  return `<div class="dr-top"><nav class="dr-steps" aria-label="Decision steps">${L.map((s,i)=>`<a href="${i<=ci||(DS&&DS.status==='done')?dHref(s[0]):'#'}" ${i>ci&&!(DS&&DS.status==='done')?'aria-disabled="true" tabindex="-1" data-no':''} class="${i<ci?'done':i===ci?'cur':''}"><i>${i<ci?'✓':i+1}</i><b>${s[1]}</b></a>${i<L.length-1?'<hr>':''}`).join('')}</nav><span class="grow"></span><span class="chip dr-run"><i style="background:var(--mint)"></i>Runs on ${esc(dAi())}, your own plan</span></div>`}
 const dFoot=(back,next,label,extra,act)=>`<div class="dr-foot">${back?`<a class="btn line" href="${dHref(back)}">${ic('back')}Back</a>`:''}<span class="grow">${extra||''}</span>${act?`<button type="button" class="btn lg" data-dr="${act}">${label}${ic('arrow')}</button>`:`<a class="btn lg" href="${dHref(next)}">${label}${ic('arrow')}</a>`}</div>`;
@@ -125,6 +127,7 @@ function dBrief(){const B=DS.brief;
  return `${dSteps()}<div class="dr-two"><div class="panel dr-brief rv">
   <div class="eyebrow"><b>The brief</b> &nbsp;·&nbsp; Written by the Chair</div>
   <h2 class="h2">${esc(B.title)}</h2>
+  ${B.intent?`<div class="dr-stake dr-int"><span class="eyebrow">What you are really after</span><p>${esc(B.intent)}</p></div>`:''}
   <div class="dr-stake"><span class="eyebrow">What is at stake</span><p>${dTx(B.stake)}</p></div>
   <div class="eyebrow dr-el">The options on the table</div>
   <div class="dr-opts">${DOPT.map(o=>`<div class="dr-opt"><i>${o[0]}</i><b>${esc(o[1])}</b><small>${esc(o[2])}</small></div>`).join('')}</div>
@@ -136,7 +139,7 @@ function dBrief(){const B=DS.brief;
   ${Q.length?`<div class="panel dr-qa rv"><div class="eyebrow"><b>${DNUM[Q.length]} question${Q.length>1?'s':''} only you can answer</b></div>${Q.map((q,i)=>`<div class="dr-q"><b>${esc(q.q)}</b><div>${q.choices.map((a,j)=>`<button type="button" class="chip${B.answers[i]===j?' pick':''}" data-ans="${i},${j}" aria-pressed="${B.answers[i]===j}">${esc(a)}</button>`).join('')}</div></div>`).join('')}<small class="dr-fine">The Chair asks at most two. Everything else comes from your data.</small></div>`:''}
   ${!files.length?'':!off.length?`<div class="panel dr-ok rv"><span class="sphere" style="--glow:${DGLOW['--mint']}">${ic('check')}</span><div class="grow"><b>The council may read ${dPlural(files.length,'file')} the Chair asked for.</b><small>You allowed it. Change it at any time.</small></div><button class="btn sm line" type="button" data-dr="folders">Change</button></div>`:
   `<div class="panel edge dr-askf rv"><div class="eyebrow"><b>The Chair asks for access</b></div><b class="dr-big">${DNUM[off.length]} file${off.length>1?'s':''} would help.</b><p>${off.length>1?'They sit':'It sits'} in a folder that is switched off, so the council has not read ${off.length>1?'them':'it'}.</p><div class="dr-fl">${off.map(e=>`<span>${ic('doc')}<span><b>${esc(e[2])}</b><small>${esc(e[9])}</small></span></span>`).join('')}</div><div class="dr-fb"><button class="btn sm" type="button" data-dr="allow">Allow ${off.length>1?'these '+off.length+' files':'this file'}</button><button class="btn sm line" type="button" data-dr="folders">Choose folders</button><button class="btn sm line" type="button" data-toast="The council goes on without ${off.length>1?'them':'it'} and marks those points as assumed">Skip</button></div><small class="dr-fine">Only the text of ${off.length>1?'these files':'this file'} is read. Short excerpts go to your own AI.</small></div>`}
- </div></div>${DS.auto?dFoot('ask','evidence','Start the council','<span class="dr-hint">The Chair needs '+(Q.length>1?'these answers':'this answer')+' from you. Nothing has gone to an advisor yet.</span>'):dFoot('ask','board','Looks right. Pick the board','<span class="dr-hint">Nothing has gone to an advisor yet. Change the depth or your answers first if anything looks off.</span>')}`}
+ </div></div>${DS.auto?dFoot('ask','evidence','Start the council','<span class="dr-hint">'+(Q.length?'The Chair needs '+(Q.length>1?'these answers':'this answer')+' from you.':off.length?'Allow the '+(off.length>1?'files':'file')+' the Chair asked for, or start without '+(off.length>1?'them':'it')+'.':'Ready when you are.')+' Nothing has gone to an advisor yet.</span>'):dFoot('ask','board','Looks right. Pick the board','<span class="dr-hint">Nothing has gone to an advisor yet. Change the depth or your answers first if anything looks off.</span>')}`}
 
 /* ---------- 3. Board ---------- */
 function dBoard(){const n=DR.seats.length;return `${dSteps()}<div class="head dr-bh"><div class="grow"><div class="eyebrow"><b>The board</b> &nbsp;·&nbsp; Picked by the Chair for ${esc(DS.kindLabel||'this decision')}</div><h2 class="h2">${DNUM[n]} seats for this question.</h2><p class="mut dr-sub">Each seat looks at your decision through one question. A heavier seat counts for more in the vote.</p></div></div>
@@ -146,12 +149,16 @@ function dBoard(){const n=DR.seats.length;return `${dSteps()}<div class="head dr
 
 /* ---------- 4. Evidence ---------- */
 function dEvRow(e,i){const s=DSRC[e[1]],on=dOn(e);return `<button type="button" class="dr-ev${on?'':' off'}" ${on?`data-ev="${e[0]}"`:'disabled'} style="--c:var(${s[1]});--i:${i}"><span class="dr-id num">${e[0]}</span><i class="dr-dot"></i><span class="grow"><b>${esc(e[2])}</b><small>${on?s[0]+(e[4]?' · '+esc(e[4]):''):'Not read. '+(e[1]==='file'?(e[7]||'That folder is switched off.'):'That source is switched off.')}</small></span><span class="dval num">${on?esc(e[3]):'·'}</span><span class="dr-age">${on?esc(e[5]):''}</span></button>`}
+/* what a sound answer needs, each line tied to the fact that covers it */
+function dNeeds(){const B=DS.brief,N=(B&&B.needs)||[];if(!N.length&&!(B&&B.intent))return '';
+ return `<div class="panel dr-gaps dr-needs"><div class="eyebrow"><b>What this decision needs</b></div>${B.intent?`<p class="dr-ni">${esc(B.intent)}</p>`:''}<ul>${N.map(n=>{const e=n.ref&&DEV.find(x=>x[0]===n.ref),on=e&&dOn(e);return `<li class="${on?'ok':e?'shut':'miss'}">${ic(on?'check':'eye')}<span><b>${esc(n.what)}</b><small>${on?esc(DSRC[e[1]][0])+' · '+e[0]:e?'Not read. '+(e[1]==='file'?esc(e[7]||'That file sits in a folder that is switched off.'):'That source is switched off.'):'Nothing connected covers this. The council will say so.'}</small></span></li>`}).join('')}</ul></div>`}
 function dEvidence(){const list=DEV,srcN={},n=dSitting().length;list.filter(dOn).forEach(e=>srcN[e[1]]=(srcN[e[1]]||0)+1);const gaps=DS.gaps||[];
  return `${dSteps()}${dGate()}<div class="head dr-bh"><div class="grow"><div class="eyebrow"><b>Evidence</b> &nbsp;·&nbsp; Gathered once, shared by all ${DNUM[n].toLowerCase()} seats</div><h2 class="h2" id="drEvT">Gathering <em>the facts.</em></h2></div><div class="dr-pass" id="drPass">${DPASS.map((p,i)=>`<span data-p="${i}"><i>${i+1}</i>${p}</span>`).join('')}</div></div>
  <div class="dr-two ev"><div class="panel dr-evl" id="drEvL">${[0,1,2].map(p=>list.some(e=>e[8]===p)?`<div class="dr-evg" data-p="${p}"><div class="eyebrow">${DPASS[p]}</div>${list.map((e,i)=>e[8]===p?dEvRow(e,i):'').join('')}</div>`:'').join('')||'<p class="dr-fine" style="padding:26px">No facts were found or switched on. The council will reason from your question alone, and the verdict will say so.</p>'}</div>
  <div class="dr-side"><div class="panel dr-packp"><div class="dr-pack" id="drPack">${list.map((e,i)=>`<i class="${dOn(e)?'':'off'}" style="--i:${i};--c:var(${DSRC[e[1]][1]})"></i>`).join('')}</div><div class="dr-pn"><b class="num" id="drEvN">0</b><span>facts in the pack</span></div><div class="dr-leg">${Object.keys(srcN).map(k=>`<span class="chip"><i style="background:var(${DSRC[k][1]})"></i>${DSRC[k][0]}<em>${srcN[k]}</em></span>`).join('')}</div></div>
+  ${dNeeds()}
   <div class="panel dr-gaps"><div class="eyebrow"><b>What the council could not see</b></div><ul>${gaps.map(g=>`<li>${ic('eye')}${esc(g)}</li>`).join('')||`<li>${ic('check')}Nothing it asked for was missing.</li>`}</ul><small class="dr-fine">These gaps are printed in the verdict and in the PDF.</small></div></div></div>
- ${dFoot(DS.auto?(DS.brief.questions.length?'brief':'ask'):'board','live','Open the room','<button type="button" class="btn sm line" data-dr="shared">'+ic('shield')+'What is shared with your AI</button>',DS.startedAt?'':'run')}`}
+ ${dFoot(DS.auto?(dHeld()?'brief':'ask'):'board','live','Open the room','<button type="button" class="btn sm line" data-dr="shared">'+ic('shield')+'What is shared with your AI</button>',DS.startedAt?'':'run')}`}
 const dEvReady=()=>DS&&!['brief','gathering','briefing'].includes(DS.status);
 function dEvEnd(){$$('#drPass span').forEach(s=>{s.classList.remove('cur');s.classList.add('done')});const t=$('#drEvT');if(!t)return;if(dEvReady()){t.innerHTML='The facts <em>are in.</em>';$('.dr-foot .btn.lg').classList.add('ready')}else t.innerHTML='Reading <em>what you allowed.</em>'}
 function dEvRun(fast){const rows=$$('#drEvL .dr-ev'),plates=$$('#drPack i');let on=0;const order=[0,1,2].flatMap(p=>rows.filter(r=>r.closest('.dr-evg').dataset.p==p));
@@ -267,7 +274,7 @@ function dRender(fast){dStop(true);const s=DR.step,el=$('#dr');if(!el)return;
  el.dataset.step=s;el.innerHTML=({ask:dAsk,brief:dBrief,board:dBoard,evidence:dEvidence,live:dLive,verdict:dVerdict,history:dHistory}[s]||dAsk)();orbs();
  if(s==='evidence'&&DS.brief)dEvRun(fast);if(s==='live')dLiveRun(fast);onScroll();dPollSet()}
 /* keeps the open decision in step with the council while it works */
-const dAutoMoving=()=>DS&&DS.auto&&!DS.startedAt&&(DS.status==='ready'||(DS.status==='brief'&&DS.brief&&!DS.brief.questions.length));
+const dAutoMoving=()=>DS&&DS.auto&&!DS.startedAt&&(DS.status==='ready'||(DS.status==='brief'&&DS.brief&&!dHeld()));
 function dPollSet(){clearTimeout(DR.poll);DR.poll=null;if(DS&&!$('#p-room').hidden&&(['briefing','gathering','running','resting'].includes(DS.status)||dAutoMoving())&&DR.step!=='ask'&&DR.step!=='history')DR.poll=setTimeout(dTick,DR.step==='live'?1800:2400)}
 async function dTick(){if(!DS)return;const id=DS.id,was=DS.status;const s=await getJSON('room/'+id).catch(()=>null);if(!DS||DS.id!==id)return;if(s){DS=s;dBind();
   /* a council from the one screen moves on by itself: the facts, then the room */
