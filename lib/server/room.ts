@@ -11,7 +11,7 @@ import { HOME } from "./store.ts";
 import * as ai from "./ai.ts";
 import { brainFilePath, getBrain } from "./brain.ts";
 import * as R from "../room.ts";
-import { reportHtml } from "../room-report.ts";
+import { decisionMd, reportHtml } from "../room-report.ts";
 
 const DAY = 86400000;
 const safe = (v: string) => createHash("sha256").update(String(v)).digest("hex").slice(0, 16);
@@ -212,7 +212,10 @@ export async function startSession(ctx: Ctx, body: any, now: number) {
     status: "briefing", step: "brief", access: { ...defaultAccess(ws), fileIds: [] }, names: room.names !== false,
     attach: room.attach || [], pack: [], gaps: [], events: [], r1: {}, r2: [], r3: {}, out: [], seats: [], bench: [],
     calls: { done: 0, total: 0 }, checks: { cites: 0, dropped: 0 }, shared: { skipped: 0 },
+    // One screen: the owner may have chosen the seats, and the council carries on by itself unless the Chair needs an answer.
+    chosen: R.ownBoard("other", body.seats) ? [...new Set((body.seats as any[]).map(String))].filter((k) => R.seatOf(k)).slice(0, R.SEATS_MAX) : null, auto: body.auto === true,
   };
+  if (Array.isArray(body.seats) && body.seats.length && !s.chosen) throw new Error(`Keep at least ${R.SEATS_MIN} seats, so there is a real debate.`);
   const pool = R.coreFacts(u, ctx.team, now);
   s.menu = pool.menu; s.gaps = pool.gaps;
   number(s, pool.core, 0, () => true);
@@ -245,7 +248,20 @@ function background(s: any, ctx: Ctx, job: () => Promise<void>) {
       clearTimeout(timers.get(s.id));
       timers.set(s.id, setTimeout(() => { const again = readSession(s.wsId, s.id, home); if (again?.status === "resting") resume(again, ctx); }, 15 * 60000));
     } else { s.status = "failed"; s.error = R.clip(message, 240); }
-  }).finally(() => { active.delete(s.id); live.delete(s.id); save(s, home); });
+  }).finally(() => { active.delete(s.id); live.delete(s.id); save(s, home); carryOn(s, ctx); });
+}
+
+/** A council started from the one screen does not wait for the owner between steps. It stops only when the Chair has a question no data could answer. */
+function carryOn(s: any, ctx: Ctx) {
+  if (!s.auto) return;
+  if (s.status === "brief" && s.brief && !s.brief.questions.length) gather(s, ctx);
+  else if (s.status === "ready" && !s.startedAt) run(s, ctx);
+}
+
+/** The council the screen shows before any AI has read the question: a first guess from its words. */
+export function suggestBoard(q: any) {
+  const kind = R.guessKind(String(q || "")), board = R.pickBoard(kind, "full");
+  return { kind, label: R.KINDS[kind].label, seats: board.seats.map((x) => x.key), quick: R.pickBoard(kind, "quick").seats.map((x) => x.key), weights: Object.fromEntries(R.KINDS[kind].board), min: R.SEATS_MIN, max: R.SEATS_MAX };
 }
 
 /** One question to the owner's AI, answered as JSON. Tried twice before it counts as a failure. */
@@ -298,7 +314,7 @@ async function writeBrief(s: any, ctx: Ctx, now: number) {
     seatWhy: typeof data.seat_why === "object" && data.seat_why ? data.seat_why : {},
   };
   if (s.modeAsk === "auto") s.mode = s.brief.depth;
-  Object.assign(s, R.pickBoard(kind, s.mode, s.brief.seatWhy));
+  Object.assign(s, (s.chosen && R.ownBoard(kind, s.chosen, s.brief.seatWhy)) || R.pickBoard(kind, s.mode, s.brief.seatWhy));
   // The Chair asked for more: numbers the dashboard reads itself, and files by name.
   const more = (Array.isArray(data.more) ? data.more : []).map((m: any) => s.menu[Number(String(m).replace(/\D/g, "")) - 1]).filter(Boolean).slice(0, 6);
   number(s, [...new Set(more)].map(({ menu, ...f }: any) => f), 1, () => true);
@@ -326,7 +342,7 @@ async function writeBrief(s: any, ctx: Ctx, now: number) {
 export function editSession(s: any, body: any, home = HOME) {
   if (!["brief", "ready"].includes(s.status)) throw new Error("The council has already started on this one.");
   if (Array.isArray(body.answer)) { const [i, j] = body.answer.map(Number); if (s.brief.questions[i]?.choices[j]) s.brief.answers[i] = j; }
-  if (["quick", "full"].includes(body.mode) && body.mode !== s.mode) { s.mode = body.mode; Object.assign(s, R.pickBoard(s.brief.kind, s.mode, s.brief.seatWhy)); }
+  if (["quick", "full"].includes(body.mode) && body.mode !== s.mode) { s.mode = body.mode; if (!s.chosen) Object.assign(s, R.pickBoard(s.brief.kind, s.mode, s.brief.seatWhy)); }
   if (Array.isArray(body.swap)) {
     const [i, key] = body.swap, at = s.bench.indexOf(key);
     if (s.seats[i] && at >= 0) { s.bench[at] = s.seats[i].key; s.seats[i] = { key, weight: s.seats[i].weight, why: R.clip(s.brief.seatWhy?.[key], 90) || R.seatOf(key)!.why }; }
@@ -467,9 +483,7 @@ export function run(s: any, ctx: Ctx) {
       const d = await ask(s, ctx, R.reportPrompt({ b: b(), pack: pack(), call: s.verdict.call, business: s.business, owner: s.owner, openings: openings() }), "the report").catch((e) => { if (hard(e)) throw e; return {}; });
       s.report = {
         short: R.clip(d.short, 34) || R.clip(s.brief.title, 34),
-        business: (Array.isArray(d.business) ? d.business : []).slice(0, 5).map((t: any) => cite(s, t, 170)).filter(Boolean),
-        led: cite(s, d.led, 460),
-        words: (Array.isArray(d.words) ? d.words : []).slice(0, 7).map((w: any) => ({ word: R.clip(w?.word, 34), means: R.clip(w?.means, 150) })).filter((w: any) => w.word && w.means && !/^(the )?(council|seats?|chair)$/i.test(w.word)),
+        words: (Array.isArray(d.words) ? d.words : []).slice(0, 4).map((w: any) => ({ word: R.clip(w?.word, 34), means: R.clip(w?.means, 150) })).filter((w: any) => w.word && w.means && !/^(the )?(council|seats?|chair)$/i.test(w.word)),
         options: [0, 1, 2].map((i) => ({ best: cite(s, d.options?.[i]?.best, 190), risk: cite(s, d.options?.[i]?.risk, 190) })),
         wont: cite(s, d.wont, 300),
       };
@@ -492,6 +506,8 @@ async function writeVerdict(s: any, ctx: Ctx) {
   const minor = sitting.find((x) => x.key === d.minority?.seat) || low;
   const days = Math.max(14, Math.min(120, Math.round(Number(d.again_days)) || 60));
   s.verdict = {
+    answer: R.clip(R.plainCites(R.checkCites(d.answer, pack, 90).text, pack), 90),
+    example: cite(s, d.example, 340),
     call: cite(s, d.call, 340) || s.draft.text,
     why: (Array.isArray(d.why) ? d.why : []).slice(0, 3).map((w: any) => ({ head: R.clip(w?.head, 60), text: cite(s, w?.text, 240) })).filter((w: any) => w.head && w.text),
     money: cite(s, d.money, 420),
@@ -519,14 +535,26 @@ const browsers = () => {
 /** The report as a page, for reading inside the dashboard. */
 export const reportPage = (s: any) => reportHtml(s);
 
+const writeIfNew = (file: string, text: string) => { let old = ""; try { old = fs.readFileSync(file, "utf8"); } catch { /* not written yet */ } if (old !== text) fs.writeFileSync(file, text); };
+/** Saves the answer twice in the decision's folder: a page for people, and a plain file for the owner's AI. */
 export function writeReport(s: any, home = HOME) {
   const dir = dirOf(s.wsId, s.id, home);
-  fs.writeFileSync(path.join(dir, "report.html"), reportHtml(s));
-  fs.writeFileSync(path.join(dir, "verdict.md"), `# ${s.brief.title}\n\n**${s.result.label}** · score ${s.result.score.toFixed(1)} of 10 · ${dayText(s.at, true)}\n\n${R.plainCites(s.verdict.call, s.pack)}\n\n${s.verdict.why.map((w: any, i: number) => `${i + 1}. **${w.head}** ${R.plainCites(w.text, s.pack)}`).join("\n")}\n\n## Next steps\n\n${s.verdict.next.map((n: any) => `- ${n.step} (${n.owner}, by ${n.by})`).join("\n")}\n`);
+  writeIfNew(path.join(dir, "report.html"), reportHtml(s));
+  writeIfNew(path.join(dir, "decision.md"), decisionMd(s));
+}
+/** The plain file an AI reads. */
+export const decisionText = (s: any) => decisionMd(s);
+/** The newest finished decision, for an AI that asks what was decided. */
+export function latestDecision(wsId: string, home = HOME) {
+  const s = listSessions(wsId, home).filter((x) => x.status === "done" && x.verdict).sort((a, b) => b.at - a.at)[0];
+  return s ? { found: true, id: s.id, question: s.brief?.title || s.q, decided: dayText(s.at, true), file: path.join(dirOf(wsId, s.id, home), "decision.md"), text: decisionMd(s) } : { found: false, note: "No decision has been finished yet. The owner asks one in the Decision Room." };
 }
 
 const fileUrl = (file: string) => "file://" + (process.platform === "win32" ? "/" : "") + file.replace(/\\/g, "/").split("/").map((p, i) => (i === 0 && /^[A-Za-z]:$/.test(p) ? p : encodeURIComponent(p))).join("/");
 const FLAGS = ["--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--disable-background-networking", "--disable-component-update", "--disable-sync"];
+
+/** The line at the foot of every printed page. The count is whatever the answer needed, so it is filled in by the browser. */
+const PDF_FOOT = `<div style="width:100%;padding:0 18mm;display:flex;justify-content:space-between;font:400 6.4pt ui-monospace,Menlo,Consolas,monospace;letter-spacing:.1em;text-transform:uppercase;color:#8A8D97"><span>Made with AI-Dashboard</span><span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>`;
 
 /** Prints a page to PDF by talking to the browser directly, the way a testing tool does. Waits for the page and its fonts first. */
 function printByDevtools(bin: string, html: string, pdf: string, profile: string): Promise<boolean> {
@@ -555,7 +583,7 @@ function printByDevtools(bin: string, html: string, pdf: string, profile: string
           await send("Page.navigate", { url: fileUrl(html) }, sessionId);
           // Give the page and its fonts a moment, but never wait on a font that cannot be fetched.
           await send("Runtime.evaluate", { expression: "Promise.race([new Promise(r=>{if(document.readyState==='complete')r();else addEventListener('load',r)}).then(()=>document.fonts.ready),new Promise(r=>setTimeout(r,7000))]).then(()=>1)", awaitPromise: true }, sessionId);
-          const out = await send("Page.printToPDF", { printBackground: true, preferCSSPageSize: true, displayHeaderFooter: false }, sessionId);
+          const out = await send("Page.printToPDF", { printBackground: true, preferCSSPageSize: true, displayHeaderFooter: true, headerTemplate: "<span></span>", footerTemplate: PDF_FOOT }, sessionId);
           if (!out.data) return finish(false);
           fs.writeFileSync(pdf, Buffer.from(out.data, "base64"));
           finish(true);
@@ -568,7 +596,7 @@ function printByDevtools(bin: string, html: string, pdf: string, profile: string
 /** The report as a PDF, printed by the Chrome or Edge already on this computer. Returns null when no such browser is found. */
 export async function reportPdf(s: any, home = HOME): Promise<string | null> {
   const dir = dirOf(s.wsId, s.id, home), html = path.join(dir, "report.html"), pdf = path.join(dir, "report.pdf");
-  if (!fs.existsSync(html)) writeReport(s, home);
+  writeReport(s, home);
   if (fs.existsSync(pdf) && fs.statSync(pdf).size > 2000 && fs.statSync(pdf).mtimeMs >= fs.statSync(html).mtimeMs) return pdf;
   const bin = browsers().find((b) => b && fs.existsSync(b));
   if (!bin) return null;

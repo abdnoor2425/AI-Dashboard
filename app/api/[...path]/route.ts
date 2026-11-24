@@ -249,6 +249,8 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       if (b === "access" && post) { const access = room.setAccess(ws, body); saveState(); return json({ ok: true, access }); }
       if (b === "attach" && post) { const item = await room.attachFile(ws, body.name, body.data); saveState(); return json({ ok: true, item }); }
       if (b === "detach" && post) { room.dropAttach(ws, String(body.id || "")); saveState(); return json({ ok: true }); }
+      if (b === "suggest" && post) return json(room.suggestBoard(body.q));
+      if (b === "latest" && !post) return json(room.latestDecision(ws.id));
       if (b === "start" && post) { const made = await room.startSession(ctx(), body, now); saveState(); return json(made); }
       const s = room.readSession(ws.id, b);
       if (!s) return json({ error: "That decision is no longer here." }, 404);
@@ -260,6 +262,10 @@ async function serve(req: NextRequest, ctx: { params: Promise<{ path?: string[] 
       if (c === "report" && !post) {
         if (!s.verdict) return json({ error: "This decision has no report yet." }, 404);
         return new NextResponse(room.reportPage(s), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:" } });
+      }
+      if (c === "md" && !post) {
+        if (!s.verdict) return json({ error: "This decision has no answer yet." }, 404);
+        return json({ text: room.decisionText(s) });
       }
       if (c === "pdf" && !post) {
         if (!s.verdict) return json({ error: "This decision has no report yet." }, 404);

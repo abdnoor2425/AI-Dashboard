@@ -23,17 +23,17 @@ let p = ""; process.stdin.on("data", (d) => (p += d)); process.stdin.on("end", (
   if (p.includes("This is round 2")) return out({ say: "I can live with it if the promise is written down." });
   if (p.includes("Write the resolution")) return out({ draft: "Raise the price for new customers on 1 January.", settled: ["Not before July."] });
   if (p.includes("This is the final vote")) return out({ scores: p.includes("You hold The Capital seat") ? [3, 6, 6] : [4, 8, 5], line: "Yes.", ruin: "no", sure: 4 });
-  if (p.includes("Write the verdict")) return out({ call: "Raise the price for new customers on 1 January.", why: [{ head: "The market pays more.", text: "Revenue is {E1}." }, { head: "Callers agree.", text: "{E2} said so." }, { head: "It is easy to undo.", text: "Only new customers are touched." }],
+  if (p.includes("Write the verdict")) return out({ answer: "Yes. Raise it for new customers only.", example: "A caller who signs up in January pays the new price. {E2} of the callers said that is fair.", call: "Raise the price for new customers on 1 January.", why: [{ head: "The market pays more.", text: "Revenue is {E1}." }, { head: "Callers agree.", text: "{E2} said so." }, { head: "It is easy to undo.", text: "Only new customers are touched." }],
     money: "About {E1} a month is at stake.", next: [{ step: "Write the note", owner: "Kim", days: 3 }, { step: "Change the page", owner: "Nobody", days: 9 }, { step: "Add the price", owner: "Dana", days: 20 }],
     conditions: ["Tell customers first."], stops: [{ text: "Cancellations pass 4% in a month.", fact: "E1" }], again_days: 500, again: "Did new customers still sign up?", minority: { seat: "cp", quote: "A healthy business does not need to hurry." }, change: ["A rival cuts its price."], decisive: ["E1", "E50"] });
-  if (p.includes("background pages")) return out({ short: "Price rise", business: ["Test Co sells one plan. Revenue is {E1}."], led: "Rivals charge more.", words: [{ word: "Plan", means: "What a customer pays for each month." }, { word: "Seat", means: "dup" }], options: [{ best: "Most money.", risk: "People leave." }, { best: "Safe.", risk: "Two prices." }, { best: "Nothing breaks.", risk: "Money is left behind." }], wont: "It will not fix churn." });
+  if (p.includes("short notes that go with the answer")) return out({ short: "Price rise", words: [{ word: "Plan", means: "What a customer pays for each month." }, { word: "Seat", means: "dup" }], options: [{ best: "Most money.", risk: "People leave." }, { best: "Safe.", risk: "Two prices." }, { best: "Nothing breaks.", risk: "Money is left behind." }], wont: "It will not fix churn." });
   console.log("{}");
 });`);
 fs.writeFileSync(path.join(bin, "claude"), `#!/bin/sh\nexec node "${path.join(bin, "fake-ai.mjs")}"\n`, { mode: 0o755 });
 
 const R = await import("../lib/room.ts");
 const room = await import("../lib/server/room.ts");
-const { reportHtml } = await import("../lib/room-report.ts");
+const { reportHtml, decisionMd } = await import("../lib/room-report.ts");
 test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const seats = (weights: number[]) => weights.map((weight, i) => ({ key: R.ROSTER[i].key, weight, why: "" }));
@@ -174,8 +174,19 @@ test("a whole council runs on the owner's AI: brief, evidence, three rounds, a c
 
   const dir = room.sessionFolder(s);
   const html = fs.readFileSync(path.join(dir, "report.html"), "utf8");
-  assert.equal(html.split('<section class="pg').length - 1, 8); assert.match(html, /Go, <em>as planned\.<\/em>/); assert.match(html, /\$1,200<span class="c">E1<\/span>/);
+  // A Full council: the answer, the choices compared, the references. Page one holds the whole decision.
+  assert.equal(html.split('<section class="pg').length - 1, 3);
+  const one = html.split('<section class="pg')[1];
+  for (const part of ["Yes. Raise it for new customers only.", "Go · 7.6 of 10 · 6 seats", "<h3>Why</h3>", "<h3>An example</h3>", "<h3>Do this</h3>", "Stop and think again if", "Who disagreed"]) assert.ok(one.includes(part), part);
+  // References are numbered in the order the reader meets them, and the list at the end uses the same numbers.
+  assert.match(one, /\$1,200<sup class="c">1<\/sup>/); assert.match(one, /9 of 10<sup class="c">2<\/sup>/);
+  assert.match(html, /<td class="k">2<\/td><td><b>Call notes\.txt:<\/b> 9 of 10/);
   assert.match(html, /The Attention seat did not answer and sat out/);
+  assert.ok(!/Page \d of \d|E1<\/span>/.test(html), "no fixed page count and no internal codes on the page");
+  // The same answer as a plain file for an AI.
+  const md = fs.readFileSync(path.join(dir, "decision.md"), "utf8");
+  for (const part of ["answer: Yes. Raise it for new customers only.", "verdict: go", "score: 7.6 of 10", "- [ ] Write the note (owner: Kim, due: ", "1. The market pays more. Revenue is $1,200 [1].", "[2] Attached by you | Call notes.txt: 9 of 10", "## Stop and think again if"]) assert.ok(md.includes(part), part);
+  assert.equal(room.latestDecision("t").text, md); assert.equal(room.latestDecision("nobody").found, false);
   const log = fs.readFileSync(path.join(dir, "shared-log.jsonl"), "utf8").trim().split("\n");
   assert.ok(log.length >= s.calls.done); assert.ok(!log.join("").includes("passwords"));
   const view = room.viewSession(s, Date.now());
@@ -195,5 +206,37 @@ test("the report never lets text from the AI or a file become markup", () => {
     verdict: { call: "Call {E1} <b>", why: [], money: "", next: [], conditions: [], stops: [], again: { on: 0, text: "<x>" }, minority: { seat: "dm", quote: "<q>", score: 7 }, change: [], decisive: ["E1"] } };
   const html = reportHtml(s);
   for (const bad of ["<script>alert", "<img src=x>", "<u>9</u>", "<b>Q</b>", "Do <it>", "<q>", "<x>"]) assert.ok(!html.includes(bad), bad);
-  assert.match(html, /&lt;u&gt;9&lt;\/u&gt;<span class="c">E1<\/span>/);
+  assert.match(html, /&lt;u&gt;9&lt;\/u&gt;<sup class="c">1<\/sup>/);
+  // A Quick council with no example is two pages: the answer and the references. Nothing is padded out.
+  assert.equal(html.split('<section class="pg').length - 1, 2); assert.ok(!html.includes("An example"));
+  const md = decisionMd(s);
+  for (const bad of ["{E1}", "undefined", "NaN"]) assert.ok(!md.includes(bad), bad);
+  assert.match(md, /answer: Go, as planned\./);
+});
+
+test("the owner can choose who sits, and a council started from the one screen carries on by itself", { skip: process.platform === "win32" }, async () => {
+  assert.equal(R.guessKind("Should I raise the price from $49 to $69?"), "pricing"); assert.equal(R.guessKind("Hire a second editor or keep freelancers?"), "hiring"); assert.equal(R.guessKind("What now?"), "other");
+  const first = room.suggestBoard("Should I raise the price from $49 to $69?");
+  assert.equal(first.seats.length, 7); assert.equal(first.weights.cu, 3);
+  // Chosen seats keep the weight their kind of decision gives them. A seat that kind does not name counts as 2.
+  const own = R.ownBoard("pricing", ["cu", "cp", "br", "cu", "nope"])!;
+  assert.deepEqual(own.seats.map((x) => [x.key, x.weight]), [["cu", 3], ["cp", 3], ["br", 2]]); assert.equal(own.bench.length, 9);
+  assert.equal(R.ownBoard("pricing", ["cu", "cp"]), null, "two seats is no debate");
+  assert.equal(R.ownBoard("pricing", R.ROSTER.map((x) => x.key))!.seats.length, 9, "never more than nine");
+
+  const ws: any = { id: "auto", name: "Test Co", owner: "Dana Reyes", team: [{ name: "Dana Reyes" }, { name: "Kim Lee" }], items: [], inbox: [], setup: { about: { name: "Dana Reyes" } } };
+  const u = { money: { state: "ok", sym: "$", when: "just now", monthName: "May", prevName: "April", total: 1200, delta: 4, mrr: 0, failed: [], months: [["Feb", 1], ["Mar", 2], ["Apr", 3], ["May", 4]] }, ga: { state: "off" }, needs: {}, goals: { state: "off" }, clients: { on: [] } };
+  const ctx = { ws, u, team: [] };
+  await assert.rejects(room.startSession(ctx, { q: "Should we raise the price in January?", ai: "Claude Code", seats: ["cu", "cp"] }, Date.now()), /at least 3 seats/);
+  const { id } = await room.startSession(ctx, { q: "Should we raise the price in January?", ai: "Claude Code", mode: "auto", auto: true, seats: ["cu", "of", "cp", "br"] }, Date.now());
+  const wait = async (want: string) => { for (let i = 0; i < 300; i++) { const s = room.readSession("auto", id); if (s.status === want) return s; if (s.status === "failed") throw new Error(s.error); await new Promise((r) => setTimeout(r, 50)); } throw new Error("never reached " + want); };
+  // The pretend Chair asks one question, so the council waits for the owner there, with the owner's seats in place.
+  let s = await wait("brief");
+  assert.deepEqual(s.seats.map((x: any) => [x.key, x.weight]), [["cu", 3], ["of", 3], ["cp", 3], ["br", 2]]);
+  room.editSession(s, { answer: [0, 0], mode: "quick" });
+  assert.equal(s.seats.length, 4, "a change of depth never undoes the owner's own choice of seats");
+  // After the answer, one step starts it and it runs to the end without another click.
+  room.gather(s, ctx);
+  s = await wait("done");
+  assert.equal(s.result.voted, 4); assert.equal(s.verdict.answer, "Yes. Raise it for new customers only.");
 });
