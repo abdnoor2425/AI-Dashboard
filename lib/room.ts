@@ -65,6 +65,30 @@ export function pickBoard(kind: string, mode: string, whys: Record<string, strin
   return { seats: board, bench: ROSTER.map((s) => s.key).filter((key) => !board.some((b) => b.key === key)) };
 }
 
+/** The fewest and the most seats a council can have. Fewer than three is no debate, and more than nine is slow for no gain. */
+export const SEATS_MIN = 3, SEATS_MAX = 9;
+
+/** The board when the owner chose the seats. Weights still come from the kind of decision, and a seat that kind does not name counts as 2. */
+export function ownBoard(kind: string, keys: string[], whys: Record<string, string> = {}): { seats: Sitting[]; bench: string[] } | null {
+  const k = KINDS[kind] || KINDS.other, weights = new Map(k.board);
+  const chosen = [...new Set((Array.isArray(keys) ? keys : []).map(String))].filter((key) => seatOf(key)).slice(0, SEATS_MAX);
+  if (chosen.length < SEATS_MIN) return null;
+  const seats = chosen.map((key) => ({ key, weight: weights.get(key) || 2, why: clip(whys[key], 90) || seatOf(key)!.why }));
+  return { seats, bench: ROSTER.map((s) => s.key).filter((key) => !chosen.includes(key)) };
+}
+
+const KIND_WORDS: [string, RegExp][] = [
+  ["pricing", /\b(price|prices|pricing|charge|discount|fee|fees|rate|rates)\b|\$\d/i],
+  ["hiring", /\b(hire|hiring|recruit|freelancer|freelancers|contractor|employee|editor|assistant|fire|salary)\b/i],
+  ["marketing", /\b(ads?|advert\w*|campaign|marketing|content|reels?|posts?|social|newsletter|launch|brand|audience)\b/i],
+  ["deal", /\b(partner\w*|deal|contract|sponsor\w*|acquire|acquisition|merge|licen[cs]e|investor)\b/i],
+  ["money", /\b(invest\w*|loan|debt|cash|budget|spend|save|buy|lease|profit|tax)\b/i],
+  ["product", /\b(product|feature|build|ship|plan|offer|course|service|app|version)\b/i],
+  ["operations", /\b(process|meeting|call|schedule|tool|software|move|switch|system|workflow|automate|outsource)\b/i],
+];
+/** A first guess at the kind of decision from the words of the question, so the screen can show a council before any AI has read it. The Chair still decides. */
+export const guessKind = (q: string) => KIND_WORDS.find(([, re]) => re.test(String(q || "")))?.[0] || "other";
+
 /* ---------- Counting the vote ---------- */
 
 export const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -330,7 +354,7 @@ export function verdictPrompt(a: { b: BriefIn; pack: Fact[]; openings: Opening[]
 
 You are the Chair. You never take a side. The vote is counted. The dashboard worked out the result by code, and you must not change it:
 Recommended option: ${"ABC"[r.rec]}. Weighted score ${r.score} of 10. Verdict: ${r.label}. All scores: A ${r.scores[0]}, B ${r.scores[1]}, C ${r.scores[2]}.
-Write the verdict so that a person who joined the business this week could act on it. Today is ${a.today}.
+Write the verdict so that the owner can review it in one minute, and a person who joined the business this week could act on it. Today is ${a.today}.
 
 <data>
 ${briefBlock(a.b)}
@@ -345,7 +369,9 @@ ${a.votes.map((v) => `${seatOf(v.key)!.role} (${v.key}) scored A ${v.scores[0]},
 PEOPLE WHO CAN OWN A STEP: ${[a.owner, ...a.people].join(", ")}
 </data>
 
-Reply with {"call": the decision in at most 42 words, concrete about what, for whom and when, in line with the verdict,
+Reply with {"answer": the answer to the owner's question in one plain sentence of at most 9 words, in line with the verdict. Start with Yes, No or Wait when the question allows it,
+ "call": the decision in at most 42 words, concrete about what, for whom and when, in line with the verdict,
+ "example": one worked example of at most 45 words that shows what this decision means for one real customer, person, date or sum named in the evidence, citing facts. Never invent a name or a number. Use "" if the evidence names nothing you can use,
  "why": exactly three reasons, each {"head": at most 7 words ending with a full stop, "text": at most 30 words citing facts like {E3}},
  "money": what it is worth or costs in money, in at most 55 words, citing facts. Show any sum you do in words. Use "" if the evidence has no money in it,
  "next": exactly three steps, each {"step": at most 12 words starting with a verb, "owner": one name from the people list, "days": whole days from today until it is due},
@@ -362,8 +388,7 @@ export function reportPrompt(a: { b: BriefIn; pack: Fact[]; call: string; busine
   return `${HOUSE}
 
 You are the Chair. The council has decided: "${a.call}"
-Write the background pages of the report for someone who joined the business this week and knows nothing about it.
-Use only what is in the data. If you do not know something, leave it out.
+Write the short notes that go with the answer. Use only what is in the data. If you do not know something, leave it out.
 
 <data>
 BUSINESS: ${clip(a.business, 400) || "Not described."}
@@ -376,11 +401,9 @@ ${openingsBlock(a.openings)}
 </data>
 
 Reply with {"short": a name for this decision in at most 4 words,
- "business": up to five short lines that explain the business and the thing being decided, each at most 20 words, citing facts like {E1},
- "led": two or three short sentences on what led to the question, at most 60 words in total, citing facts,
- "words": four to seven words or names used in this report that a newcomer may not know, each {"word": the word, "means": what it means here in at most 18 words},
- "options": for each option A, B, C in order {"best": its best argument in at most 22 words, "risk": its biggest risk in at most 22 words}, citing facts,
- "wont": what this decision will not do or fix, in at most 40 words}`;
+ "options": for each option A, B, C in order {"best": its best argument in at most 22 words, "risk": its biggest risk in at most 22 words}, citing facts like {E1},
+ "words": only the words or names in the answer that a person new to this business could not know, at most four, each {"word": the word, "means": what it means here in at most 18 words}. Use [] if every word is plain,
+ "wont": what this decision will not do or fix, in at most 30 words, or ""}`;
 }
 
 /* ---------- The evidence the dashboard reads by itself ---------- */

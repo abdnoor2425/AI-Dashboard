@@ -161,7 +161,7 @@ if(SETUP){
   $('#p-setup').addEventListener('keydown',e=>{if(e.target.id==='suBq'&&e.key==='Enter'){e.preventDefault();const b=$('#suBres [data-su]');if(b)b.click()}});
   /* A folder dropped anywhere on the picker is taken. Dropped anywhere else it is ignored, so the browser never opens it over the dashboard. */
   const suZone=e=>e.target&&e.target.closest?e.target.closest('#suPick,.su-file'):null;
-  addEventListener('dragover',e=>{e.preventDefault();const z=suZone(e);for(const p of document.querySelectorAll('#suPick,.su-file'))p.classList.toggle('over',p===z);if(e.dataTransfer)e.dataTransfer.dropEffect=z?'copy':'none'});
+  addEventListener('dragover',e=>{e.preventDefault();const z=suZone(e);for(const p of document.querySelectorAll('#suPick,.su-file'))p.classList.toggle('over',p===z);if(e.dataTransfer)e.dataTransfer.dropEffect=z||(e.target.closest&&e.target.closest('.dr-comp,.mcf-drop,.brain-browse'))?'copy':'none'});
   addEventListener('dragleave',e=>{if(!e.relatedTarget)for(const p of document.querySelectorAll('#suPick,.su-file'))p.classList.remove('over')});
   addEventListener('drop',e=>{e.preventDefault();const z=suZone(e);for(const p of document.querySelectorAll('#suPick,.su-file'))p.classList.remove('over');if(!z||!e.dataTransfer)return;if(z.id==='suPick')suDropped(e.dataTransfer);else suMcFile(e.dataTransfer.files&&e.dataTransfer.files[0])});
   $('#p-setup').addEventListener('submit',async e=>{e.preventDefault();const f=e.target;

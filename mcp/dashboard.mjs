@@ -23,6 +23,7 @@ const TOOLS = [
   ["websites", "websites", "Every website found in Google Analytics with visitors and leads for the last 28 days.", {}],
   ["website", "website", "Visitors, leads, traffic sources and top pages for one website or all of them.", { site, range: { type: "string", enum: ["7", "28", "90"], description: "Days to look back. Default 28." } }],
   ["social", "social", "Metricool numbers: reach and followers by network, best post and what is scheduled next.", { site }],
+  ["decision", "room/latest", "The newest decision from the Decision Room as a plain file: the answer, the steps with owner and due date, the reasons with numbered references, and when to stop. Read this before acting on what the owner decided.", {}],
   ["social_file", "social/file", "Metricool without the API: the folder on this computer where a Metricool export (CSV, Excel, JSON or PDF) is saved so the dashboard shows it, the column layout to use, and which file is shown now. Save the file there yourself when the owner asks you to bring their Metricool numbers in.", {}],
   ["reels", "reels", "Reel scores: hooks, the seven checks, PASS or HOLD, and results at 24 hours, 72 hours and 7 days.", { site }],
   ["goals", "goals", "Goals (OKRs) with key results, check-ins and how progress is worked out.", {}],
